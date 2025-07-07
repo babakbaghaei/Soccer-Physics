@@ -45,10 +45,12 @@ const GROUND_THICKNESS = 40;
 const WALL_THICKNESS = 20;
 const GOAL_HEIGHT = 120;
 const GOAL_SENSOR_DEPTH = 30;
+const GOAL_MOUTH_VISUAL_WIDTH = 60; // Visual width of the goal mouth in world units
+
 
 // --- Player Constants ---
-const PLAYER_TEAM1_COLOR = '#D9534F';
-const PLAYER_TEAM2_COLOR = '#428BCA';
+const PLAYER_TEAM1_COLOR = '#D9534F'; // Human Player
+const PLAYER_TEAM2_COLOR = '#428BCA'; // AI Opponent
 const PLAYER_PART_FRICTION = 0.5;
 const PLAYER_PART_RESTITUTION = 0.4;
 const PLAYER_DENSITY = 0.002;
@@ -59,16 +61,16 @@ const LEG_WIDTH = 15;
 const LEG_HEIGHT = 35;
 
 // --- Control Constants ---
-const PLAYER_ACTION_COOLDOWN_FRAMES = 25; // Slightly reduced cooldown for more action
-const PLAYER_JUMP_FORCE_LEGS = 0.075; // Further Increased for human player jump height
-const PLAYER_JUMP_FORCE_BODY = 0.030; // Further Increased for human player jump height
-const PLAYER_FLAIL_HORIZONTAL_FORCE = 0.012; // Slightly more horizontal influence for human
-const KICK_RANGE = 55; // Slightly increased kick range
-const KICK_FORCE_MAGNITUDE = 0.065; // Slightly stronger kick
+const PLAYER_ACTION_COOLDOWN_FRAMES = 25;
+const PLAYER_JUMP_FORCE_LEGS = 0.075;
+const PLAYER_JUMP_FORCE_BODY = 0.030;
+const PLAYER_FLAIL_HORIZONTAL_FORCE = 0.012;
+const KICK_RANGE = 55;
+const KICK_FORCE_MAGNITUDE = 0.065;
 
-const AI_ACTION_RANGE = 90;  // AI acts when a bit closer
-const AI_MOVE_FORCE = 0.0025; // Significantly Increased AI nudge force
-const AI_KICK_ATTEMPT_STRENGTH = 0.065; // Further Increased AI action strength, comparable to human
+const AI_ACTION_RANGE = 90;
+const AI_MOVE_FORCE = 0.0025;
+const AI_KICK_ATTEMPT_STRENGTH = 0.065;
 
 const keysPressed = {};
 
@@ -105,14 +107,8 @@ function setup() {
     createBall();
 
     players = [];
-    // Player 0 (Human)
-    players.push(createPlayer(CANVAS_WIDTH / 4 - 30, CANVAS_HEIGHT / 2, PLAYER_TEAM1_COLOR, true, 'KeyW', false));
-    // Player 1 (AI Teammate)
-    players.push(createPlayer(CANVAS_WIDTH / 4 + 30, CANVAS_HEIGHT / 2 - 50, PLAYER_TEAM1_COLOR, true, null, true));
-    // Player 2 (AI Opponent)
-    players.push(createPlayer(CANVAS_WIDTH * 3 / 4 + 30, CANVAS_HEIGHT / 2, PLAYER_TEAM2_COLOR, false, null, true));
-    // Player 3 (AI Opponent)
-    players.push(createPlayer(CANVAS_WIDTH * 3 / 4 - 30, CANVAS_HEIGHT / 2 - 50, PLAYER_TEAM2_COLOR, false, null, true));
+    players.push(createPlayer(CANVAS_WIDTH / 4, CANVAS_HEIGHT - GROUND_THICKNESS - BODY_HEIGHT, PLAYER_TEAM1_COLOR, true, 'KeyW', false));
+    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, CANVAS_HEIGHT - GROUND_THICKNESS - BODY_HEIGHT, PLAYER_TEAM2_COLOR, false, null, true));
     
     setupInputListeners();
 
@@ -138,21 +134,19 @@ function createField() {
     const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { fillStyle: '#808080' } });
     const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: '#808080' } });
     const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: '#808080' } });
+
     const goalY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT / 2;
-    const goalPostRender = { fillStyle: '#FFFFFF' };
-    const goalSensorRenderLeft = { fillStyle: 'rgba(255, 100, 100, 0.3)' };
-    const goalSensorRenderRight = { fillStyle: 'rgba(100, 100, 255, 0.3)' };
+    const goalSensorRenderLeft = { fillStyle: 'rgba(255, 100, 100, 0.0)' }; // Make sensors invisible
+    const goalSensorRenderRight = { fillStyle: 'rgba(100, 100, 255, 0.0)' }; // Make sensors invisible
+
     const leftGoalSensor = Bodies.rectangle(WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2, goalY, GOAL_SENSOR_DEPTH, GOAL_HEIGHT, { isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderLeft });
-    const leftPostTop = Bodies.rectangle(WALL_THICKNESS, goalY - GOAL_HEIGHT / 2 + 5 , 10, 10, { isStatic: true, label: 'goal-post-visual', render: goalPostRender });
-    const leftPostBottom = Bodies.rectangle(WALL_THICKNESS, goalY + GOAL_HEIGHT / 2 - 5, 10, 10, { isStatic: true, label: 'goal-post-visual', render: goalPostRender });
     const rightGoalSensor = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2, goalY, GOAL_SENSOR_DEPTH, GOAL_HEIGHT, { isStatic: true, isSensor: true, label: 'goal-right', render: goalSensorRenderRight });
-    const rightPostTop = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS, goalY - GOAL_HEIGHT / 2 + 5, 10, 10, { isStatic: true, label: 'goal-post-visual', render: goalPostRender });
-    const rightPostBottom = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS, goalY + GOAL_HEIGHT / 2 - 5, 10, 10, { isStatic: true, label: 'goal-post-visual', render: goalPostRender });
-    World.add(world, [ground, leftWall, rightWall, ceiling, leftGoalSensor, leftPostTop, leftPostBottom, rightGoalSensor, rightPostTop, rightPostBottom]);
+
+    World.add(world, [ground, leftWall, rightWall, ceiling, leftGoalSensor, rightGoalSensor]);
 }
 
 function createBall() {
-    ball = Bodies.circle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 150, BALL_RADIUS, {
+    ball = Bodies.circle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 3, BALL_RADIUS, { // Start ball higher
         label: 'ball',
         density: 0.001, friction: 0.01, frictionAir: 0.008, restitution: 0.7,
         render: { fillStyle: BALL_COLOR, strokeStyle: '#333', lineWidth: 2 }
@@ -263,19 +257,17 @@ function handleHumanPlayerControls() {
 
 function updateAIPlayers() {
     if (isGameOver) return;
-    // console.log("Updating AI Players..."); // DEBUG
-    players.forEach((player, index) => {
+    players.forEach((player) => { // Removed unused index
         if (player.isAI) {
-            // console.log(`AI Player ${index} (Team ${player.team}) cooldown: ${player.actionCooldown}`); // DEBUG
             if (player.actionCooldown > 0) {
                 player.actionCooldown--;
             }
-            executeAIPlayerLogic(player, index);
+            executeAIPlayerLogic(player);
         }
     });
 }
 
-function executeAIPlayerLogic(player, playerIndexForDebug) {
+function executeAIPlayerLogic(player) {
     if (!ball || isGameOver) return;
     const ballPos = ball.position;
     const playerPos = player.body.position;
@@ -290,14 +282,11 @@ function executeAIPlayerLogic(player, playerIndexForDebug) {
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
 
     if (distanceToBall < AI_ACTION_RANGE && player.actionCooldown === 0) {
-        // console.log(`AI Player ${playerIndexForDebug} (Team ${player.team}) ACTING! Dist: ${distanceToBall.toFixed(1)}`); // DEBUG
         player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * (1.5 + Math.random() * 0.8);
-
-        let horizontalActionForceDirection;
-        if (player.team === 1) { horizontalActionForceDirection = 1; } else { horizontalActionForceDirection = -1; }
+        let horizontalActionForceDirection = -1; // AI is Team 2, always aims left
 
         const randomXComponent = (Math.random() - 0.5) * 0.02;
-        const randomYComponent = -AI_KICK_ATTEMPT_STRENGTH * (0.8 + Math.random() * 0.4); // Stronger and more varied jump for AI
+        const randomYComponent = -AI_KICK_ATTEMPT_STRENGTH * (0.8 + Math.random() * 0.4);
 
         Body.applyForce(player.body, playerPos, {
             x: horizontalActionForceDirection * PLAYER_FLAIL_HORIZONTAL_FORCE * 0.6 + randomXComponent,
@@ -346,28 +335,44 @@ function checkWinCondition() {
 
 function resetPositions() {
     if (ball) {
-        Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 - 150 });
+        Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 3 });
         Body.setVelocity(ball, { x: 0, y: 0 }); Body.setAngularVelocity(ball, 0);
     }
-    const team1_P0_Start = { x: CANVAS_WIDTH / 4 - 30, y: CANVAS_HEIGHT / 2 };
-    const team1_P1_Start = { x: CANVAS_WIDTH / 4 + 30, y: CANVAS_HEIGHT / 2 - 50 };
-    const team2_P2_Start = { x: CANVAS_WIDTH * 3 / 4 + 30, y: CANVAS_HEIGHT / 2 };
-    const team2_P3_Start = { x: CANVAS_WIDTH * 3 / 4 - 30, y: CANVAS_HEIGHT / 2 - 50 };
-    const startPositions = [team1_P0_Start, team1_P1_Start, team2_P2_Start, team2_P3_Start];
+
+    const player1StartX = CANVAS_WIDTH / 4;
+    // Ensure players are reset slightly above ground to prevent sticking
+    const playerStartY = CANVAS_HEIGHT - GROUND_THICKNESS - LEG_HEIGHT - BODY_HEIGHT / 2 - 5;
+
+    const player2StartX = CANVAS_WIDTH * 3 / 4;
+
+    const startPositions = [
+        { x: player1StartX, y: playerStartY },
+        { x: player2StartX, y: playerStartY }
+    ];
+
     players.forEach((player, index) => {
-        const startX = startPositions[index].x;
-        const startY = startPositions[index].y;
-        Body.setPosition(player.body, { x: startX, y: startY });
-        Body.setVelocity(player.body, { x: 0, y: 0 }); Body.setAngularVelocity(player.body, 0); Body.setAngle(player.body, 0);
-        Body.setPosition(player.head, { x: startX, y: startY - BODY_HEIGHT / 2 - HEAD_RADIUS + 5 });
-        Body.setVelocity(player.head, { x: 0, y: 0 }); Body.setAngularVelocity(player.head, 0); Body.setAngle(player.head, 0);
-        const legY = startY + BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 10;
-        const legXOffset = BODY_WIDTH / 3;
-        Body.setPosition(player.leftLeg, { x: startX - legXOffset, y: legY });
-        Body.setVelocity(player.leftLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.leftLeg, 0); Body.setAngle(player.leftLeg, -0.1);
-        Body.setPosition(player.rightLeg, { x: startX + legXOffset, y: legY });
-        Body.setVelocity(player.rightLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.rightLeg, 0); Body.setAngle(player.rightLeg, 0.1);
-        player.actionCooldown = 0;
+        if (index < startPositions.length) {
+            const baseStartX = startPositions[index].x;
+            // Y position for player body center
+            const baseStartY = startPositions[index].y + LEG_HEIGHT + BODY_HEIGHT / 2;
+
+
+            Body.setPosition(player.body, { x: baseStartX, y: baseStartY });
+            Body.setVelocity(player.body, { x: 0, y: 0 }); Body.setAngularVelocity(player.body, 0); Body.setAngle(player.body, 0);
+
+            Body.setPosition(player.head, { x: baseStartX, y: baseStartY - BODY_HEIGHT / 2 - HEAD_RADIUS + 5 });
+            Body.setVelocity(player.head, { x: 0, y: 0 }); Body.setAngularVelocity(player.head, 0); Body.setAngle(player.head, 0);
+
+            const legResetY = baseStartY + BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 10;
+            const legXOffset = BODY_WIDTH / 3;
+            Body.setPosition(player.leftLeg, { x: baseStartX - legXOffset, y: legResetY });
+            Body.setVelocity(player.leftLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.leftLeg, 0); Body.setAngle(player.leftLeg, -0.1);
+
+            Body.setPosition(player.rightLeg, { x: baseStartX + legXOffset, y: legResetY });
+            Body.setVelocity(player.rightLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.rightLeg, 0); Body.setAngle(player.rightLeg, 0.1);
+
+            player.actionCooldown = 0;
+        }
     });
 }
 
@@ -411,7 +416,7 @@ function drawPixelRectangle(pCtx, body, colorOverride = null) {
     else if (label === 'ground') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = GROUND_THICKNESS / PIXEL_SCALE; }
     else if (label.includes('wall')) { pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE; }
     else if (label === 'ceiling') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = WALL_THICKNESS / PIXEL_SCALE; }
-    else if (label.includes('post')) { pWidth = Math.max(1, 10 / PIXEL_SCALE); pHeight = Math.max(1, GOAL_HEIGHT / PIXEL_SCALE); }
+    // else if (label.includes('post')) { pWidth = Math.max(1, 10 / PIXEL_SCALE); pHeight = Math.max(1, GOAL_HEIGHT / PIXEL_SCALE); } // Old post rendering removed
     else {
         const boundsWidth = (body.bounds.max.x - body.bounds.min.x) / PIXEL_SCALE;
         const boundsHeight = (body.bounds.max.y - body.bounds.min.y) / PIXEL_SCALE;
@@ -439,12 +444,65 @@ function drawPixelCircle(pCtx, body, colorOverride = null) {
 function customRenderAll() {
     pixelCtx.fillStyle = '#ACE1AF';
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
+
     const fieldBodies = Composite.allBodies(world).filter(body =>
         body.isStatic &&
-        (body.label === 'ground' || body.label.includes('wall') || body.label === 'ceiling' || body.label.includes('post')) &&
+        (body.label === 'ground' || body.label.includes('wall') || body.label === 'ceiling') && // Only these static bodies
         (!body.isSensor)
     );
     fieldBodies.forEach(body => { drawPixelRectangle(pixelCtx, body); });
+
+    // --- Draw Pretty Goals ---
+    const goalPostColor = '#FFFFFF';
+    const netColor = 'rgba(200, 200, 200, 0.4)';
+    const postPixelThickness = Math.max(1, Math.round(6 / PIXEL_SCALE));
+
+    const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
+    const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
+
+    const goalBaseY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
+    const goalTopY = goalBaseY - goalPixelHeight;
+
+    // Left Goal
+    const leftGoalX = Math.round(WALL_THICKNESS / PIXEL_SCALE);
+    pixelCtx.fillStyle = goalPostColor;
+    pixelCtx.fillRect(leftGoalX, goalTopY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(leftGoalX + goalMouthPixelWidth - postPixelThickness, goalTopY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(leftGoalX, goalTopY, goalMouthPixelWidth, postPixelThickness);
+
+    pixelCtx.strokeStyle = netColor;
+    pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(leftGoalX + postPixelThickness, goalTopY + postPixelThickness);
+    pixelCtx.lineTo(leftGoalX + postPixelThickness, goalBaseY - 1);
+    pixelCtx.lineTo(leftGoalX - Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) + postPixelThickness, goalBaseY -1);
+    pixelCtx.closePath();
+    pixelCtx.stroke();
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(leftGoalX + goalMouthPixelWidth - postPixelThickness, goalTopY + postPixelThickness);
+    pixelCtx.lineTo(leftGoalX - Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) + postPixelThickness, goalBaseY -1);
+    pixelCtx.stroke();
+
+    // Right Goal
+    const rightGoalXBase = PIXEL_CANVAS_WIDTH - Math.round(WALL_THICKNESS / PIXEL_SCALE) - goalMouthPixelWidth;
+    pixelCtx.fillStyle = goalPostColor;
+    pixelCtx.fillRect(rightGoalXBase, goalTopY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(rightGoalXBase + goalMouthPixelWidth - postPixelThickness, goalTopY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(rightGoalXBase, goalTopY, goalMouthPixelWidth, postPixelThickness);
+
+    pixelCtx.strokeStyle = netColor;
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(rightGoalXBase + goalMouthPixelWidth - postPixelThickness, goalTopY + postPixelThickness);
+    pixelCtx.lineTo(rightGoalXBase + goalMouthPixelWidth - postPixelThickness, goalBaseY - 1);
+    pixelCtx.lineTo(rightGoalXBase + goalMouthPixelWidth + Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) - postPixelThickness, goalBaseY -1);
+    pixelCtx.closePath();
+    pixelCtx.stroke();
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(rightGoalXBase + postPixelThickness, goalTopY + postPixelThickness);
+    pixelCtx.lineTo(rightGoalXBase + goalMouthPixelWidth + Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) - postPixelThickness, goalBaseY -1);
+    pixelCtx.stroke();
+    // --- End Draw Pretty Goals ---
+
     if (ball) { drawPixelCircle(pixelCtx, ball, BALL_COLOR); }
     players.forEach(player => {
         player.parts.forEach(part => {
