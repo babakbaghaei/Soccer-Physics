@@ -43,10 +43,10 @@ let players = [];
 // --- Field Constants ---
 const GROUND_THICKNESS = 40;
 const WALL_THICKNESS = 20;
-const GOAL_HEIGHT = 120; // Height of the goal opening
+const GOAL_HEIGHT = 120;
 const GOAL_SENSOR_DEPTH = 30;
 const GOAL_MOUTH_VISUAL_WIDTH = 60;
-const CROSSBAR_THICKNESS = 10; // Thickness of the physical crossbar
+const CROSSBAR_THICKNESS = 10;
 
 
 // --- Player Constants ---
@@ -118,7 +118,7 @@ function setup() {
     Runner.run(runner, engine);
 
     Events.on(engine, 'beforeUpdate', updateGame);
-    Events.on(engine, 'collisionStart', handleCollisions);
+    Events.on(engine, 'collisionStart', handleCollisions); // Will handle ground detection here
 
     gameRenderLoop();
 
@@ -136,8 +136,8 @@ function createField() {
     const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: '#808080' } });
     const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: '#808080' } });
 
-    const goalY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT / 2; // Center Y of goal opening
-    const goalSensorRenderInvisible = { visible: false }; // Make sensors completely invisible
+    const goalY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT / 2;
+    const goalSensorRenderInvisible = { visible: false };
 
     const leftGoalSensor = Bodies.rectangle(WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2, goalY, GOAL_SENSOR_DEPTH, GOAL_HEIGHT, {
         isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderInvisible
@@ -146,9 +146,8 @@ function createField() {
         isStatic: true, isSensor: true, label: 'goal-right', render: goalSensorRenderInvisible
     });
 
-    // Physical Crossbars
-    const goalPostRenderStyle = { fillStyle: '#FFFFFF' }; // For visual posts and crossbar
-    const crossbarY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT + CROSSBAR_THICKNESS / 2; // Top of the goal opening
+    const goalPostRenderStyle = { fillStyle: '#FFFFFF' };
+    const crossbarY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT + CROSSBAR_THICKNESS / 2;
 
     const leftCrossbar = Bodies.rectangle(
         WALL_THICKNESS + GOAL_MOUTH_VISUAL_WIDTH / 2, crossbarY,
@@ -190,11 +189,11 @@ function createPlayer(x, y, teamColor, isTeam1, inputKey, isAI) {
     const legYPos = y + BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 10;
     const legXOffset = BODY_WIDTH / 3;
     const leftLeg = Bodies.rectangle(x - legXOffset, legYPos, LEG_WIDTH, LEG_HEIGHT, {
-        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg-left', collisionFilter: { group: group },
+        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg-left', collisionFilter: { group: group }, // Unique label for legs
         density: PLAYER_DENSITY * 1.1, friction: PLAYER_PART_FRICTION + 0.2, restitution: PLAYER_PART_RESTITUTION * 0.9, angle: -0.1, render: { fillStyle: teamColor }
     });
     const rightLeg = Bodies.rectangle(x + legXOffset, legYPos, LEG_WIDTH, LEG_HEIGHT, {
-        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg-right', collisionFilter: { group: group },
+        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg-right', collisionFilter: { group: group }, // Unique label for legs
         density: PLAYER_DENSITY * 1.1, friction: PLAYER_PART_FRICTION + 0.2, restitution: PLAYER_PART_RESTITUTION * 0.9, angle: 0.1, render: { fillStyle: teamColor }
     });
     const constraintRenderOptions = { visible: false };
@@ -219,7 +218,8 @@ function createPlayer(x, y, teamColor, isTeam1, inputKey, isAI) {
     return {
         head: head, body: playerBody, leftLeg: leftLeg, rightLeg: rightLeg,
         parts: parts, constraints: constraints, color: teamColor, team: isTeam1 ? 1 : 2,
-        inputKey: inputKey, actionCooldown: 0, isAI: isAI
+        inputKey: inputKey, actionCooldown: 0, isAI: isAI,
+        isGrounded: false, jumpCount: 0 // Added for ground detection
     };
 }
 
@@ -243,6 +243,7 @@ function handleHumanPlayerControls() {
         if (player.isAI) return;
         if (player.actionCooldown > 0) player.actionCooldown--;
         if (keysPressed[player.inputKey] && player.actionCooldown === 0) {
+            player.isGrounded = false; // Action initiated, no longer considered grounded for this action cycle
             player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES;
 
             Body.applyForce(player.leftLeg, player.leftLeg.position, { x: (Math.random()-0.5)*0.005, y: -PLAYER_JUMP_FORCE_LEGS * 0.5 });
@@ -316,6 +317,7 @@ function executeAIPlayerLogic(player) {
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
 
     if (distanceToBall < AI_ACTION_RANGE && player.actionCooldown === 0) {
+        player.isGrounded = false; // Action initiated
         player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * (1.5 + Math.random() * 0.8);
         let horizontalActionForceDirection = -1;
 
@@ -384,16 +386,22 @@ function resetPositions() {
             const startY = startPositions[index].y;
 
             Body.setPosition(player.body, { x: startX, y: startY });
-            Body.setVelocity(player.body, { x: 0, y: 0 }); Body.setAngularVelocity(player.body, 0); Body.setAngle(player.body, 0);
             Body.setPosition(player.head, { x: startX, y: startY - (BODY_HEIGHT / 2) - HEAD_RADIUS + 5 });
-            Body.setVelocity(player.head, { x: 0, y: 0 }); Body.setAngularVelocity(player.head, 0); Body.setAngle(player.head, 0);
             const legResetY = startY + (BODY_HEIGHT / 2) + (LEG_HEIGHT / 2) - 10;
             const legXOffset = BODY_WIDTH / 3;
             Body.setPosition(player.leftLeg, { x: startX - legXOffset, y: legResetY });
-            Body.setVelocity(player.leftLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.leftLeg, 0); Body.setAngle(player.leftLeg, -0.1);
             Body.setPosition(player.rightLeg, { x: startX + legXOffset, y: legResetY });
-            Body.setVelocity(player.rightLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.rightLeg, 0); Body.setAngle(player.rightLeg, 0.1);
+
+            player.parts.forEach(part => {
+                Body.setVelocity(part, { x: 0, y: 0 });
+                Body.setAngularVelocity(part, 0);
+                if (part === player.leftLeg) Body.setAngle(part, -0.1);
+                else if (part === player.rightLeg) Body.setAngle(part, 0.1);
+                else Body.setAngle(part, 0);
+            });
+
             player.actionCooldown = 0;
+            player.isGrounded = true; // Assume grounded after reset
         }
     });
 }
@@ -405,11 +413,28 @@ function handleCollisions(event) {
         const pair = pairs[i];
         const bodyA = pair.bodyA;
         const bodyB = pair.bodyB;
+
+        // Check for ball-goal collisions
         if (bodyA.label === 'ball' || bodyB.label === 'ball') {
             const otherBody = (bodyA.label === 'ball') ? bodyB : bodyA;
             if (otherBody.label === 'goal-left') handleGoalScored(2);
             else if (otherBody.label === 'goal-right') handleGoalScored(1);
         }
+
+        // Check for player-ground collisions to set isGrounded
+        players.forEach(player => {
+            player.parts.forEach(part => {
+                if (part.label.includes('-leg')) { // Check if it's a leg part
+                    if ((bodyA === part && bodyB.label === 'ground') || (bodyB === part && bodyA.label === 'ground')) {
+                        if (!player.isGrounded) { // Only set if not already set, to avoid constant trigger
+                           // console.log(`Player ${players.indexOf(player)} grounded`); // DEBUG
+                        }
+                        player.isGrounded = true;
+                        player.jumpCount = 0; // Reset jumpCount if using it
+                    }
+                }
+            });
+        });
     }
 }
 
@@ -433,15 +458,13 @@ function drawPixelRectangle(pCtx, body, colorOverride = null) {
     const y = body.position.y / PIXEL_SCALE;
     let pWidth, pHeight;
     const label = body.label || '';
-
     if (label.includes('body')) { pWidth = BODY_WIDTH / PIXEL_SCALE; pHeight = BODY_HEIGHT / PIXEL_SCALE; }
     else if (label.includes('leg')) { pWidth = LEG_WIDTH / PIXEL_SCALE; pHeight = LEG_HEIGHT / PIXEL_SCALE; }
     else if (label === 'ground') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = GROUND_THICKNESS / PIXEL_SCALE; }
     else if (label.includes('wall')) { pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE; }
     else if (label === 'ceiling') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = WALL_THICKNESS / PIXEL_SCALE; }
-    else if (label.includes('crossbar')) { // For physical crossbars
-        pWidth = GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE; pHeight = CROSSBAR_THICKNESS / PIXEL_SCALE;
-    } else {
+    else if (label.includes('crossbar')) { pWidth = GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE; pHeight = CROSSBAR_THICKNESS / PIXEL_SCALE;}
+    else {
         const boundsWidth = (body.bounds.max.x - body.bounds.min.x) / PIXEL_SCALE;
         const boundsHeight = (body.bounds.max.y - body.bounds.min.y) / PIXEL_SCALE;
         pWidth = Math.max(1, Math.round(boundsWidth));
@@ -469,14 +492,13 @@ function customRenderAll() {
     pixelCtx.fillStyle = '#ACE1AF';
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
 
-    const bodiesToRender = Composite.allBodies(world).filter(body => !body.isSensor); // Don't render sensors
+    const bodiesToRender = Composite.allBodies(world).filter(body => !body.isSensor);
 
     bodiesToRender.forEach(body => {
         if (body.label === 'ball') {
             drawPixelCircle(pixelCtx, body, BALL_COLOR);
         } else if (body.label.includes('player-t1') || body.label.includes('player-t2')) {
-            // Find which player this part belongs to, to get the team color
-            let playerColor = '#CCC'; // Default
+            let playerColor = '#CCC';
             for(const p of players) {
                 if (p.parts.includes(body)) {
                     playerColor = p.color;
@@ -488,31 +510,25 @@ function customRenderAll() {
             } else {
                 drawPixelRectangle(pixelCtx, body, playerColor);
             }
-        } else if (body.isStatic) { // Field elements (ground, walls, ceiling, crossbars)
+        } else if (body.isStatic) {
             drawPixelRectangle(pixelCtx, body, body.render.fillStyle);
         }
     });
 
-    // --- Draw Pretty Goal Nets (independent of Matter.js bodies for posts) ---
-    const goalPostColor = '#FFFFFF'; // Already used by crossbar's render.fillStyle
-    const netColor = 'rgba(220, 220, 220, 0.6)'; // Slightly more opaque net
+    const goalPostColor = '#FFFFFF';
+    const netColor = 'rgba(220, 220, 220, 0.6)';
     const postPixelThickness = Math.max(1, Math.round(8 / PIXEL_SCALE));
     const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
     const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
     const goalBaseY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
-    const goalTopActualY = goalBaseY - goalPixelHeight; // Actual top of goal opening
-
+    const goalTopActualY = goalBaseY - goalPixelHeight;
     pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
 
-    // Left Goal (Posts are part of the crossbar body logic now or need to be drawn separately)
     const leftGoalMouthX = Math.round(WALL_THICKNESS / PIXEL_SCALE);
     pixelCtx.fillStyle = goalPostColor;
-    // Draw posts explicitly if not relying on crossbar body to also form them
-    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight); // Left post
-    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight); // Right post
-    // Crossbar is already drawn as a Matter body. If not, draw here:
-    // pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness);
-
+    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
+    // Crossbar is a body, already drawn by bodiesToRender loop if label includes 'crossbar'
 
     pixelCtx.strokeStyle = netColor;
     const netTopInnerY = goalTopActualY + postPixelThickness;
@@ -524,17 +540,15 @@ function customRenderAll() {
         const yLine = netTopInnerY + (netBottomInnerY - netTopInnerY) * i / 4;
         pixelCtx.beginPath(); pixelCtx.moveTo(netSideInnerLeftX, yLine); pixelCtx.lineTo(netSideInnerRightX, yLine); pixelCtx.stroke();
     }
-    for (let i = 1; i < 6; i++) { // More vertical lines for denser net
+    for (let i = 1; i < 6; i++) {
         const xLine = netSideInnerLeftX + (netSideInnerRightX - netSideInnerLeftX) * i / 6;
         pixelCtx.beginPath(); pixelCtx.moveTo(xLine, netTopInnerY); pixelCtx.lineTo(xLine, netBottomInnerY); pixelCtx.stroke();
     }
 
-    // Right Goal
     const rightGoalMouthX = PIXEL_CANVAS_WIDTH - Math.round(WALL_THICKNESS / PIXEL_SCALE) - goalMouthPixelWidth;
     pixelCtx.fillStyle = goalPostColor;
     pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
-    // pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness); // Crossbar if not a body
 
     pixelCtx.strokeStyle = netColor;
     const rgNetSideInnerLeftX = rightGoalMouthX + postPixelThickness;
@@ -548,7 +562,6 @@ function customRenderAll() {
         const xLine = rgNetSideInnerLeftX + (rgNetSideInnerRightX - rgNetSideInnerLeftX) * i / 6;
         pixelCtx.beginPath(); pixelCtx.moveTo(xLine, netTopInnerY); pixelCtx.lineTo(xLine, netBottomInnerY); pixelCtx.stroke();
     }
-    // --- End Draw Pretty Goal Nets ---
 
     const mainCtx = canvas.getContext('2d');
     mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
