@@ -86,10 +86,13 @@ h1 {
         0 0 30px rgba(177, 156, 217, 0.4),
         inset 0 0 20px rgba(255, 255, 255, 0.1);
     background: linear-gradient(45deg, #C7EFCF 0%, #B2E6B8 100%);
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
+    image-rendering: pixelated; /* Will re-evaluate later */
+    image-rendering: crisp-edges; /* Will re-evaluate later */
     margin-bottom: 15px;
-    transform: perspective(1000px) rotateX(2deg);
+    transform: perspective(800px) rotateX(30deg) rotateZ(-45deg); /* Adjusted for isometric view */
+    box-shadow:
+        -10px 10px 20px rgba(0, 0, 0, 0.2), /* Adjusted shadow for new perspective */
+        inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 #controls {

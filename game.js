@@ -75,6 +75,44 @@ class SoccerPhysicsGame {
             this.resetGame();
             document.getElementById('gameOver').style.display = 'none';
         });
+
+        // Physics collision events
+        Matter.Events.on(this.engine, 'collisionStart', (event) => {
+            const pairs = event.pairs;
+            for (let i = 0; i < pairs.length; i++) {
+                const pair = pairs[i];
+                this.players.forEach(player => {
+                    // Check if a player's leg is colliding with the ground
+                    if ((pair.bodyA.label === 'playerPart_leg' && pair.bodyB.label === 'ground') ||
+                        (pair.bodyB.label === 'playerPart_leg' && pair.bodyA.label === 'ground')) {
+
+                        // Check if the colliding leg belongs to this player
+                        if (player.parts.includes(pair.bodyA) || player.parts.includes(pair.bodyB)) {
+                            player.isGrounded = true;
+                            player.jumpCount = 0; // Reset jumpCount when grounded
+                        }
+                    }
+                });
+            }
+        });
+
+        // It's often more robust to set isGrounded = false when a jump action is taken,
+        // and rely on collisionStart to set it true.
+        // Matter.Events.on(this.engine, 'collisionEnd', (event) => {
+        //     const pairs = event.pairs;
+        //     for (let i = 0; i < pairs.length; i++) {
+        //         const pair = pairs[i];
+        //         this.players.forEach(player => {
+        //             if ((pair.bodyA.label === 'playerPart_leg' && pair.bodyB.label === 'ground') ||
+        //                 (pair.bodyB.label === 'playerPart_leg' && pair.bodyA.label === 'ground')) {
+        //                 if (player.parts.includes(pair.bodyA) || player.parts.includes(pair.bodyB)) {
+        //                     // This might make the player lose grounded status too easily if one foot lifts slightly.
+        //                     // player.isGrounded = false;
+        //                 }
+        //             }
+        //         });
+        //     }
+        // });
     }
     
     createField() {
@@ -87,6 +125,7 @@ class SoccerPhysicsGame {
         // Ground
         const ground = Matter.Bodies.rectangle(width/2, height - thickness/2, width, thickness, {
             isStatic: true,
+            label: 'ground', // Added label for ground
             render: { fillStyle: '#8B4513' }
         });
         
@@ -184,32 +223,32 @@ class SoccerPhysicsGame {
         const head = Matter.Bodies.circle(x, y - 30, 15, {
             density: 0.002,
             frictionAir: 0.05,
-            friction: 0.8,
-            restitution: 0.3,
+            friction: 0.7, // Slightly reduced
+            restitution: 0.4, // Slightly increased
             render: { fillStyle: color }
         });
         
         const body = Matter.Bodies.rectangle(x, y, 20, 40, {
             density: 0.003,
             frictionAir: 0.08,
-            friction: 0.9,
-            restitution: 0.2,
+            friction: 0.8, // Slightly reduced
+            restitution: 0.3, // Slightly increased
             render: { fillStyle: color }
         });
         
         const leftLeg = Matter.Bodies.rectangle(x - 10, y + 35, 12, 30, {
             density: 0.004,
             frictionAir: 0.1,
-            friction: 1.2,
-            restitution: 0.1,
+            friction: 0.6, // Reduced from 1.2
+            restitution: 0.2, // Increased from 0.1
             render: { fillStyle: color }
         });
         
         const rightLeg = Matter.Bodies.rectangle(x + 10, y + 35, 12, 30, {
             density: 0.004,
             frictionAir: 0.1,
-            friction: 1.2,
-            restitution: 0.1,
+            friction: 0.6, // Reduced from 1.2
+            restitution: 0.2, // Increased from 0.1
             render: { fillStyle: color }
         });
         
@@ -218,24 +257,24 @@ class SoccerPhysicsGame {
             bodyA: head,
             bodyB: body,
             length: 20,
-            stiffness: 0.9,
-            damping: 0.1
+            stiffness: 0.8, // Reduced from 0.9
+            damping: 0.15   // Increased from 0.1
         });
         
         const leftLegConstraint = Matter.Constraint.create({
             bodyA: body,
             bodyB: leftLeg,
             length: 25,
-            stiffness: 0.7,
-            damping: 0.05
+            stiffness: 0.6, // Reduced from 0.7
+            damping: 0.1    // Increased from 0.05
         });
         
         const rightLegConstraint = Matter.Constraint.create({
             bodyA: body,
             bodyB: rightLeg,
             length: 25,
-            stiffness: 0.7,
-            damping: 0.05
+            stiffness: 0.6, // Reduced from 0.7
+            damping: 0.1    // Increased from 0.05
         });
         
         const player = {
@@ -248,9 +287,18 @@ class SoccerPhysicsGame {
             color: color,
             team: color === '#FFB6C1' ? 1 : 2,
             kickCooldown: 0,
-            jumpCount: 0
+            jumpCount: 0,
+            isGrounded: false // Initialize isGrounded state
         };
         
+        // Add labels to player parts for collision detection
+        head.label = 'playerPart';
+        body.label = 'playerPart';
+        leftLeg.label = 'playerPart_leg'; // Specific label for legs/feet
+        rightLeg.label = 'playerPart_leg'; // Specific label for legs/feet
+
+        player.parts = [head, body, leftLeg, rightLeg]; // Store parts for easy access
+
         Matter.World.add(this.world, [head, body, leftLeg, rightLeg, ...player.constraints]);
         
         return player;
@@ -293,64 +341,103 @@ class SoccerPhysicsGame {
                 player.kickCooldown--;
             }
             
-            // Decrease jump count over time
-            if (player.jumpCount > 0) {
-                player.jumpCount--;
-            }
+            // Decrease jump count over time - This is now handled by isGrounded
+            // if (player.jumpCount > 0) {
+            //     player.jumpCount--;
+            // }
             
             if (this.keys[this.playerControls[player.controlKey]] && player.kickCooldown === 0) {
-                // Apply upward force (jump/kick)
-                const force = 0.025;
-                let horizontalForce = 0;
-                
-                // Add horizontal movement based on conditions
-                const isInAir = player.body.position.y < this.canvas.height - 100;
-                const ballDirection = this.ball.position.x - player.body.position.x;
-                const ballDistanceForMove = Math.abs(ballDirection);
-                
-                // Only add horizontal movement in special conditions
-                if (isInAir || player.jumpCount > 3 || ballDistanceForMove < 80) {
-                    const baseHorizontal = (ballDirection > 0 ? 1 : -1) * 0.008;
-                    const jumpBonus = player.jumpCount > 5 ? 0.005 : 0;
-                    horizontalForce = baseHorizontal + jumpBonus;
+                // Check if player is grounded before allowing jump/kick
+                if (player.isGrounded) {
+                    player.isGrounded = false; // Player is now in the air
+                    player.jumpCount++; // Increment jump count (can be used for multi-jump or other logic)
+
+                    const force = 0.028; // Jump force
+                    let horizontalForce = 0;
                     
-                    // Limit maximum horizontal force
-                    horizontalForce = Math.max(-0.015, Math.min(0.015, horizontalForce));
-                }
-                
-                Matter.Body.applyForce(player.body, player.body.position, { 
-                    x: horizontalForce, 
-                    y: -force 
-                });
-                Matter.Body.applyForce(player.head, player.head.position, { 
-                    x: horizontalForce * 0.3, 
-                    y: -force * 0.4 
-                });
-                
-                // Add some natural randomness
-                const randomX = (Math.random() - 0.5) * 0.005;
-                Matter.Body.applyForce(player.body, player.body.position, { x: randomX, y: 0 });
-                
-                player.kickCooldown = 25; // Prevent spam
-                player.jumpCount++;
-                
-                // Check for ball collision and apply force
-                const ballDistance = Math.sqrt(
-                    Math.pow(this.ball.position.x - player.body.position.x, 2) +
-                    Math.pow(this.ball.position.y - player.body.position.y, 2)
-                );
-                
-                if (ballDistance < 60) {
-                    const kickForce = 0.03;
-                    const angle = Math.atan2(
-                        this.ball.position.y - player.body.position.y,
-                        this.ball.position.x - player.body.position.x
+                    const ballActualDistance = Math.sqrt(
+                        Math.pow(this.ball.position.x - player.body.position.x, 2) +
+                        Math.pow(this.ball.position.y - player.body.position.y, 2)
                     );
+                    const ballDirectionX = this.ball.position.x - player.body.position.x; // Just the X direction for horizontal force
+
+                    let targetHorizontalForce = 0;
+                    const maxInfluenceDistance = 350; // Max distance ball has strong influence
+                    const minInfluenceDistance = 50; // Min distance, full influence
+
+                    if (ballActualDistance < maxInfluenceDistance) {
+                        let influenceFactor = 1.0;
+                        if (ballActualDistance > minInfluenceDistance) {
+                            influenceFactor = 1.0 - (ballActualDistance - minInfluenceDistance) / (maxInfluenceDistance - minInfluenceDistance);
+                        }
+                        influenceFactor = Math.max(0, influenceFactor); // Ensure factor is not negative
+
+                        targetHorizontalForce = (ballDirectionX > 0 ? 1 : -1) * 0.015 * influenceFactor; // Max horizontal push towards ball
+                    }
+
+                    // Add a very small general horizontal nudge based on team direction.
+                    // This helps avoid purely vertical jumps and gives a slight field momentum.
+                    let baseNudge = 0;
+                    if (player.team === 1) { // Team 1 (Pink, on left side) generally wants to move right
+                        baseNudge = 0.003;
+                    } else { // Team 2 (Blue, on right side) generally wants to move left
+                        baseNudge = -0.003;
+                    }
                     
-                    Matter.Body.applyForce(this.ball, this.ball.position, {
-                        x: Math.cos(angle) * kickForce,
-                        y: Math.sin(angle) * kickForce - 0.01
+                    horizontalForce = targetHorizontalForce + baseNudge;
+                    // Ensure total horizontal force isn't excessive if both target and nudge align
+                    const maxHorizontalForce = 0.020;
+                    horizontalForce = Math.max(-maxHorizontalForce, Math.min(maxHorizontalForce, horizontalForce));
+
+                    Matter.Body.applyForce(player.body, player.body.position, {
+                        x: horizontalForce,
+                        y: -force
                     });
+                    Matter.Body.applyForce(player.head, player.head.position, {
+                        x: horizontalForce * 0.3,
+                        y: -force * 0.25 // Adjusted head force ratio
+                    });
+
+                    // Leg flair - apply force outwards from body center slightly
+                    const legFlairForce = 0.005;
+                    if (player.leftLeg.position.x < player.body.position.x) { // Left leg is to the left
+                        Matter.Body.applyForce(player.leftLeg, player.leftLeg.position, { x: -legFlairForce, y: -force * 0.05 });
+                    } else {
+                        Matter.Body.applyForce(player.leftLeg, player.leftLeg.position, { x: legFlairForce, y: -force * 0.05 });
+                    }
+                    if (player.rightLeg.position.x > player.body.position.x) { // Right leg is to the right
+                        Matter.Body.applyForce(player.rightLeg, player.rightLeg.position, { x: legFlairForce, y: -force * 0.05 });
+                    } else {
+                        Matter.Body.applyForce(player.rightLeg, player.rightLeg.position, { x: -legFlairForce, y: -force * 0.05 });
+                    }
+
+                    player.kickCooldown = 20;
+
+                    // Kick ball logic
+                    const ballDistance = Math.sqrt(
+                        Math.pow(this.ball.position.x - player.body.position.x, 2) +
+                        Math.pow(this.ball.position.y - player.body.position.y, 2)
+                    );
+
+                    if (ballDistance < 75) { // Increased kick detection radius
+                        const kickForceMultiplier = 0.035; // Slightly stronger kick
+                        const angle = Math.atan2(
+                            this.ball.position.y - player.body.position.y,
+                            this.ball.position.x - player.body.position.x
+                        );
+
+                        // Apply force to ball
+                        Matter.Body.applyForce(this.ball, this.ball.position, {
+                            x: Math.cos(angle) * kickForceMultiplier,
+                            y: Math.sin(angle) * kickForceMultiplier - 0.015 // More lift on kick
+                        });
+
+                        // Small reactive force on player's body from kicking
+                        Matter.Body.applyForce(player.body, player.body.position, {
+                            x: -Math.cos(angle) * kickForceMultiplier * 0.1,
+                            y: -Math.sin(angle) * kickForceMultiplier * 0.1
+                        });
+                    }
                 }
             }
         });
@@ -489,8 +576,11 @@ class SoccerPhysicsGame {
         
         // Draw center circle
         this.drawCenterCircle();
+
+        // Draw 3D Goals
+        this.drawGoals3D();
         
-        // Draw goal areas
+        // Draw goal areas (these are the lines on the ground)
         this.drawGoalAreas();
         
         // Draw players
@@ -565,12 +655,23 @@ class SoccerPhysicsGame {
         this.ctx.strokeStyle = '#666';
         this.ctx.lineWidth = 2;
         
-        // Draw shadows first for 3D effect
+        // Draw simplified player shadow (ellipse at feet)
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        this.drawPixelatedRect(player.body.position.x + 3, player.body.position.y + 3, 20, 40, player.body.angle);
-        this.drawPixelatedCircle(player.head.position.x + 3, player.head.position.y + 3, 15);
-        this.drawPixelatedRect(player.leftLeg.position.x + 3, player.leftLeg.position.y + 3, 12, 30, player.leftLeg.angle);
-        this.drawPixelatedRect(player.rightLeg.position.x + 3, player.rightLeg.position.y + 3, 12, 30, player.rightLeg.angle);
+        const shadowPlayerRadiusX = 25;
+        const shadowPlayerRadiusY = 8;
+        // Approximate player's "base" position - using the body's y position as a reference
+        const baseY = player.body.position.y + 20; // Offset to appear under the player
+        this.ctx.beginPath();
+        this.ctx.ellipse(
+            player.body.position.x,
+            baseY,
+            shadowPlayerRadiusX,
+            shadowPlayerRadiusY,
+            0,
+            0,
+            Math.PI * 2
+        );
+        this.ctx.fill();
         
         // Main body parts
         this.ctx.fillStyle = player.color;
@@ -601,9 +702,20 @@ class SoccerPhysicsGame {
         const ball = this.ball;
         
         // Ball shadow
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         this.ctx.beginPath();
-        this.ctx.arc(ball.position.x + 4, this.canvas.height - 15, 18, 0, Math.PI * 2);
+        const shadowYOffset = ball.render.sprite && ball.render.sprite.yOffset ? ball.render.sprite.yOffset / 2 : 10; // Adjust based on sprite if available, else default
+        const shadowRadiusX = (ball.circleRadius || 20) * 1.0; // Use ball.circleRadius if available
+        const shadowRadiusY = (ball.circleRadius || 20) * 0.4;
+        this.ctx.ellipse(
+            ball.position.x,
+            ball.position.y + (ball.circleRadius || 20) * 0.5 + shadowYOffset / 3, // Position shadow under the ball
+            shadowRadiusX,
+            shadowRadiusY,
+            0,
+            0,
+            Math.PI * 2
+        );
         this.ctx.fill();
         
         // Main ball with 3D effect
@@ -644,6 +756,76 @@ class SoccerPhysicsGame {
             }
         }
     }
+
+    drawGoals3D() {
+        const goalPostColor = '#E0E0E0'; // Light grey posts
+        const goalPostThickness = 8;
+        const netColor = 'rgba(200, 200, 200, 0.4)';
+
+        const canvasHeight = this.canvas.height;
+        const groundLevelY = canvasHeight - 20; // From ground body thickness
+        const goalVisualHeight = 150; // From createGoals
+        const goalMouthWidth = 50; // From createGoals goalDepth, which is used as width for top/bottom bars
+
+        // Left Goal (Team 2 scores)
+        const leftGoalPost1X = 0;
+        const leftGoalPost2X = goalMouthWidth;
+        const goalTopY = groundLevelY - goalVisualHeight;
+
+        this.ctx.fillStyle = goalPostColor;
+        // Post 1 (leftmost)
+        this.ctx.fillRect(leftGoalPost1X, goalTopY, goalPostThickness, goalVisualHeight);
+        // Post 2 (rightmost of the opening)
+        this.ctx.fillRect(leftGoalPost2X - goalPostThickness, goalTopY, goalPostThickness, goalVisualHeight);
+        // Crossbar
+        this.ctx.fillRect(leftGoalPost1X, goalTopY, leftGoalPost2X - leftGoalPost1X, goalPostThickness);
+
+        // Net (simple back and side representation)
+        this.ctx.fillStyle = netColor;
+        this.ctx.beginPath();
+        this.ctx.moveTo(leftGoalPost1X + goalPostThickness / 2, goalTopY + goalPostThickness / 2);
+        this.ctx.lineTo(leftGoalPost1X + goalPostThickness / 2, groundLevelY);
+        this.ctx.lineTo(0, groundLevelY);
+        this.ctx.lineTo(0, groundLevelY - goalVisualHeight / 1.5);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(leftGoalPost2X - goalPostThickness / 2, goalTopY + goalPostThickness / 2);
+        this.ctx.lineTo(leftGoalPost2X - goalPostThickness / 2, groundLevelY);
+        this.ctx.lineTo(0, groundLevelY);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        // Right Goal (Team 1 scores)
+        const rightGoalPost1X = this.canvas.width - goalMouthWidth;
+        const rightGoalPost2X = this.canvas.width;
+
+        this.ctx.fillStyle = goalPostColor;
+        // Post 1 (leftmost of the opening)
+        this.ctx.fillRect(rightGoalPost1X, goalTopY, goalPostThickness, goalVisualHeight);
+        // Post 2 (rightmost)
+        this.ctx.fillRect(rightGoalPost2X - goalPostThickness, goalTopY, goalPostThickness, goalVisualHeight);
+        // Crossbar
+        this.ctx.fillRect(rightGoalPost1X, goalTopY, rightGoalPost2X - rightGoalPost1X, goalPostThickness);
+
+        // Net
+        this.ctx.fillStyle = netColor;
+        this.ctx.beginPath();
+        this.ctx.moveTo(rightGoalPost1X + goalPostThickness / 2, goalTopY + goalPostThickness / 2);
+        this.ctx.lineTo(rightGoalPost1X + goalPostThickness / 2, groundLevelY);
+        this.ctx.lineTo(this.canvas.width, groundLevelY);
+        this.ctx.lineTo(this.canvas.width, groundLevelY - goalVisualHeight / 1.5);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(rightGoalPost2X - goalPostThickness / 2, goalTopY + goalPostThickness / 2);
+        this.ctx.lineTo(rightGoalPost2X - goalPostThickness / 2, groundLevelY);
+        this.ctx.lineTo(this.canvas.width, groundLevelY);
+        this.ctx.closePath();
+        this.ctx.fill();
+    }
     
     drawPixelatedRect(x, y, width, height, angle = 0) {
         this.ctx.save();
@@ -682,20 +864,20 @@ class SoccerPhysicsGame {
         this.ctx.fillRect(-width/2, -height/2, width, height);
         
         // Highlight (lighter top and left)
-        const r = parseInt(color.substr(1,2), 16);
-        const g = parseInt(color.substr(3,2), 16);
-        const b = parseInt(color.substr(5,2), 16);
-        const highlight = `rgb(${Math.min(255, r + 30)}, ${Math.min(255, g + 30)}, ${Math.min(255, b + 30)})`;
+        // const r = parseInt(color.substr(1,2), 16);
+        // const g = parseInt(color.substr(3,2), 16);
+        // const b = parseInt(color.substr(5,2), 16);
+        // const highlight = `rgb(${Math.min(255, r + 30)}, ${Math.min(255, g + 30)}, ${Math.min(255, b + 30)})`;
         
-        this.ctx.fillStyle = highlight;
-        this.ctx.fillRect(-width/2, -height/2, width, 4); // Top highlight
-        this.ctx.fillRect(-width/2, -height/2, 4, height); // Left highlight
+        // this.ctx.fillStyle = highlight;
+        // this.ctx.fillRect(-width/2, -height/2, width, 4); // Top highlight
+        // this.ctx.fillRect(-width/2, -height/2, 4, height); // Left highlight
         
         // Shadow (darker bottom and right)
-        const shadow = `rgb(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)})`;
-        this.ctx.fillStyle = shadow;
-        this.ctx.fillRect(-width/2, height/2 - 4, width, 4); // Bottom shadow
-        this.ctx.fillRect(width/2 - 4, -height/2, 4, height); // Right shadow
+        // const shadow = `rgb(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)})`;
+        // this.ctx.fillStyle = shadow;
+        // this.ctx.fillRect(-width/2, height/2 - 4, width, 4); // Bottom shadow
+        // this.ctx.fillRect(width/2 - 4, -height/2, 4, height); // Right shadow
         
         this.ctx.strokeRect(-width/2, -height/2, width, height);
         this.ctx.restore();
@@ -707,18 +889,18 @@ class SoccerPhysicsGame {
         this.drawPixelatedCircle(x, y, radius);
         
         // 3D highlight
-        const r = parseInt(color.substr(1,2), 16);
-        const g = parseInt(color.substr(3,2), 16);
-        const b = parseInt(color.substr(5,2), 16);
-        const highlight = `rgb(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)})`;
+        // const r = parseInt(color.substr(1,2), 16);
+        // const g = parseInt(color.substr(3,2), 16);
+        // const b = parseInt(color.substr(5,2), 16);
+        // const highlight = `rgb(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)})`;
         
-        this.ctx.fillStyle = highlight;
-        this.ctx.fillRect(x - radius/3, y - radius/3, radius/2, radius/3);
+        // this.ctx.fillStyle = highlight;
+        // this.ctx.fillRect(x - radius/3, y - radius/3, radius/2, radius/3);
         
         // 3D shadow
-        const shadow = `rgb(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)})`;
-        this.ctx.fillStyle = shadow;
-        this.ctx.fillRect(x + radius/4, y + radius/4, radius/3, radius/3);
+        // const shadow = `rgb(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)})`;
+        // this.ctx.fillStyle = shadow;
+        // this.ctx.fillRect(x + radius/4, y + radius/4, radius/3, radius/3);
     }
     
     gameLoop() {
