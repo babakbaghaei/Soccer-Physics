@@ -3,54 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soccer Physics Game - MVP</title>
+    <title>Soccer Physics Game MVP</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="gameContainer">
-        <div id="header">
-            <h1>⚽ SOCCER PHYSICS ⚽</h1>
-            <div id="scoreBoard">
-                <div id="teamScores">
-                    <span id="team1Score">TEAM 1: 0</span>
-                    <span id="team2Score">TEAM 2: 0</span>
-                </div>
-                <div id="timer">TIME: 60s</div>
-            </div>
+        <div id="scoreBoard">
+            <div id="team1ScoreDisplay">Team 1: 0</div>
+            <div id="timerDisplay">Time: 0</div> <!-- Placeholder, can be used for round timer -->
+            <div id="team2ScoreDisplay">Team 2: 0</div>
         </div>
-
-        <canvas id="gameCanvas" width="1000" height="600"></canvas>
-
-        <div id="controls">
-            <div class="team-controls">
-                <h3>TEAM 1 (Pink)</h3>
-                <div class="player-controls">
-                    <div>Player 1: <span class="key">A</span></div>
-                    <div>Player 2: <span class="key">S</span></div>
-                </div>
-            </div>
-            <div class="game-controls">
-                <button id="startButton">START GAME</button>
-                <button id="resetButton">RESET</button>
-            </div>
-            <div class="team-controls">
-                <h3>TEAM 2 (Sky Blue)</h3>
-                <div class="player-controls">
-                    <div>Player 1: <span class="key">K</span></div>
-                    <div>Player 2: <span class="key">L</span></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="gameOver" style="display: none;">
-            <div id="gameOverContent">
-                <h2 id="winnerText">GAME OVER!</h2>
-                <button id="playAgainButton">PLAY AGAIN</button>
-            </div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="gameMessage"></div>
+        <div id="controlsInfo">
+            <!-- Controls will be dynamically set or described here later if complex -->
+            <p>Controls: P1(W), P2(S), P3(Up), P4(Down) - Tentative</p>
         </div>
     </div>
 
-    <!-- Matter.js Physics Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <script src="game.js"></script>
 </body>
