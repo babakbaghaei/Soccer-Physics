@@ -59,16 +59,16 @@ const LEG_WIDTH = 15;
 const LEG_HEIGHT = 35;
 
 // --- Control Constants ---
-const PLAYER_ACTION_COOLDOWN_FRAMES = 30;
-const PLAYER_JUMP_FORCE_LEGS = 0.050; // Increased for human player jump height
-const PLAYER_JUMP_FORCE_BODY = 0.020; // Increased for human player jump height
-const PLAYER_FLAIL_HORIZONTAL_FORCE = 0.01;
-const KICK_RANGE = 50;
-const KICK_FORCE_MAGNITUDE = 0.06;
+const PLAYER_ACTION_COOLDOWN_FRAMES = 25; // Slightly reduced cooldown for more action
+const PLAYER_JUMP_FORCE_LEGS = 0.075; // Further Increased for human player jump height
+const PLAYER_JUMP_FORCE_BODY = 0.030; // Further Increased for human player jump height
+const PLAYER_FLAIL_HORIZONTAL_FORCE = 0.012; // Slightly more horizontal influence for human
+const KICK_RANGE = 55; // Slightly increased kick range
+const KICK_FORCE_MAGNITUDE = 0.065; // Slightly stronger kick
 
-const AI_ACTION_RANGE = 100; // AI will act when closer
-const AI_MOVE_FORCE = 0.0005; // Standard AI nudge force
-const AI_KICK_ATTEMPT_STRENGTH = 0.045; // Increased AI action strength for noticeable jumps
+const AI_ACTION_RANGE = 90;  // AI acts when a bit closer
+const AI_MOVE_FORCE = 0.0025; // Significantly Increased AI nudge force
+const AI_KICK_ATTEMPT_STRENGTH = 0.065; // Further Increased AI action strength, comparable to human
 
 const keysPressed = {};
 
@@ -105,9 +105,13 @@ function setup() {
     createBall();
 
     players = [];
+    // Player 0 (Human)
     players.push(createPlayer(CANVAS_WIDTH / 4 - 30, CANVAS_HEIGHT / 2, PLAYER_TEAM1_COLOR, true, 'KeyW', false));
+    // Player 1 (AI Teammate)
     players.push(createPlayer(CANVAS_WIDTH / 4 + 30, CANVAS_HEIGHT / 2 - 50, PLAYER_TEAM1_COLOR, true, null, true));
+    // Player 2 (AI Opponent)
     players.push(createPlayer(CANVAS_WIDTH * 3 / 4 + 30, CANVAS_HEIGHT / 2, PLAYER_TEAM2_COLOR, false, null, true));
+    // Player 3 (AI Opponent)
     players.push(createPlayer(CANVAS_WIDTH * 3 / 4 - 30, CANVAS_HEIGHT / 2 - 50, PLAYER_TEAM2_COLOR, false, null, true));
     
     setupInputListeners();
@@ -259,36 +263,54 @@ function handleHumanPlayerControls() {
 
 function updateAIPlayers() {
     if (isGameOver) return;
-    players.forEach(player => {
+    // console.log("Updating AI Players..."); // DEBUG
+    players.forEach((player, index) => {
         if (player.isAI) {
-            if (player.actionCooldown > 0) player.actionCooldown--;
-            executeAIPlayerLogic(player);
+            // console.log(`AI Player ${index} (Team ${player.team}) cooldown: ${player.actionCooldown}`); // DEBUG
+            if (player.actionCooldown > 0) {
+                player.actionCooldown--;
+            }
+            executeAIPlayerLogic(player, index);
         }
     });
 }
 
-function executeAIPlayerLogic(player) {
+function executeAIPlayerLogic(player, playerIndexForDebug) {
     if (!ball || isGameOver) return;
     const ballPos = ball.position;
     const playerPos = player.body.position;
+
     const directionToBallX = ballPos.x - playerPos.x;
     let moveForceX = 0;
-    if (Math.abs(directionToBallX) > BALL_RADIUS + player.body.width / 2) {
+    if (Math.abs(directionToBallX) > BALL_RADIUS + BODY_WIDTH/2 ) {
         moveForceX = Math.sign(directionToBallX) * AI_MOVE_FORCE;
-        Body.applyForce(player.body, playerPos, { x: moveForceX, y: (Math.random() - 0.5) * AI_MOVE_FORCE * 0.1 });
+        Body.applyForce(player.body, playerPos, { x: moveForceX, y: (Math.random() - 0.5) * AI_MOVE_FORCE * 0.2 });
     }
+
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
+
     if (distanceToBall < AI_ACTION_RANGE && player.actionCooldown === 0) {
-        player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * (1.8 + Math.random() * 0.7);
+        // console.log(`AI Player ${playerIndexForDebug} (Team ${player.team}) ACTING! Dist: ${distanceToBall.toFixed(1)}`); // DEBUG
+        player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * (1.5 + Math.random() * 0.8);
+
         let horizontalActionForceDirection;
         if (player.team === 1) { horizontalActionForceDirection = 1; } else { horizontalActionForceDirection = -1; }
-        const randomXComponent = (Math.random() - 0.5) * 0.015;
-        const randomYComponent = -AI_KICK_ATTEMPT_STRENGTH * (0.7 + Math.random() * 0.3); // Adjusted for more consistent jump
-        Body.applyForce(player.body, playerPos, { x: horizontalActionForceDirection * PLAYER_FLAIL_HORIZONTAL_FORCE * 0.5 + randomXComponent, y: randomYComponent });
-        Body.applyForce(player.leftLeg, player.leftLeg.position, { x: (Math.random() - 0.5) * 0.01, y: -AI_KICK_ATTEMPT_STRENGTH * 0.1 });
-        Body.applyForce(player.rightLeg, player.rightLeg.position, { x: (Math.random() - 0.5) * 0.01, y: -AI_KICK_ATTEMPT_STRENGTH * 0.1 });
-        if (Math.random() < 0.3) {
-            Body.applyForce(player.body, { x: player.body.position.x + (Math.random() - 0.5) * 6, y: player.body.position.y }, { x: 0, y: -0.002 });
+
+        const randomXComponent = (Math.random() - 0.5) * 0.02;
+        const randomYComponent = -AI_KICK_ATTEMPT_STRENGTH * (0.8 + Math.random() * 0.4); // Stronger and more varied jump for AI
+
+        Body.applyForce(player.body, playerPos, {
+            x: horizontalActionForceDirection * PLAYER_FLAIL_HORIZONTAL_FORCE * 0.6 + randomXComponent,
+            y: randomYComponent
+        });
+        Body.applyForce(player.leftLeg, player.leftLeg.position, { x: (Math.random() - 0.5) * 0.015, y: -AI_KICK_ATTEMPT_STRENGTH * 0.15 });
+        Body.applyForce(player.rightLeg, player.rightLeg.position, { x: (Math.random() - 0.5) * 0.015, y: -AI_KICK_ATTEMPT_STRENGTH * 0.15 });
+
+        if (Math.random() < 0.35) {
+            Body.applyForce(player.body,
+                { x: player.body.position.x + (Math.random() - 0.5) * 7, y: player.body.position.y },
+                { x: 0, y: -0.0025 }
+            );
         }
     }
 }
