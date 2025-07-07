@@ -6,7 +6,7 @@ const World = Matter.World;
 const Bodies = Matter.Bodies;
 const Body = Matter.Body;
 const Events = Matter.Events;
-const Composite = Matter.Composite; // Make sure Composite is available
+const Composite = Matter.Composite;
 
 // --- DOM Element References ---
 const canvas = document.getElementById('gameCanvas');
@@ -32,7 +32,7 @@ let pixelCtx;
 
 let engine;
 let world;
-let render; // Matter's renderer, will be disabled for custom pixel rendering
+let render;
 let runner;
 let isGameOver = false;
 let team1Score = 0;
@@ -60,15 +60,15 @@ const LEG_HEIGHT = 35;
 
 // --- Control Constants ---
 const PLAYER_ACTION_COOLDOWN_FRAMES = 30;
-const PLAYER_JUMP_FORCE_LEGS = 0.032;
-const PLAYER_JUMP_FORCE_BODY = 0.012;
+const PLAYER_JUMP_FORCE_LEGS = 0.050; // Increased for human player jump height
+const PLAYER_JUMP_FORCE_BODY = 0.020; // Increased for human player jump height
 const PLAYER_FLAIL_HORIZONTAL_FORCE = 0.01;
 const KICK_RANGE = 50;
 const KICK_FORCE_MAGNITUDE = 0.06;
 
-const AI_ACTION_RANGE = 110;
-const AI_MOVE_FORCE = 0.0004;
-const AI_KICK_ATTEMPT_STRENGTH = 0.028;
+const AI_ACTION_RANGE = 100; // AI will act when closer
+const AI_MOVE_FORCE = 0.0005; // Standard AI nudge force
+const AI_KICK_ATTEMPT_STRENGTH = 0.045; // Increased AI action strength for noticeable jumps
 
 const keysPressed = {};
 
@@ -78,7 +78,6 @@ function setup() {
     world = engine.world;
     engine.world.gravity.y = 1;
 
-    // Original Matter Renderer - DISABLED for custom pixel rendering
     render = Render.create({
         canvas: canvas,
         engine: engine,
@@ -87,17 +86,15 @@ function setup() {
             height: CANVAS_HEIGHT,
             wireframes: false,
             background: '#ACE1AF',
-            enabled: false // <<< DISABLE MATTER RENDERER
+            enabled: false
         }
     });
 
-    // Main canvas setup
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
     const mainCtx = canvas.getContext('2d');
-    mainCtx.imageSmoothingEnabled = false; // Crucial for pixel art scaling
+    mainCtx.imageSmoothingEnabled = false;
 
-    // Create off-screen pixel canvas
     pixelCanvas = document.createElement('canvas');
     pixelCanvas.width = PIXEL_CANVAS_WIDTH;
     pixelCanvas.height = PIXEL_CANVAS_HEIGHT;
@@ -114,7 +111,6 @@ function setup() {
     players.push(createPlayer(CANVAS_WIDTH * 3 / 4 - 30, CANVAS_HEIGHT / 2 - 50, PLAYER_TEAM2_COLOR, false, null, true));
     
     setupInputListeners();
-    // Render.run(render); // Matter renderer is disabled
 
     if (runner) Runner.stop(runner);
     runner = Runner.create();
@@ -123,7 +119,7 @@ function setup() {
     Events.on(engine, 'beforeUpdate', updateGame);
     Events.on(engine, 'collisionStart', handleCollisions);
 
-    gameRenderLoop(); // Start custom rendering loop
+    gameRenderLoop();
 
     isGameOver = false;
     team1Score = 0;
@@ -287,7 +283,7 @@ function executeAIPlayerLogic(player) {
         let horizontalActionForceDirection;
         if (player.team === 1) { horizontalActionForceDirection = 1; } else { horizontalActionForceDirection = -1; }
         const randomXComponent = (Math.random() - 0.5) * 0.015;
-        const randomYComponent = -AI_KICK_ATTEMPT_STRENGTH * (0.5 + Math.random() * 0.4);
+        const randomYComponent = -AI_KICK_ATTEMPT_STRENGTH * (0.7 + Math.random() * 0.3); // Adjusted for more consistent jump
         Body.applyForce(player.body, playerPos, { x: horizontalActionForceDirection * PLAYER_FLAIL_HORIZONTAL_FORCE * 0.5 + randomXComponent, y: randomYComponent });
         Body.applyForce(player.leftLeg, player.leftLeg.position, { x: (Math.random() - 0.5) * 0.01, y: -AI_KICK_ATTEMPT_STRENGTH * 0.1 });
         Body.applyForce(player.rightLeg, player.rightLeg.position, { x: (Math.random() - 0.5) * 0.01, y: -AI_KICK_ATTEMPT_STRENGTH * 0.1 });
