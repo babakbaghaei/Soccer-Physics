@@ -44,6 +44,9 @@ body {
 #gameCanvas {
     border: 2px solid #333;
     background-color: #ACE1AF; /* Default field color from game.js */
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges; /* Firefox */
+    image-rendering: crisp-edges;
 }
 
 #gameMessage {
