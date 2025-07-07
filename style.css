@@ -39,13 +39,11 @@ body {
 
 #timerDisplay {
     color: #5cb85c; /* Greenish for Timer - can be hidden if not used */
-    /* visibility: hidden; Remove if timer is implemented */
 }
 
 #gameCanvas {
     border: 2px solid #333;
     background-color: #ACE1AF; /* Default field color from game.js */
-    /* Dimensions will be set in JavaScript, matching JS constants */
 }
 
 #gameMessage {
