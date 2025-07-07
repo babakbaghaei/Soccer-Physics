@@ -1,930 +1,596 @@
-// Soccer Physics Game - Main Game Logic
-class SoccerPhysicsGame {
-    constructor() {
-        this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.engine = Matter.Engine.create();
-        this.world = this.engine.world;
-        
-        // Game state
-        this.gameState = 'menu'; // 'menu', 'playing', 'paused', 'ended'
-        this.gameTime = 60; // seconds
-        this.maxTime = 60;
-        this.team1Score = 0;
-        this.team2Score = 0;
-        
-        // Physics settings
-        this.engine.world.gravity.y = 1.2;
-        
-        // Game objects
-        this.players = [];
-        this.ball = null;
-        this.boundaries = [];
-        this.goals = [];
-        
-        // Controls
-        this.keys = {};
-        this.playerControls = {
-            player1: 'KeyA',
-            player2: 'KeyS',
-            player3: 'KeyK',
-            player4: 'KeyL'
-        };
-        
-        // Visual settings
-        this.fieldColor = '#32CD32';
-        this.grassPattern = [];
-        
-        this.init();
-    }
-    
-    init() {
-        this.setupEventListeners();
-        this.createField();
-        this.createPlayers();
-        this.createBall();
-        this.generateGrassPattern();
-        this.render();
-        
-        // Start game loop
-        this.gameLoop();
-    }
-    
-    setupEventListeners() {
-        // Keyboard controls
-        document.addEventListener('keydown', (e) => {
-            this.keys[e.code] = true;
-            e.preventDefault();
-        });
-        
-        document.addEventListener('keyup', (e) => {
-            this.keys[e.code] = false;
-            e.preventDefault();
-        });
-        
-        // Button controls
-        document.getElementById('startButton').addEventListener('click', () => {
-            this.startGame();
-        });
-        
-        document.getElementById('resetButton').addEventListener('click', () => {
-            this.resetGame();
-        });
-        
-        document.getElementById('playAgainButton').addEventListener('click', () => {
-            this.resetGame();
-            document.getElementById('gameOver').style.display = 'none';
-        });
+// --- Matter.js Aliases ---
+const Engine = Matter.Engine;
+const Render = Matter.Render;
+const Runner = Matter.Runner;
+const World = Matter.World;
+const Bodies = Matter.Bodies;
+const Body = Matter.Body;
+const Events = Matter.Events;
+const Composite = Matter.Composite; // If needed for grouping bodies
 
-        // Physics collision events
-        Matter.Events.on(this.engine, 'collisionStart', (event) => {
-            const pairs = event.pairs;
-            for (let i = 0; i < pairs.length; i++) {
-                const pair = pairs[i];
-                this.players.forEach(player => {
-                    // Check if a player's leg is colliding with the ground
-                    if ((pair.bodyA.label === 'playerPart_leg' && pair.bodyB.label === 'ground') ||
-                        (pair.bodyB.label === 'playerPart_leg' && pair.bodyA.label === 'ground')) {
+// --- DOM Element References ---
+const canvas = document.getElementById('gameCanvas');
+const team1ScoreDisplay = document.getElementById('team1ScoreDisplay');
+const team2ScoreDisplay = document.getElementById('team2ScoreDisplay');
+const timerDisplay = document.getElementById('timerDisplay'); // Will use for round timer later
+const gameMessageDisplay = document.getElementById('gameMessage');
 
-                        // Check if the colliding leg belongs to this player
-                        if (player.parts.includes(pair.bodyA) || player.parts.includes(pair.bodyB)) {
-                            player.isGrounded = true;
-                            player.jumpCount = 0; // Reset jumpCount when grounded
-                        }
-                    }
-                });
-            }
-        });
+// --- Game Constants ---
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
 
-        // It's often more robust to set isGrounded = false when a jump action is taken,
-        // and rely on collisionStart to set it true.
-        // Matter.Events.on(this.engine, 'collisionEnd', (event) => {
-        //     const pairs = event.pairs;
-        //     for (let i = 0; i < pairs.length; i++) {
-        //         const pair = pairs[i];
-        //         this.players.forEach(player => {
-        //             if ((pair.bodyA.label === 'playerPart_leg' && pair.bodyB.label === 'ground') ||
-        //                 (pair.bodyB.label === 'playerPart_leg' && pair.bodyA.label === 'ground')) {
-        //                 if (player.parts.includes(pair.bodyA) || player.parts.includes(pair.bodyB)) {
-        //                     // This might make the player lose grounded status too easily if one foot lifts slightly.
-        //                     // player.isGrounded = false;
-        //                 }
-        //             }
-        //         });
-        //     }
-        // });
-    }
-    
-    createField() {
-        const width = this.canvas.width;
-        const height = this.canvas.height;
-        
-        // Field boundaries
-        const thickness = 20;
-        
-        // Ground
-        const ground = Matter.Bodies.rectangle(width/2, height - thickness/2, width, thickness, {
-            isStatic: true,
-            label: 'ground', // Added label for ground
-            render: { fillStyle: '#8B4513' }
-        });
-        
-        // Ceiling (invisible boundary)
-        const ceiling = Matter.Bodies.rectangle(width/2, -thickness/2, width, thickness, {
-            isStatic: true,
-            render: { visible: false }
-        });
-        
-        // Left wall
-        const leftWall = Matter.Bodies.rectangle(-thickness/2, height/2, thickness, height, {
-            isStatic: true,
-            render: { fillStyle: '#8B4513' }
-        });
-        
-        // Right wall  
-        const rightWall = Matter.Bodies.rectangle(width + thickness/2, height/2, thickness, height, {
-            isStatic: true,
-            render: { fillStyle: '#8B4513' }
-        });
-        
-        this.boundaries = [ground, ceiling, leftWall, rightWall];
-        Matter.World.add(this.world, this.boundaries);
-        
-        // Goals
-        this.createGoals();
-    }
-    
-    createGoals() {
-        const goalWidth = 20;
-        const goalHeight = 150;
-        const goalDepth = 50;
-        
-        // Left goal (Team 2 scores here)
-        const leftGoalTop = Matter.Bodies.rectangle(goalDepth/2, this.canvas.height - goalHeight - 20, goalDepth, 20, {
-            isStatic: true,
-            render: { fillStyle: '#ffffff' },
-            label: 'goalPost'
-        });
-        
-        const leftGoalBottom = Matter.Bodies.rectangle(goalDepth/2, this.canvas.height - 20, goalDepth, 20, {
-            isStatic: true,
-            render: { fillStyle: '#ffffff' },
-            label: 'goalPost'
-        });
-        
-        const leftGoalBack = Matter.Bodies.rectangle(5, this.canvas.height - goalHeight/2 - 20, 10, goalHeight, {
-            isStatic: true,
-            render: { fillStyle: '#ffffff' },
-            label: 'goalPost'
-        });
-        
-        // Right goal (Team 1 scores here)
-        const rightGoalTop = Matter.Bodies.rectangle(this.canvas.width - goalDepth/2, this.canvas.height - goalHeight - 20, goalDepth, 20, {
-            isStatic: true,
-            render: { fillStyle: '#ffffff' },
-            label: 'goalPost'
-        });
-        
-        const rightGoalBottom = Matter.Bodies.rectangle(this.canvas.width - goalDepth/2, this.canvas.height - 20, goalDepth, 20, {
-            isStatic: true,
-            render: { fillStyle: '#ffffff' },
-            label: 'goalPost'
-        });
-        
-        const rightGoalBack = Matter.Bodies.rectangle(this.canvas.width - 5, this.canvas.height - goalHeight/2 - 20, 10, goalHeight, {
-            isStatic: true,
-            render: { fillStyle: '#ffffff' },
-            label: 'goalPost'
-        });
-        
-        this.goals = [
-            { side: 'left', area: { x: 0, y: this.canvas.height - goalHeight - 20, width: goalDepth + 10, height: goalHeight }},
-            { side: 'right', area: { x: this.canvas.width - goalDepth - 10, y: this.canvas.height - goalHeight - 20, width: goalDepth + 10, height: goalHeight }}
-        ];
-        
-        Matter.World.add(this.world, [leftGoalTop, leftGoalBottom, leftGoalBack, rightGoalTop, rightGoalBottom, rightGoalBack]);
-    }
-    
-    createPlayers() {
-        // Ragdoll player creation
-        const playerSize = 25;
-        
-        // Team 1 (Pastel Pink) - Left side
-        this.players[0] = this.createRagdollPlayer(200, 400, '#FFB6C1', 'player1');
-        this.players[1] = this.createRagdollPlayer(150, 500, '#FFB6C1', 'player2');
-        
-        // Team 2 (Pastel Blue) - Right side  
-        this.players[2] = this.createRagdollPlayer(800, 400, '#87CEEB', 'player3');
-        this.players[3] = this.createRagdollPlayer(850, 500, '#87CEEB', 'player4');
-    }
-    
-    createRagdollPlayer(x, y, color, controlKey) {
-        // Create ragdoll with head, body, and limbs
-        const head = Matter.Bodies.circle(x, y - 30, 15, {
-            density: 0.002,
-            frictionAir: 0.05,
-            friction: 0.7, // Slightly reduced
-            restitution: 0.4, // Slightly increased
-            render: { fillStyle: color }
-        });
-        
-        const body = Matter.Bodies.rectangle(x, y, 20, 40, {
-            density: 0.003,
-            frictionAir: 0.08,
-            friction: 0.8, // Slightly reduced
-            restitution: 0.3, // Slightly increased
-            render: { fillStyle: color }
-        });
-        
-        const leftLeg = Matter.Bodies.rectangle(x - 10, y + 35, 12, 30, {
-            density: 0.004,
-            frictionAir: 0.1,
-            friction: 0.6, // Reduced from 1.2
-            restitution: 0.2, // Increased from 0.1
-            render: { fillStyle: color }
-        });
-        
-        const rightLeg = Matter.Bodies.rectangle(x + 10, y + 35, 12, 30, {
-            density: 0.004,
-            frictionAir: 0.1,
-            friction: 0.6, // Reduced from 1.2
-            restitution: 0.2, // Increased from 0.1
-            render: { fillStyle: color }
-        });
-        
-        // Connect body parts with constraints
-        const neckConstraint = Matter.Constraint.create({
-            bodyA: head,
-            bodyB: body,
-            length: 20,
-            stiffness: 0.8, // Reduced from 0.9
-            damping: 0.15   // Increased from 0.1
-        });
-        
-        const leftLegConstraint = Matter.Constraint.create({
-            bodyA: body,
-            bodyB: leftLeg,
-            length: 25,
-            stiffness: 0.6, // Reduced from 0.7
-            damping: 0.1    // Increased from 0.05
-        });
-        
-        const rightLegConstraint = Matter.Constraint.create({
-            bodyA: body,
-            bodyB: rightLeg,
-            length: 25,
-            stiffness: 0.6, // Reduced from 0.7
-            damping: 0.1    // Increased from 0.05
-        });
-        
-        const player = {
-            head: head,
-            body: body,
-            leftLeg: leftLeg,
-            rightLeg: rightLeg,
-            constraints: [neckConstraint, leftLegConstraint, rightLegConstraint],
-            controlKey: controlKey,
-            color: color,
-            team: color === '#FFB6C1' ? 1 : 2,
-            kickCooldown: 0,
-            jumpCount: 0,
-            isGrounded: false // Initialize isGrounded state
-        };
-        
-        // Add labels to player parts for collision detection
-        head.label = 'playerPart';
-        body.label = 'playerPart';
-        leftLeg.label = 'playerPart_leg'; // Specific label for legs/feet
-        rightLeg.label = 'playerPart_leg'; // Specific label for legs/feet
+// --- Game Variables ---
+const SCORE_TO_WIN = 3;
+let isGameOver = false;
 
-        player.parts = [head, body, leftLeg, rightLeg]; // Store parts for easy access
+let engine;
+let world;
+let render;
+let runner;
 
-        Matter.World.add(this.world, [head, body, leftLeg, rightLeg, ...player.constraints]);
-        
-        return player;
-    }
-    
-    createBall() {
-        this.ball = Matter.Bodies.circle(this.canvas.width/2, 200, 20, {
-            density: 0.002,
-            frictionAir: 0.03,
-            friction: 0.5,
-            restitution: 0.7,
-            render: { 
-                fillStyle: '#F0F8FF',
-                strokeStyle: '#B19CD9',
-                lineWidth: 2
-            },
-            label: 'ball'
-        });
-        
-        Matter.World.add(this.world, this.ball);
-    }
-    
-    generateGrassPattern() {
-        // Create pixelated grass pattern
-        for (let i = 0; i < 200; i++) {
-            this.grassPattern.push({
-                x: Math.random() * this.canvas.width,
-                y: this.canvas.height - 40 + Math.random() * 20,
-                size: Math.random() * 3 + 1,
-                shade: Math.random() * 0.3
-            });
+let team1Score = 0;
+let team2Score = 0;
+let ball;
+let players = []; // Array to hold player objects
+// More game state variables will be added here (players, ball, etc.)
+
+// --- Player Constants ---
+const PLAYER_TEAM1_COLOR = '#D9534F'; // Reddish
+const PLAYER_TEAM2_COLOR = '#428BCA'; // Bluish
+const PLAYER_PART_FRICTION = 0.5;
+const PLAYER_PART_RESTITUTION = 0.4;
+const PLAYER_DENSITY = 0.002;
+
+// --- Ragdoll Parts Dimensions ---
+const HEAD_RADIUS = 15;
+const BODY_WIDTH = 25;
+const BODY_HEIGHT = 40;
+const LEG_WIDTH = 15;
+const LEG_HEIGHT = 35;
+
+
+// --- Initialization Function ---
+function setup() {
+    // Create Matter.js Engine
+    engine = Engine.create();
+    world = engine.world;
+    engine.world.gravity.y = 1; // Standard gravity
+
+    // Create Matter.js Renderer
+    render = Render.create({
+        canvas: canvas,
+        engine: engine,
+        options: {
+            width: CANVAS_WIDTH,
+            height: CANVAS_HEIGHT,
+            wireframes: false, // Show filled shapes
+            background: '#e0ffe0', // Light green, same as CSS for consistency
+            showAngleIndicator: false, // Don't show angle indicator on bodies
+            // showCollisions: true, // Useful for debugging
+            // showVelocity: true    // Useful for debugging
         }
-    }
+    });
+
+    // Set canvas dimensions explicitly (though renderer does it too)
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+
+    // --- Placeholder for game objects (field, players, ball) ---
+    createField(); // Create the field boundaries and goals
+    createBall(); // Create the ball
+
+    createField(); // Create the field boundaries and goals
+    createBall(); // Create the ball
+
+    // Define controls mapping
+    const playerControlKeys = ['KeyW', 'KeyS', 'ArrowUp', 'ArrowDown'];
+
+    // Create Players
+    // Team 1
+    players.push(createPlayer(CANVAS_WIDTH / 4, CANVAS_HEIGHT / 2 - 100, PLAYER_TEAM1_COLOR, true));
+    players[0].inputKey = playerControlKeys[0];
+    players.push(createPlayer(CANVAS_WIDTH / 4 + 60, CANVAS_HEIGHT / 2 - 80, PLAYER_TEAM1_COLOR, true));
+    players[1].inputKey = playerControlKeys[1];
+    // Team 2
+    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, CANVAS_HEIGHT / 2 - 100, PLAYER_TEAM2_COLOR, false));
+    players[2].inputKey = playerControlKeys[2];
+    players.push(createPlayer(CANVAS_WIDTH * 3 / 4 - 60, CANVAS_HEIGHT / 2 - 80, PLAYER_TEAM2_COLOR, false));
+    players[3].inputKey = playerControlKeys[3];
     
-    handlePlayerControls() {
-        if (this.gameState !== 'playing') return;
-        
-        this.players.forEach(player => {
-            if (player.kickCooldown > 0) {
-                player.kickCooldown--;
-            }
-            
-            // Decrease jump count over time - This is now handled by isGrounded
-            // if (player.jumpCount > 0) {
-            //     player.jumpCount--;
-            // }
-            
-            if (this.keys[this.playerControls[player.controlKey]] && player.kickCooldown === 0) {
-                // Check if player is grounded before allowing jump/kick
-                if (player.isGrounded) {
-                    player.isGrounded = false; // Player is now in the air
-                    player.jumpCount++; // Increment jump count (can be used for multi-jump or other logic)
+    setupInputListeners(); // Initialize keyboard listeners
 
-                    const force = 0.028; // Jump force
-                    let horizontalForce = 0;
-                    
-                    const ballActualDistance = Math.sqrt(
-                        Math.pow(this.ball.position.x - player.body.position.x, 2) +
-                        Math.pow(this.ball.position.y - player.body.position.y, 2)
-                    );
-                    const ballDirectionX = this.ball.position.x - player.body.position.x; // Just the X direction for horizontal force
+    // Start the renderer
+    Render.run(render);
+    runner = Runner.create();
+    Runner.run(runner, engine);
 
-                    let targetHorizontalForce = 0;
-                    const maxInfluenceDistance = 350; // Max distance ball has strong influence
-                    const minInfluenceDistance = 50; // Min distance, full influence
+    // Hook player controls into the game loop
+    // Hook player controls into the game loop
+    Events.on(engine, 'beforeUpdate', handlePlayerControls);
 
-                    if (ballActualDistance < maxInfluenceDistance) {
-                        let influenceFactor = 1.0;
-                        if (ballActualDistance > minInfluenceDistance) {
-                            influenceFactor = 1.0 - (ballActualDistance - minInfluenceDistance) / (maxInfluenceDistance - minInfluenceDistance);
-                        }
-                        influenceFactor = Math.max(0, influenceFactor); // Ensure factor is not negative
+    // Collision detection for goals
+    Events.on(engine, 'collisionStart', (event) => {
+        if (isGameOver) return; // Don't process new collisions if game is over
+        const pairs = event.pairs;
+        for (let i = 0; i < pairs.length; i++) {
+            const pair = pairs[i];
+            const bodyA = pair.bodyA;
+            const bodyB = pair.bodyB;
 
-                        targetHorizontalForce = (ballDirectionX > 0 ? 1 : -1) * 0.015 * influenceFactor; // Max horizontal push towards ball
-                    }
+            if (bodyA.label === 'ball' || bodyB.label === 'ball') {
+                const otherBody = (bodyA.label === 'ball') ? bodyB : bodyA;
 
-                    // Add a very small general horizontal nudge based on team direction.
-                    // This helps avoid purely vertical jumps and gives a slight field momentum.
-                    let baseNudge = 0;
-                    if (player.team === 1) { // Team 1 (Pink, on left side) generally wants to move right
-                        baseNudge = 0.003;
-                    } else { // Team 2 (Blue, on right side) generally wants to move left
-                        baseNudge = -0.003;
-                    }
-                    
-                    horizontalForce = targetHorizontalForce + baseNudge;
-                    // Ensure total horizontal force isn't excessive if both target and nudge align
-                    const maxHorizontalForce = 0.020;
-                    horizontalForce = Math.max(-maxHorizontalForce, Math.min(maxHorizontalForce, horizontalForce));
-
-                    Matter.Body.applyForce(player.body, player.body.position, {
-                        x: horizontalForce,
-                        y: -force
-                    });
-                    Matter.Body.applyForce(player.head, player.head.position, {
-                        x: horizontalForce * 0.3,
-                        y: -force * 0.25 // Adjusted head force ratio
-                    });
-
-                    // Leg flair - apply force outwards from body center slightly
-                    const legFlairForce = 0.005;
-                    if (player.leftLeg.position.x < player.body.position.x) { // Left leg is to the left
-                        Matter.Body.applyForce(player.leftLeg, player.leftLeg.position, { x: -legFlairForce, y: -force * 0.05 });
-                    } else {
-                        Matter.Body.applyForce(player.leftLeg, player.leftLeg.position, { x: legFlairForce, y: -force * 0.05 });
-                    }
-                    if (player.rightLeg.position.x > player.body.position.x) { // Right leg is to the right
-                        Matter.Body.applyForce(player.rightLeg, player.rightLeg.position, { x: legFlairForce, y: -force * 0.05 });
-                    } else {
-                        Matter.Body.applyForce(player.rightLeg, player.rightLeg.position, { x: -legFlairForce, y: -force * 0.05 });
-                    }
-
-                    player.kickCooldown = 20;
-
-                    // Kick ball logic
-                    const ballDistance = Math.sqrt(
-                        Math.pow(this.ball.position.x - player.body.position.x, 2) +
-                        Math.pow(this.ball.position.y - player.body.position.y, 2)
-                    );
-
-                    if (ballDistance < 75) { // Increased kick detection radius
-                        const kickForceMultiplier = 0.035; // Slightly stronger kick
-                        const angle = Math.atan2(
-                            this.ball.position.y - player.body.position.y,
-                            this.ball.position.x - player.body.position.x
-                        );
-
-                        // Apply force to ball
-                        Matter.Body.applyForce(this.ball, this.ball.position, {
-                            x: Math.cos(angle) * kickForceMultiplier,
-                            y: Math.sin(angle) * kickForceMultiplier - 0.015 // More lift on kick
-                        });
-
-                        // Small reactive force on player's body from kicking
-                        Matter.Body.applyForce(player.body, player.body.position, {
-                            x: -Math.cos(angle) * kickForceMultiplier * 0.1,
-                            y: -Math.sin(angle) * kickForceMultiplier * 0.1
-                        });
-                    }
+                if (otherBody.label === 'goal-left') {
+                    handleGoalScored(2);
+                } else if (otherBody.label === 'goal-right') {
+                    handleGoalScored(1);
                 }
             }
-        });
-    }
-    
-    checkGoals() {
-        if (this.gameState !== 'playing') return;
-        
-        const ballX = this.ball.position.x;
-        const ballY = this.ball.position.y;
-        
-        // Check left goal (Team 2 scores)
-        if (ballX < this.goals[0].area.width && 
-            ballY > this.goals[0].area.y && 
-            ballY < this.goals[0].area.y + this.goals[0].area.height) {
-            this.score(2);
         }
-        
-        // Check right goal (Team 1 scores)
-        if (ballX > this.goals[1].area.x && 
-            ballY > this.goals[1].area.y && 
-            ballY < this.goals[1].area.y + this.goals[1].area.height) {
-            this.score(1);
-        }
-    }
+    });
     
-    score(team) {
-        if (team === 1) {
-            this.team1Score++;
-            document.getElementById('team1Score').textContent = `TEAM 1: ${this.team1Score}`;
-        } else {
-            this.team2Score++;
-            document.getElementById('team2Score').textContent = `TEAM 2: ${this.team2Score}`;
-        }
-        
-        // Reset ball position
-        Matter.Body.setPosition(this.ball, { x: this.canvas.width/2, y: 200 });
-        Matter.Body.setVelocity(this.ball, { x: 0, y: 0 });
-        
-        // Reset players
-        this.resetPlayerPositions();
-        
-        // Flash effect
-        this.flashScreen();
-    }
+    isGameOver = false; // Reset game over state at the start
+    team1Score = 0;     // Reset scores
+    team2Score = 0;
+    updateScoreDisplay(); // Initialize score display
+    showGameMessage(''); // Clear any previous game messages
     
-    flashScreen() {
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // Ensure runner is running if setup is called multiple times (e.g. for a play again feature later)
+    if (runner && runner.enabled === false) {
+        Runner.run(runner, engine);
+    } else if (!runner) {
+        runner = Runner.create();
+        Runner.run(runner, engine);
     }
-    
-    resetPlayerPositions() {
-        // Reset Team 1 (Red)
-        Matter.Body.setPosition(this.players[0].body, { x: 200, y: 400 });
-        Matter.Body.setPosition(this.players[1].body, { x: 150, y: 500 });
-        
-        // Reset Team 2 (Blue)
-        Matter.Body.setPosition(this.players[2].body, { x: 800, y: 400 });
-        Matter.Body.setPosition(this.players[3].body, { x: 850, y: 500 });
-        
-        // Reset velocities
-        this.players.forEach(player => {
-            Matter.Body.setVelocity(player.body, { x: 0, y: 0 });
-            Matter.Body.setVelocity(player.head, { x: 0, y: 0 });
-            Matter.Body.setVelocity(player.leftLeg, { x: 0, y: 0 });
-            Matter.Body.setVelocity(player.rightLeg, { x: 0, y: 0 });
-        });
-    }
-    
-    updateTimer() {
-        if (this.gameState === 'playing') {
-            this.gameTime -= 1/60; // Assuming 60 FPS
-            
-            if (this.gameTime <= 0) {
-                this.gameTime = 0;
-                this.endGame();
-            }
-            
-            document.getElementById('timer').textContent = `TIME: ${Math.ceil(this.gameTime)}s`;
-        }
-    }
-    
-    startGame() {
-        this.gameState = 'playing';
-        this.gameTime = this.maxTime;
-        document.getElementById('startButton').textContent = 'PLAYING...';
-        document.getElementById('startButton').disabled = true;
-    }
-    
-    endGame() {
-        this.gameState = 'ended';
-        
-        let winnerText = '';
-        if (this.team1Score > this.team2Score) {
-            winnerText = 'TEAM 1 (PINK) WINS!';
-        } else if (this.team2Score > this.team1Score) {
-            winnerText = 'TEAM 2 (SKY BLUE) WINS!';
-        } else {
-            winnerText = "IT'S A TIE!";
-        }
-        
-        document.getElementById('winnerText').textContent = winnerText;
-        document.getElementById('gameOver').style.display = 'flex';
-    }
-    
-    resetGame() {
-        this.gameState = 'menu';
-        this.gameTime = this.maxTime;
-        this.team1Score = 0;
-        this.team2Score = 0;
-        
-        // Update UI
-        document.getElementById('team1Score').textContent = 'TEAM 1: 0';
-        document.getElementById('team2Score').textContent = 'TEAM 2: 0';
-        document.getElementById('timer').textContent = `TIME: ${this.maxTime}s`;
-        document.getElementById('startButton').textContent = 'START GAME';
-        document.getElementById('startButton').disabled = false;
-        
-        // Reset ball
-        Matter.Body.setPosition(this.ball, { x: this.canvas.width/2, y: 200 });
-        Matter.Body.setVelocity(this.ball, { x: 0, y: 0 });
-        
-        // Reset players
-        this.resetPlayerPositions();
-    }
-    
-    render() {
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw field background
-        this.drawField();
-        
-        // Draw grass pattern
-        this.drawGrass();
-        
-        // Draw center circle
-        this.drawCenterCircle();
+    // If runner exists and is enabled, do nothing.
+}
+// Make sure setupInputListeners and handlePlayerControls are defined before setup if not already.
+// The current placement of these functions (after createPlayer but before setup's first call to them) is fine.
+// However, it's common practice to define functions before they are referenced if not hoisted.
+// For this script, it works due to hoisting or order of execution.
 
-        // Draw 3D Goals
-        this.drawGoals3D();
-        
-        // Draw goal areas (these are the lines on the ground)
-        this.drawGoalAreas();
-        
-        // Draw players
-        this.players.forEach(player => this.drawPlayer(player));
-        
-        // Draw ball
-        this.drawBall();
-        
-        // Draw ball trail effect
-        this.drawBallTrail();
-    }
-    
-    drawField() {
-        // Field background with pastel gradient
-        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-        gradient.addColorStop(0, '#C7EFCF');
-        gradient.addColorStop(0.5, '#B2E6B8');
-        gradient.addColorStop(1, '#98E4A3');
-        
-        this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Add 3D depth with darker strips
-        this.ctx.fillStyle = 'rgba(144, 238, 144, 0.3)';
-        for (let i = 0; i < this.canvas.width; i += 50) {
-            this.ctx.fillRect(i, 0, 25, this.canvas.height);
-        }
-        
-        // Field lines in soft white
-        this.ctx.strokeStyle = '#F5F5F5';
-        this.ctx.lineWidth = 4;
-        
-        // Center line
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.canvas.width/2, 0);
-        this.ctx.lineTo(this.canvas.width/2, this.canvas.height);
-        this.ctx.stroke();
-        
-        // Outer boundary
-        this.ctx.strokeRect(15, 15, this.canvas.width - 30, this.canvas.height - 45);
-    }
-    
-    drawGrass() {
-        // Draw pixelated grass
-        this.grassPattern.forEach(grass => {
-            this.ctx.fillStyle = `rgba(0, 100, 0, ${0.3 + grass.shade})`;
-            this.ctx.fillRect(grass.x, grass.y, grass.size, grass.size);
-        });
-    }
-    
-    drawCenterCircle() {
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 3;
-        this.ctx.beginPath();
-        this.ctx.arc(this.canvas.width/2, this.canvas.height/2, 80, 0, Math.PI * 2);
-        this.ctx.stroke();
-    }
-    
-    drawGoalAreas() {
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 3;
-        
-        // Left goal area
-        this.ctx.strokeRect(10, this.canvas.height - 170, 100, 140);
-        
-        // Right goal area
-        this.ctx.strokeRect(this.canvas.width - 110, this.canvas.height - 170, 100, 140);
-    }
-    
-    drawPlayer(player) {
-        // Draw ragdoll player with 3D pixelated style
-        this.ctx.strokeStyle = '#666';
-        this.ctx.lineWidth = 2;
-        
-        // Draw simplified player shadow (ellipse at feet)
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        const shadowPlayerRadiusX = 25;
-        const shadowPlayerRadiusY = 8;
-        // Approximate player's "base" position - using the body's y position as a reference
-        const baseY = player.body.position.y + 20; // Offset to appear under the player
-        this.ctx.beginPath();
-        this.ctx.ellipse(
-            player.body.position.x,
-            baseY,
-            shadowPlayerRadiusX,
-            shadowPlayerRadiusY,
-            0,
-            0,
-            Math.PI * 2
-        );
-        this.ctx.fill();
-        
-        // Main body parts
-        this.ctx.fillStyle = player.color;
-        
-        // Body with 3D highlight
-        this.drawPixelated3DRect(player.body.position.x, player.body.position.y, 20, 40, player.body.angle, player.color);
-        
-        // Head with 3D effect
-        this.drawPixelated3DCircle(player.head.position.x, player.head.position.y, 15, player.color);
-        
-        // Legs with 3D effect
-        this.drawPixelated3DRect(player.leftLeg.position.x, player.leftLeg.position.y, 12, 30, player.leftLeg.angle, player.color);
-        this.drawPixelated3DRect(player.rightLeg.position.x, player.rightLeg.position.y, 12, 30, player.rightLeg.angle, player.color);
-        
-        // Eyes for comedy
-        this.ctx.fillStyle = '#333';
-        const eyeSize = 4;
-        this.ctx.fillRect(player.head.position.x - 7, player.head.position.y - 6, eyeSize, eyeSize);
-        this.ctx.fillRect(player.head.position.x + 4, player.head.position.y - 6, eyeSize, eyeSize);
-        
-        // Eye highlights
-        this.ctx.fillStyle = '#FFF';
-        this.ctx.fillRect(player.head.position.x - 6, player.head.position.y - 5, 2, 2);
-        this.ctx.fillRect(player.head.position.x + 5, player.head.position.y - 5, 2, 2);
-    }
-    
-    drawBall() {
-        const ball = this.ball;
-        
-        // Ball shadow
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        this.ctx.beginPath();
-        const shadowYOffset = ball.render.sprite && ball.render.sprite.yOffset ? ball.render.sprite.yOffset / 2 : 10; // Adjust based on sprite if available, else default
-        const shadowRadiusX = (ball.circleRadius || 20) * 1.0; // Use ball.circleRadius if available
-        const shadowRadiusY = (ball.circleRadius || 20) * 0.4;
-        this.ctx.ellipse(
-            ball.position.x,
-            ball.position.y + (ball.circleRadius || 20) * 0.5 + shadowYOffset / 3, // Position shadow under the ball
-            shadowRadiusX,
-            shadowRadiusY,
-            0,
-            0,
-            Math.PI * 2
-        );
-        this.ctx.fill();
-        
-        // Main ball with 3D effect
-        this.drawPixelated3DCircle(ball.position.x, ball.position.y, 20, '#F0F8FF');
-        
-        // Ball pattern with pastel colors
-        this.ctx.strokeStyle = '#D8BFD8';
-        this.ctx.lineWidth = 3;
-        
-        // Curved lines for soccer ball pattern
-        this.ctx.beginPath();
-        this.ctx.arc(ball.position.x, ball.position.y, 15, 0, Math.PI);
-        this.ctx.stroke();
-        
-        this.ctx.beginPath();
-        this.ctx.arc(ball.position.x, ball.position.y, 15, Math.PI/3, Math.PI * 4/3);
-        this.ctx.stroke();
-        
-        this.ctx.beginPath();
-        this.ctx.arc(ball.position.x, ball.position.y, 15, Math.PI * 2/3, Math.PI * 5/3);
-        this.ctx.stroke();
-        
-        // Center dot
-        this.ctx.fillStyle = '#DDA0DD';
-        this.ctx.fillRect(ball.position.x - 2, ball.position.y - 2, 4, 4);
-    }
-    
-    drawBallTrail() {
-        // Simple trail effect
-        if (this.ball.velocity.x * this.ball.velocity.x + this.ball.velocity.y * this.ball.velocity.y > 1) {
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            for (let i = 1; i <= 3; i++) {
-                const trailX = this.ball.position.x - (this.ball.velocity.x * i * 2);
-                const trailY = this.ball.position.y - (this.ball.velocity.y * i * 2);
-                this.ctx.beginPath();
-                this.ctx.arc(trailX, trailY, 20 - i * 5, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-        }
-    }
+    // Create and run the physics engine runner
+    runner = Runner.create();
+    Runner.run(runner, engine);
 
-    drawGoals3D() {
-        const goalPostColor = '#E0E0E0'; // Light grey posts
-        const goalPostThickness = 8;
-        const netColor = 'rgba(200, 200, 200, 0.4)';
+    // Initial score display update
+    updateScoreDisplay();
 
-        const canvasHeight = this.canvas.height;
-        const groundLevelY = canvasHeight - 20; // From ground body thickness
-        const goalVisualHeight = 150; // From createGoals
-        const goalMouthWidth = 50; // From createGoals goalDepth, which is used as width for top/bottom bars
-
-        // Left Goal (Team 2 scores)
-        const leftGoalPost1X = 0;
-        const leftGoalPost2X = goalMouthWidth;
-        const goalTopY = groundLevelY - goalVisualHeight;
-
-        this.ctx.fillStyle = goalPostColor;
-        // Post 1 (leftmost)
-        this.ctx.fillRect(leftGoalPost1X, goalTopY, goalPostThickness, goalVisualHeight);
-        // Post 2 (rightmost of the opening)
-        this.ctx.fillRect(leftGoalPost2X - goalPostThickness, goalTopY, goalPostThickness, goalVisualHeight);
-        // Crossbar
-        this.ctx.fillRect(leftGoalPost1X, goalTopY, leftGoalPost2X - leftGoalPost1X, goalPostThickness);
-
-        // Net (simple back and side representation)
-        this.ctx.fillStyle = netColor;
-        this.ctx.beginPath();
-        this.ctx.moveTo(leftGoalPost1X + goalPostThickness / 2, goalTopY + goalPostThickness / 2);
-        this.ctx.lineTo(leftGoalPost1X + goalPostThickness / 2, groundLevelY);
-        this.ctx.lineTo(0, groundLevelY);
-        this.ctx.lineTo(0, groundLevelY - goalVisualHeight / 1.5);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        this.ctx.beginPath();
-        this.ctx.moveTo(leftGoalPost2X - goalPostThickness / 2, goalTopY + goalPostThickness / 2);
-        this.ctx.lineTo(leftGoalPost2X - goalPostThickness / 2, groundLevelY);
-        this.ctx.lineTo(0, groundLevelY);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        // Right Goal (Team 1 scores)
-        const rightGoalPost1X = this.canvas.width - goalMouthWidth;
-        const rightGoalPost2X = this.canvas.width;
-
-        this.ctx.fillStyle = goalPostColor;
-        // Post 1 (leftmost of the opening)
-        this.ctx.fillRect(rightGoalPost1X, goalTopY, goalPostThickness, goalVisualHeight);
-        // Post 2 (rightmost)
-        this.ctx.fillRect(rightGoalPost2X - goalPostThickness, goalTopY, goalPostThickness, goalVisualHeight);
-        // Crossbar
-        this.ctx.fillRect(rightGoalPost1X, goalTopY, rightGoalPost2X - rightGoalPost1X, goalPostThickness);
-
-        // Net
-        this.ctx.fillStyle = netColor;
-        this.ctx.beginPath();
-        this.ctx.moveTo(rightGoalPost1X + goalPostThickness / 2, goalTopY + goalPostThickness / 2);
-        this.ctx.lineTo(rightGoalPost1X + goalPostThickness / 2, groundLevelY);
-        this.ctx.lineTo(this.canvas.width, groundLevelY);
-        this.ctx.lineTo(this.canvas.width, groundLevelY - goalVisualHeight / 1.5);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        this.ctx.beginPath();
-        this.ctx.moveTo(rightGoalPost2X - goalPostThickness / 2, goalTopY + goalPostThickness / 2);
-        this.ctx.lineTo(rightGoalPost2X - goalPostThickness / 2, groundLevelY);
-        this.ctx.lineTo(this.canvas.width, groundLevelY);
-        this.ctx.closePath();
-        this.ctx.fill();
-    }
-    
-    drawPixelatedRect(x, y, width, height, angle = 0) {
-        this.ctx.save();
-        this.ctx.translate(x, y);
-        this.ctx.rotate(angle);
-        this.ctx.fillRect(-width/2, -height/2, width, height);
-        this.ctx.strokeRect(-width/2, -height/2, width, height);
-        this.ctx.restore();
-    }
-    
-    drawPixelatedCircle(x, y, radius) {
-        // Pixelated circle using small rectangles
-        const pixels = 8;
-        const angleStep = (Math.PI * 2) / pixels;
-        
-        for (let i = 0; i < pixels; i++) {
-            const angle = i * angleStep;
-            const pixelX = x + Math.cos(angle) * radius;
-            const pixelY = y + Math.sin(angle) * radius;
-            
-            this.ctx.fillRect(pixelX - 2, pixelY - 2, 4, 4);
-        }
-        
-        // Fill center
-        this.ctx.fillRect(x - radius/2, y - radius/2, radius, radius);
-        this.ctx.strokeRect(x - radius/2, y - radius/2, radius, radius);
-    }
-    
-    drawPixelated3DRect(x, y, width, height, angle = 0, color) {
-        this.ctx.save();
-        this.ctx.translate(x, y);
-        this.ctx.rotate(angle);
-        
-        // Main color
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(-width/2, -height/2, width, height);
-        
-        // Highlight (lighter top and left)
-        // const r = parseInt(color.substr(1,2), 16);
-        // const g = parseInt(color.substr(3,2), 16);
-        // const b = parseInt(color.substr(5,2), 16);
-        // const highlight = `rgb(${Math.min(255, r + 30)}, ${Math.min(255, g + 30)}, ${Math.min(255, b + 30)})`;
-        
-        // this.ctx.fillStyle = highlight;
-        // this.ctx.fillRect(-width/2, -height/2, width, 4); // Top highlight
-        // this.ctx.fillRect(-width/2, -height/2, 4, height); // Left highlight
-        
-        // Shadow (darker bottom and right)
-        // const shadow = `rgb(${Math.max(0, r - 30)}, ${Math.max(0, g - 30)}, ${Math.max(0, b - 30)})`;
-        // this.ctx.fillStyle = shadow;
-        // this.ctx.fillRect(-width/2, height/2 - 4, width, 4); // Bottom shadow
-        // this.ctx.fillRect(width/2 - 4, -height/2, 4, height); // Right shadow
-        
-        this.ctx.strokeRect(-width/2, -height/2, width, height);
-        this.ctx.restore();
-    }
-    
-    drawPixelated3DCircle(x, y, radius, color) {
-        // Main circle
-        this.ctx.fillStyle = color;
-        this.drawPixelatedCircle(x, y, radius);
-        
-        // 3D highlight
-        // const r = parseInt(color.substr(1,2), 16);
-        // const g = parseInt(color.substr(3,2), 16);
-        // const b = parseInt(color.substr(5,2), 16);
-        // const highlight = `rgb(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)})`;
-        
-        // this.ctx.fillStyle = highlight;
-        // this.ctx.fillRect(x - radius/3, y - radius/3, radius/2, radius/3);
-        
-        // 3D shadow
-        // const shadow = `rgb(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)})`;
-        // this.ctx.fillStyle = shadow;
-        // this.ctx.fillRect(x + radius/4, y + radius/4, radius/3, radius/3);
-    }
-    
-    gameLoop() {
-        // Update physics
-        Matter.Engine.update(this.engine);
-        
-        // Handle input
-        this.handlePlayerControls();
-        
-        // Check goals
-        this.checkGoals();
-        
-        // Update timer
-        this.updateTimer();
-        
-        // Render
-        this.render();
-        
-        // Continue loop
-        requestAnimationFrame(() => this.gameLoop());
-    }
+    // Placeholder for game loop logic that isn't physics updates
+    // (e.g., checking win conditions, timer updates)
+    // For now, Matter.Runner handles the physics loop.
+    // We might add a separate requestAnimationFrame loop for non-physics game logic if needed.
+    // Events.on(engine, 'afterUpdate', gameLoop); // Example of hooking into engine's loop
 }
 
-// Initialize game when page loads
-window.addEventListener('load', () => {
-    const game = new SoccerPhysicsGame();
-});
+// --- Update Score Display Function ---
+function updateScoreDisplay() {
+    team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
+    team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
+}
+
+// --- Game Message Function ---
+function showGameMessage(message) {
+    gameMessageDisplay.textContent = message;
+}
+
+// --- Placeholder for Game Loop (called by engine event or RAF) ---
+// function gameLoop() {
+//    // Check win conditions, update timer, etc.
+// }
+
+// --- Field Constants ---
+const GROUND_THICKNESS = 40;
+const WALL_THICKNESS = 20;
+const GOAL_HEIGHT = 120;
+const GOAL_SENSOR_DEPTH = 30; // How deep the sensor is for goal detection
+
+function createField() {
+    // Ground
+    const ground = Bodies.rectangle(
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2,
+        CANVAS_WIDTH, GROUND_THICKNESS,
+        { isStatic: true, label: 'ground', render: { fillStyle: '#B8860B' } } // Darker Brown ground
+    );
+
+    // Left Wall
+    const leftWall = Bodies.rectangle(
+        WALL_THICKNESS / 2, CANVAS_HEIGHT / 2,
+        WALL_THICKNESS, CANVAS_HEIGHT,
+        { isStatic: true, label: 'wall-left', render: { fillStyle: '#808080' } } // Grey wall
+    );
+
+    // Right Wall
+    const rightWall = Bodies.rectangle(
+        CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2,
+        WALL_THICKNESS, CANVAS_HEIGHT,
+        { isStatic: true, label: 'wall-right', render: { fillStyle: '#808080' } }
+    );
+
+    // Ceiling
+    const ceiling = Bodies.rectangle(
+        CANVAS_WIDTH / 2, WALL_THICKNESS / 2,
+        CANVAS_WIDTH, WALL_THICKNESS,
+        { isStatic: true, label: 'ceiling', render: { fillStyle: '#808080' } }
+    );
+
+    // Goals Sensors
+    const goalY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT / 2;
+    const goalPostRender = { fillStyle: '#FFFFFF' }; // White posts
+    const goalSensorRenderLeft = { fillStyle: 'rgba(255, 100, 100, 0.3)' }; // Light red
+    const goalSensorRenderRight = { fillStyle: 'rgba(100, 100, 255, 0.3)' }; // Light blue
+
+    // Left Goal Sensor (Team 2 scores here)
+    const leftGoalSensor = Bodies.rectangle(
+        WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2, goalY,
+        GOAL_SENSOR_DEPTH, GOAL_HEIGHT,
+        { isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderLeft }
+    );
+    // Left Goal Posts (Visual only)
+    const leftPostTop = Bodies.rectangle(WALL_THICKNESS, goalY - GOAL_HEIGHT / 2, 10, 10, { isStatic: true, render: goalPostRender });
+    const leftPostBottom = Bodies.rectangle(WALL_THICKNESS, goalY + GOAL_HEIGHT / 2, 10, 10, { isStatic: true, render: goalPostRender });
+
+
+    // Right Goal Sensor (Team 1 scores here)
+    const rightGoalSensor = Bodies.rectangle(
+        CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2, goalY,
+        GOAL_SENSOR_DEPTH, GOAL_HEIGHT,
+        { isStatic: true, isSensor: true, label: 'goal-right', render: goalSensorRenderRight }
+    );
+    // Right Goal Posts (Visual only)
+    const rightPostTop = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS, goalY - GOAL_HEIGHT / 2, 10, 10, { isStatic: true, render: goalPostRender });
+    const rightPostBottom = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS, goalY + GOAL_HEIGHT / 2, 10, 10, { isStatic: true, render: goalPostRender });
+
+    World.add(world, [
+        ground, leftWall, rightWall, ceiling,
+        leftGoalSensor, leftPostTop, leftPostBottom,
+        rightGoalSensor, rightPostTop, rightPostBottom
+    ]);
+}
+
+// --- Ball Constants ---
+const BALL_RADIUS = 15;
+const BALL_COLOR = '#FFDE00'; // Yellow ball
+
+function createBall() {
+    ball = Bodies.circle(
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 150, // Start in the middle, a bit higher
+        BALL_RADIUS,
+        {
+            label: 'ball',
+            density: 0.001,
+            friction: 0.01,
+            frictionAir: 0.005,
+            restitution: 0.75,
+            render: {
+                fillStyle: BALL_COLOR,
+                strokeStyle: '#333',
+                lineWidth: 2
+            }
+        }
+    );
+    World.add(world, ball);
+}
+
+function createPlayer(x, y, teamColor, isTeam1) {
+    const group = Body.nextGroup(true); // Prevent self-collision within a player
+
+    // --- Create Parts ---
+    const head = Bodies.circle(x, y - BODY_HEIGHT / 2 - HEAD_RADIUS + 5, HEAD_RADIUS, { // Adjusted y for better connection
+        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-head',
+        collisionFilter: { group: group },
+        density: PLAYER_DENSITY * 0.8,
+        friction: PLAYER_PART_FRICTION,
+        restitution: PLAYER_PART_RESTITUTION,
+        render: { fillStyle: teamColor }
+    });
+
+    const playerBody = Bodies.rectangle(x, y, BODY_WIDTH, BODY_HEIGHT, {
+        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-body',
+        collisionFilter: { group: group },
+        density: PLAYER_DENSITY,
+        friction: PLAYER_PART_FRICTION,
+        restitution: PLAYER_PART_RESTITUTION,
+        render: { fillStyle: teamColor }
+    });
+
+    const legYOffset = BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 10; // Adjusted for better hip joint
+    const legXOffset = BODY_WIDTH / 3; // Legs closer to center
+
+    const leftLeg = Bodies.rectangle(x - legXOffset, y + legYOffset, LEG_WIDTH, LEG_HEIGHT, {
+        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg',
+        collisionFilter: { group: group },
+        density: PLAYER_DENSITY * 1.1, // Legs slightly denser
+        friction: PLAYER_PART_FRICTION + 0.1, // Slightly more friction
+        restitution: PLAYER_PART_RESTITUTION * 0.9,
+        angle: -0.1, // Slight initial angle
+        render: { fillStyle: teamColor }
+    });
+
+    const rightLeg = Bodies.rectangle(x + legXOffset, y + legYOffset, LEG_WIDTH, LEG_HEIGHT, {
+        label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg',
+        collisionFilter: { group: group },
+        density: PLAYER_DENSITY * 1.1,
+        friction: PLAYER_PART_FRICTION + 0.1,
+        restitution: PLAYER_PART_RESTITUTION * 0.9,
+        angle: 0.1, // Slight initial angle
+        render: { fillStyle: teamColor }
+    });
+
+    // --- Create Constraints ---
+    const constraintRender = { visible: false }; // Do not draw constraints
+
+    const neck = Matter.Constraint.create({
+        bodyA: head,
+        bodyB: playerBody,
+        pointA: { x: 0, y: HEAD_RADIUS * 0.5 }, // Connect lower part of head
+        pointB: { x: 0, y: -BODY_HEIGHT / 2 }, // Connect top of body
+        length: 5, // Shorter neck
+        stiffness: 0.7,
+        damping: 0.2, // More damping for less oscillation
+        render: constraintRender
+    });
+
+    const leftHip = Matter.Constraint.create({
+        bodyA: playerBody,
+        bodyB: leftLeg,
+        pointA: { x: -BODY_WIDTH / 2 * 0.7, y: BODY_HEIGHT / 2 * 0.9 }, // Connect lower inside of body
+        pointB: { x: 0, y: -LEG_HEIGHT / 2 * 0.9 }, // Connect top of leg
+        length: 10,
+        stiffness: 0.6,
+        damping: 0.1,
+        render: constraintRender
+    });
+
+    const rightHip = Matter.Constraint.create({
+        bodyA: playerBody,
+        bodyB: rightLeg,
+        pointA: { x: BODY_WIDTH / 2 * 0.7, y: BODY_HEIGHT / 2 * 0.9 },
+        pointB: { x: 0, y: -LEG_HEIGHT / 2 * 0.9 },
+        length: 10,
+        stiffness: 0.6,
+        damping: 0.1,
+        render: constraintRender
+    });
+    
+    const ragdollParts = [head, playerBody, leftLeg, rightLeg];
+    const ragdollConstraints = [neck, leftHip, rightHip];
+    
+    World.add(world, [...ragdollParts, ...ragdollConstraints]);
+
+    return {
+        head: head,
+        body: playerBody,
+        leftLeg: leftLeg,
+        rightLeg: rightLeg,
+        parts: ragdollParts,
+        constraints: ragdollConstraints,
+        color: teamColor,
+        team: isTeam1 ? 1 : 2,
+        inputKey: null, // Will be assigned during creation
+        actionCooldown: 0
+    };
+}
+
+// --- Input State & Handling ---
+const keysPressed = {};
+
+function setupInputListeners() {
+    document.addEventListener('keydown', (event) => {
+        // To prevent page scrolling with arrow keys, etc.
+        if (['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(event.code)) {
+            event.preventDefault();
+        }
+        keysPressed[event.code] = true;
+    });
+
+    document.addEventListener('keyup', (event) => {
+        keysPressed[event.code] = false;
+    });
+}
+
+const PLAYER_ACTION_COOLDOWN_FRAMES = 30; // Cooldown in frames (e.g., 30 frames = 0.5s at 60fps)
+const PLAYER_JUMP_FORCE = 0.035; // Base upward force
+const PLAYER_FLAIL_HORIZONTAL_FORCE = 0.01; // Base horizontal force for flailing
+
+function handlePlayerControls() {
+    players.forEach(player => {
+        if (player.actionCooldown > 0) {
+            player.actionCooldown--;
+        }
+
+        if (keysPressed[player.inputKey] && player.actionCooldown === 0) {
+            player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES;
+
+            let horizontalForceDirection = 0;
+            // Basic direction: Team 1 pushes right, Team 2 pushes left
+            // This can be refined to be towards ball or opponent goal
+            if (player.team === 1) {
+                horizontalForceDirection = 1;
+            } else {
+                horizontalForceDirection = -1;
+            }
+
+            // Add some randomness to make it more "comical"
+            const randomX = (Math.random() - 0.5) * 0.015; // Random horizontal component
+            const randomY = -PLAYER_JUMP_FORCE * (0.8 + Math.random() * 0.4); // Randomize jump height a bit
+
+            Body.applyForce(player.body, player.body.position, {
+                x: horizontalForceDirection * PLAYER_FLAIL_HORIZONTAL_FORCE + randomX,
+                y: randomY
+            });
+
+            // Apply slight torque for rotation by applying force off-center to the body
+            Body.applyForce(player.body,
+                { x: player.body.position.x + (Math.random() - 0.5) * 10, y: player.body.position.y },
+                { x: 0, y: -0.005 } // Small upward force to induce spin
+            );
+
+            // Make legs kick out a bit
+            Body.applyForce(player.leftLeg, player.leftLeg.position, {
+                x: (Math.random() - 0.7) * 0.01, // Bias kick outwards/forwards
+                y: (Math.random() - 0.5) * 0.005
+            });
+            Body.applyForce(player.rightLeg, player.rightLeg.position, {
+                x: (Math.random() - 0.3) * 0.01, // Bias kick outwards/forwards
+                y: (Math.random() - 0.5) * 0.005
+            });
+        }
+    });
+}
+
+
+// --- Start the game ---
+// Wait for the DOM to be fully loaded before setting up the game
+document.addEventListener('DOMContentLoaded', setup);
+
+
+// --- Game Logic Functions ---
+function resetPositions() {
+    // Reset Ball
+    if (ball) {
+        Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 - 150 });
+        Body.setVelocity(ball, { x: 0, y: 0 });
+        Body.setAngularVelocity(ball, 0);
+    }
+
+    // Reset Players - using approximate initial setup positions
+    players.forEach((player, index) => {
+        let startX, startY;
+        const playerIndexInTeam = Math.floor(index / 2); // 0 or 1 for team, then use actual index for pos
+        const onTeam1 = player.team === 1;
+
+        if (onTeam1) {
+            startX = (index % 2 === 0) ? CANVAS_WIDTH / 4 : CANVAS_WIDTH / 4 + 60;
+            startY = (index % 2 === 0) ? CANVAS_HEIGHT / 2 - 100 : CANVAS_HEIGHT / 2 - 80;
+        } else { // Team 2
+            // player index 2 is team 2 player 0, index 3 is team 2 player 1
+            const team2Index = index - 2;
+            startX = (team2Index % 2 === 0) ? CANVAS_WIDTH * 3 / 4 : CANVAS_WIDTH * 3 / 4 - 60;
+            startY = (team2Index % 2 === 0) ? CANVAS_HEIGHT / 2 - 100 : CANVAS_HEIGHT / 2 - 80;
+        }
+        
+        // Reset main body part
+        Body.setPosition(player.body, { x: startX, y: startY });
+        Body.setVelocity(player.body, { x: 0, y: 0 });
+        Body.setAngularVelocity(player.body, 0);
+        Body.setAngle(player.body, 0);
+
+
+        // Reset head relative to new body position
+        Body.setPosition(player.head, { x: startX, y: startY - BODY_HEIGHT / 2 - HEAD_RADIUS + 5 });
+        Body.setVelocity(player.head, { x: 0, y: 0 });
+        Body.setAngularVelocity(player.head, 0);
+        Body.setAngle(player.head, 0);
+
+        // Reset legs relative to new body position
+        const legY = startY + BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 10;
+        const legXOffset = BODY_WIDTH / 3;
+
+        Body.setPosition(player.leftLeg, { x: startX - legXOffset, y: legY });
+        Body.setVelocity(player.leftLeg, { x: 0, y: 0 });
+        Body.setAngularVelocity(player.leftLeg, 0);
+        Body.setAngle(player.leftLeg, -0.1);
+
+        Body.setPosition(player.rightLeg, { x: startX + legXOffset, y: legY });
+        Body.setVelocity(player.rightLeg, { x: 0, y: 0 });
+        Body.setAngularVelocity(player.rightLeg, 0);
+        Body.setAngle(player.rightLeg, 0.1);
+        
+        player.actionCooldown = 0; // Reset action cooldown
+    });
+}
+
+let goalScoredRecently = false; // To prevent multiple score triggers for one event
+
+function handleGoalScored(scoringTeam) {
+    if (goalScoredRecently) return; // Debounce
+    goalScoredRecently = true;
+
+    if (scoringTeam === 1) {
+        team1Score++;
+    } else if (scoringTeam === 2) {
+        team2Score++;
+    }
+    updateScoreDisplay();
+    const originalMessage = gameMessageDisplay.textContent; // Store if there's a win message
+    showGameMessage(`Goal for Team ${scoringTeam}!`);
+
+    setTimeout(() => {
+        // Only clear if it's still the goal message and not a win message
+        if (gameMessageDisplay.textContent === `Goal for Team ${scoringTeam}!`) {
+            showGameMessage(originalMessage || '');
+        }
+        goalScoredRecently = false; // Reset debounce after message clears or timeout
+    }, 1800);
+
+    resetPositions();
+    // TODO: Check win condition
+    checkWinCondition(); // Check for win after positions are reset and scores updated
+}
+
+function checkWinCondition() {
+    if (isGameOver) return true; // Already decided
+
+    let winner = null;
+    if (team1Score >= SCORE_TO_WIN) {
+        winner = 1;
+    } else if (team2Score >= SCORE_TO_WIN) {
+        winner = 2;
+    }
+
+    if (winner) {
+        isGameOver = true;
+        showGameMessage(`Team ${winner} Wins! Final Score: ${team1Score} - ${team2Score}`);
+        if (runner) { // Ensure runner exists before trying to stop it
+            Runner.stop(runner);
+        }
+        // Player controls are implicitly stopped by isGameOver flag in handlePlayerControls
+        return true; // Win condition met
+    }
+    return false; // No winner yet
+}
+
+// Modify handlePlayerControls to check isGameOver
+function handlePlayerControls() {
+    if (isGameOver) return; // Stop controls if game is over
+
+    players.forEach(player => {
+        if (player.actionCooldown > 0) {
+            player.actionCooldown--;
+        }
+
+        if (keysPressed[player.inputKey] && player.actionCooldown === 0) {
+            player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES;
+
+            let horizontalForceDirection = 0;
+            if (player.team === 1) {
+                horizontalForceDirection = 1;
+            } else {
+                horizontalForceDirection = -1;
+            }
+
+            const randomX = (Math.random() - 0.5) * 0.015;
+            const randomY = -PLAYER_JUMP_FORCE * (0.8 + Math.random() * 0.4);
+
+            Body.applyForce(player.body, player.body.position, {
+                x: horizontalForceDirection * PLAYER_FLAIL_HORIZONTAL_FORCE + randomX,
+                y: randomY
+            });
+
+            Body.applyForce(player.body,
+                { x: player.body.position.x + (Math.random() - 0.5) * 10, y: player.body.position.y },
+                { x: 0, y: -0.005 }
+            );
+
+            Body.applyForce(player.leftLeg, player.leftLeg.position, {
+                x: (Math.random() - 0.7) * 0.01,
+                y: (Math.random() - 0.5) * 0.005
+            });
+            Body.applyForce(player.rightLeg, player.rightLeg.position, {
+                x: (Math.random() - 0.3) * 0.01,
+                y: (Math.random() - 0.5) * 0.005
+            });
+        }
+    });
+}
