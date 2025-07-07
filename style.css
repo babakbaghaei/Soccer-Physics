@@ -9,7 +9,7 @@
 
 body {
     font-family: 'Press Start 2P', monospace;
-    background: linear-gradient(135deg, #87CEEB 0%, #98FB98 50%, #90EE90 100%);
+    background: linear-gradient(135deg, #E6E6FA 0%, #F0F8FF 30%, #E0FFFF 60%, #F5FFFA 100%);
     min-height: 100vh;
     overflow: hidden;
 }
@@ -54,19 +54,21 @@ h1 {
 }
 
 #team1Score {
-    color: #ff4444;
-    background: rgba(255, 68, 68, 0.2);
+    color: #FFB6C1;
+    background: rgba(255, 182, 193, 0.3);
     padding: 5px 10px;
     border-radius: 5px;
-    border: 2px solid #ff4444;
+    border: 2px solid #FFB6C1;
+    text-shadow: 1px 1px 0px #333;
 }
 
 #team2Score {
-    color: #4444ff;
-    background: rgba(68, 68, 255, 0.2);
+    color: #87CEEB;
+    background: rgba(135, 206, 235, 0.3);
     padding: 5px 10px;
     border-radius: 5px;
-    border: 2px solid #4444ff;
+    border: 2px solid #87CEEB;
+    text-shadow: 1px 1px 0px #333;
 }
 
 #timer {
@@ -78,13 +80,16 @@ h1 {
 }
 
 #gameCanvas {
-    border: 4px solid #333;
-    border-radius: 10px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    background: #32CD32;
+    border: 4px solid #B19CD9;
+    border-radius: 15px;
+    box-shadow: 
+        0 0 30px rgba(177, 156, 217, 0.4),
+        inset 0 0 20px rgba(255, 255, 255, 0.1);
+    background: linear-gradient(45deg, #C7EFCF 0%, #B2E6B8 100%);
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     margin-bottom: 15px;
+    transform: perspective(1000px) rotateX(2deg);
 }
 
 #controls {

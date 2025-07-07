@@ -24,11 +24,11 @@ A hilarious physics-based soccer game featuring ragdoll players, one-button cont
 
 ## 🎮 Controls
 
-### Team 1 (Red Team) - Left Side
+### Team 1 (Pink Team) - Left Side
 - **Player 1**: Press `A` to jump/kick
 - **Player 2**: Press `S` to jump/kick
 
-### Team 2 (Blue Team) - Right Side  
+### Team 2 (Sky Blue Team) - Right Side  
 - **Player 1**: Press `K` to jump/kick
 - **Player 2**: Press `L` to jump/kick
 
@@ -54,11 +54,13 @@ A hilarious physics-based soccer game featuring ragdoll players, one-button cont
 - **Gravity and friction** for authentic movement
 
 ### Visual Design
-- **Pixelated 3D aesthetic** with retro pixel art style
-- **Animated grass patterns** for field texture
+- **Pixelated 3D aesthetic** with pastel colors and depth effects
+- **3D character models** with highlights and shadows
+- **Animated grass patterns** for field texture  
 - **Dynamic ball trails** when moving fast
 - **Screen flash effects** when goals are scored
 - **Bouncing title animation** and smooth UI
+- **Pastel color palette** for a soft, modern look
 
 ### Game Mechanics
 - **60-second matches** with countdown timer
