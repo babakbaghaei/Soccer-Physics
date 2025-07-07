@@ -51,9 +51,9 @@ const GOAL_MOUTH_VISUAL_WIDTH = 60;
 // --- Player Constants ---
 const PLAYER_TEAM1_COLOR = '#D9534F';
 const PLAYER_TEAM2_COLOR = '#428BCA';
-const PLAYER_PART_FRICTION = 0.5;
-const PLAYER_PART_RESTITUTION = 0.3; // Slightly less bouncy for more controlled landings
-const PLAYER_DENSITY = 0.0025; // Slightly denser for more 'oomph'
+const PLAYER_PART_FRICTION = 0.6; // Increased base friction
+const PLAYER_PART_RESTITUTION = 0.25; // Slightly less bouncy for more controlled landings
+const PLAYER_DENSITY = 0.0025;
 const HEAD_RADIUS = 15;
 const BODY_WIDTH = 25;
 const BODY_HEIGHT = 40;
@@ -66,7 +66,7 @@ const PLAYER_JUMP_FORCE_LEGS = 0.075;
 const PLAYER_JUMP_FORCE_BODY = 0.030;
 const PLAYER_FLAIL_HORIZONTAL_FORCE = 0.012;
 const KICK_RANGE = 55;
-const KICK_FORCE_MAGNITUDE = 0.040; // Reduced kick power significantly
+const KICK_FORCE_MAGNITUDE = 0.040;
 
 const AI_ACTION_RANGE = 90;
 const AI_MOVE_FORCE = 0.0025;
@@ -165,27 +165,27 @@ function createPlayer(x, y, teamColor, isTeam1, inputKey, isAI) {
     const legXOffset = BODY_WIDTH / 3;
     const leftLeg = Bodies.rectangle(x - legXOffset, legYPos, LEG_WIDTH, LEG_HEIGHT, {
         label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg-left', collisionFilter: { group: group },
-        density: PLAYER_DENSITY * 1.1, friction: PLAYER_PART_FRICTION + 0.1, restitution: PLAYER_PART_RESTITUTION * 0.9, angle: -0.1, render: { fillStyle: teamColor }
+        density: PLAYER_DENSITY * 1.1, friction: PLAYER_PART_FRICTION + 0.2, restitution: PLAYER_PART_RESTITUTION * 0.9, angle: -0.1, render: { fillStyle: teamColor } // Increased leg friction
     });
     const rightLeg = Bodies.rectangle(x + legXOffset, legYPos, LEG_WIDTH, LEG_HEIGHT, {
         label: (isTeam1 ? 'player-t1' : 'player-t2') + '-leg-right', collisionFilter: { group: group },
-        density: PLAYER_DENSITY * 1.1, friction: PLAYER_PART_FRICTION + 0.1, restitution: PLAYER_PART_RESTITUTION * 0.9, angle: 0.1, render: { fillStyle: teamColor }
+        density: PLAYER_DENSITY * 1.1, friction: PLAYER_PART_FRICTION + 0.2, restitution: PLAYER_PART_RESTITUTION * 0.9, angle: 0.1, render: { fillStyle: teamColor } // Increased leg friction
     });
     const constraintRenderOptions = { visible: false };
     const neckConstraint = Matter.Constraint.create({
         bodyA: head, bodyB: playerBody,
         pointA: { x: 0, y: HEAD_RADIUS * 0.5 }, pointB: { x: 0, y: -BODY_HEIGHT / 2 },
-        length: 5, stiffness: 0.95, damping: 0.3, render: constraintRenderOptions // Increased stiffness & damping
+        length: 5, stiffness: 0.95, damping: 0.5, render: constraintRenderOptions // Stiffer, more damped neck
     });
     const leftHipConstraint = Matter.Constraint.create({
         bodyA: playerBody, bodyB: leftLeg,
         pointA: { x: -BODY_WIDTH / 2 * 0.7, y: BODY_HEIGHT / 2 * 0.9 }, pointB: { x: 0, y: -LEG_HEIGHT / 2 * 0.9 },
-        length: 10, stiffness: 0.9, damping: 0.2, render: constraintRenderOptions // Increased stiffness & damping
+        length: 10, stiffness: 0.9, damping: 0.35, render: constraintRenderOptions // Stiffer, more damped hip
     });
     const rightHipConstraint = Matter.Constraint.create({
         bodyA: playerBody, bodyB: rightLeg,
         pointA: { x: BODY_WIDTH / 2 * 0.7, y: BODY_HEIGHT / 2 * 0.9 }, pointB: { x: 0, y: -LEG_HEIGHT / 2 * 0.9 },
-        length: 10, stiffness: 0.9, damping: 0.2, render: constraintRenderOptions // Increased stiffness & damping
+        length: 10, stiffness: 0.9, damping: 0.35, render: constraintRenderOptions // Stiffer, more damped hip
     });
     const parts = [head, playerBody, leftLeg, rightLeg];
     const constraints = [neckConstraint, leftHipConstraint, rightHipConstraint];
@@ -219,7 +219,6 @@ function handleHumanPlayerControls() {
         if (keysPressed[player.inputKey] && player.actionCooldown === 0) {
             player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES;
 
-            // Apply jump forces (still applied for movement)
             Body.applyForce(player.leftLeg, player.leftLeg.position, { x: (Math.random()-0.5)*0.005, y: -PLAYER_JUMP_FORCE_LEGS * 0.5 });
             Body.applyForce(player.rightLeg, player.rightLeg.position, { x: (Math.random()-0.5)*0.005, y: -PLAYER_JUMP_FORCE_LEGS * 0.5 });
             Body.applyForce(player.body, player.body.position, { x: 0, y: -PLAYER_JUMP_FORCE_BODY });
@@ -237,11 +236,11 @@ function handleHumanPlayerControls() {
                 const distRightLegToBall = Matter.Vector.magnitude(Matter.Vector.sub(ball.position, player.rightLeg.position));
 
                 let kickingFootPosition;
-                let kickingFootBody;
+                // let kickingFootBody; // Not used for recoil now
                 if (distLeftLegToBall < distRightLegToBall) {
-                    kickingFootPosition = player.leftLeg.position; kickingFootBody = player.leftLeg;
+                    kickingFootPosition = player.leftLeg.position; // kickingFootBody = player.leftLeg;
                 } else {
-                    kickingFootPosition = player.rightLeg.position; kickingFootBody = player.rightLeg;
+                    kickingFootPosition = player.rightLeg.position; // kickingFootBody = player.rightLeg;
                 }
 
                 const distFootToBallActual = Matter.Vector.magnitude(Matter.Vector.sub(ball.position, kickingFootPosition));
@@ -251,17 +250,14 @@ function handleHumanPlayerControls() {
                     let kickVector = Matter.Vector.sub(kickTargetPos, kickingFootPosition);
                     kickVector = Matter.Vector.normalise(kickVector);
 
-                    // Emphasize upward motion for a lob, reduce direct horizontal speed from kick itself
-                    kickVector.y = -0.7; // Strong upward component for lob
-                    kickVector.x *= 0.3; // Reduce horizontal component significantly from the kick itself
-                    kickVector = Matter.Vector.normalise(kickVector); // Re-normalize
+                    kickVector.y = -0.7;
+                    kickVector.x *= 0.3;
+                    kickVector = Matter.Vector.normalise(kickVector);
 
                     Body.applyForce(ball, ball.position, {
                         x: kickVector.x * KICK_FORCE_MAGNITUDE,
                         y: kickVector.y * KICK_FORCE_MAGNITUDE
                     });
-                    // Recoil on leg is less important if kick is mostly leg movement from jump
-                    // Body.applyForce(kickingFootBody, kickingFootPosition, { x: -kickVector.x * KICK_FORCE_MAGNITUDE * 0.05, y: -kickVector.y * KICK_FORCE_MAGNITUDE * 0.05  - 0.002 });
                 }
             }
         }
@@ -353,24 +349,37 @@ function resetPositions() {
     }
 
     const player1StartX = CANVAS_WIDTH / 4;
-    const playerStartY = CANVAS_HEIGHT - GROUND_THICKNESS - LEG_HEIGHT - BODY_HEIGHT / 2 - 5;
+    const playerBodyCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - LEG_HEIGHT - (BODY_HEIGHT / 2) - 15; // Increased clearance
+
     const player2StartX = CANVAS_WIDTH * 3 / 4;
-    const startPositions = [ { x: player1StartX, y: playerStartY }, { x: player2StartX, y: playerStartY } ];
+
+    const startPositions = [
+        { x: player1StartX, y: playerBodyCenterY },
+        { x: player2StartX, y: playerBodyCenterY }
+    ];
 
     players.forEach((player, index) => {
         if (index < startPositions.length) {
-            const baseStartX = startPositions[index].x;
-            const baseStartY = startPositions[index].y + LEG_HEIGHT + BODY_HEIGHT / 2;
-            Body.setPosition(player.body, { x: baseStartX, y: baseStartY });
-            Body.setVelocity(player.body, { x: 0, y: 0 }); Body.setAngularVelocity(player.body, 0); Body.setAngle(player.body, 0);
-            Body.setPosition(player.head, { x: baseStartX, y: baseStartY - BODY_HEIGHT / 2 - HEAD_RADIUS + 5 });
-            Body.setVelocity(player.head, { x: 0, y: 0 }); Body.setAngularVelocity(player.head, 0); Body.setAngle(player.head, 0);
-            const legResetY = baseStartY + BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 10;
+            const startX = startPositions[index].x;
+            const startY = startPositions[index].y; // This is the target for player.body's center
+
+            // Set positions first
+            Body.setPosition(player.body, { x: startX, y: startY });
+            Body.setPosition(player.head, { x: startX, y: startY - (BODY_HEIGHT / 2) - HEAD_RADIUS + 5 });
+            const legResetY = startY + (BODY_HEIGHT / 2) + (LEG_HEIGHT / 2) - 10;
             const legXOffset = BODY_WIDTH / 3;
-            Body.setPosition(player.leftLeg, { x: baseStartX - legXOffset, y: legResetY });
-            Body.setVelocity(player.leftLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.leftLeg, 0); Body.setAngle(player.leftLeg, -0.1);
-            Body.setPosition(player.rightLeg, { x: baseStartX + legXOffset, y: legResetY });
-            Body.setVelocity(player.rightLeg, { x: 0, y: 0 }); Body.setAngularVelocity(player.rightLeg, 0); Body.setAngle(player.rightLeg, 0.1);
+            Body.setPosition(player.leftLeg, { x: startX - legXOffset, y: legResetY });
+            Body.setPosition(player.rightLeg, { x: startX + legXOffset, y: legResetY });
+
+            // Then set velocities, angles, and angular velocities to zero for all parts
+            player.parts.forEach(part => {
+                Body.setVelocity(part, { x: 0, y: 0 });
+                Body.setAngularVelocity(part, 0);
+                if (part === player.leftLeg) Body.setAngle(part, -0.1);
+                else if (part === player.rightLeg) Body.setAngle(part, 0.1);
+                else Body.setAngle(part, 0);
+            });
+
             player.actionCooldown = 0;
         }
     });
@@ -452,47 +461,70 @@ function customRenderAll() {
     fieldBodies.forEach(body => { drawPixelRectangle(pixelCtx, body); });
 
     const goalPostColor = '#FFFFFF';
-    const netColor = 'rgba(200, 200, 200, 0.4)';
-    const postPixelThickness = Math.max(1, Math.round(6 / PIXEL_SCALE));
+    const netColor = 'rgba(220, 220, 220, 0.5)'; // Lighter net
+    const postPixelThickness = Math.max(1, Math.round(8 / PIXEL_SCALE)); // Thicker posts
     const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
     const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
     const goalBaseY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
     const goalTopY = goalBaseY - goalPixelHeight;
+    pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
 
+    // Left Goal
     const leftGoalX = Math.round(WALL_THICKNESS / PIXEL_SCALE);
     pixelCtx.fillStyle = goalPostColor;
     pixelCtx.fillRect(leftGoalX, goalTopY, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(leftGoalX + goalMouthPixelWidth - postPixelThickness, goalTopY, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(leftGoalX, goalTopY, goalMouthPixelWidth, postPixelThickness);
-    pixelCtx.strokeStyle = netColor;
-    pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalX + postPixelThickness, goalTopY + postPixelThickness);
-    pixelCtx.lineTo(leftGoalX + postPixelThickness, goalBaseY - 1);
-    pixelCtx.lineTo(leftGoalX - Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) + postPixelThickness, goalBaseY -1);
-    pixelCtx.closePath();
-    pixelCtx.stroke();
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalX + goalMouthPixelWidth - postPixelThickness, goalTopY + postPixelThickness);
-    pixelCtx.lineTo(leftGoalX - Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) + postPixelThickness, goalBaseY -1);
-    pixelCtx.stroke();
 
+    pixelCtx.strokeStyle = netColor; // Netting
+    const netTopInnerY = goalTopY + postPixelThickness;
+    const netBottomInnerY = goalBaseY - 1;
+    const netSideInnerLeftX = leftGoalX + postPixelThickness;
+    const netSideInnerRightX = leftGoalX + goalMouthPixelWidth - postPixelThickness;
+    const netDepthPixel = Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE * 0.6); // How far back net goes visually
+
+    for (let i = 1; i < 4; i++) { // Horizontal net lines
+        const yLine = netTopInnerY + (netBottomInnerY - netTopInnerY) * i / 4;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(netSideInnerLeftX, yLine);
+        pixelCtx.lineTo(netSideInnerRightX, yLine);
+        pixelCtx.stroke();
+    }
+     for (let i = 1; i < 5; i++) { // Vertical net lines
+        const xLine = netSideInnerLeftX + (netSideInnerRightX - netSideInnerLeftX) * i / 5;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xLine, netTopInnerY);
+        pixelCtx.lineTo(xLine, netBottomInnerY);
+        pixelCtx.stroke();
+    }
+
+
+    // Right Goal
     const rightGoalXBase = PIXEL_CANVAS_WIDTH - Math.round(WALL_THICKNESS / PIXEL_SCALE) - goalMouthPixelWidth;
     pixelCtx.fillStyle = goalPostColor;
     pixelCtx.fillRect(rightGoalXBase, goalTopY, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(rightGoalXBase + goalMouthPixelWidth - postPixelThickness, goalTopY, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(rightGoalXBase, goalTopY, goalMouthPixelWidth, postPixelThickness);
-    pixelCtx.strokeStyle = netColor;
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalXBase + goalMouthPixelWidth - postPixelThickness, goalTopY + postPixelThickness);
-    pixelCtx.lineTo(rightGoalXBase + goalMouthPixelWidth - postPixelThickness, goalBaseY - 1);
-    pixelCtx.lineTo(rightGoalXBase + goalMouthPixelWidth + Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) - postPixelThickness, goalBaseY -1);
-    pixelCtx.closePath();
-    pixelCtx.stroke();
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalXBase + postPixelThickness, goalTopY + postPixelThickness);
-    pixelCtx.lineTo(rightGoalXBase + goalMouthPixelWidth + Math.round(GOAL_SENSOR_DEPTH / PIXEL_SCALE / 2) - postPixelThickness, goalBaseY -1);
-    pixelCtx.stroke();
+
+    pixelCtx.strokeStyle = netColor; // Netting
+    const rgNetSideInnerLeftX = rightGoalXBase + postPixelThickness;
+    const rgNetSideInnerRightX = rightGoalXBase + goalMouthPixelWidth - postPixelThickness;
+
+    for (let i = 1; i < 4; i++) { // Horizontal net lines
+        const yLine = netTopInnerY + (netBottomInnerY - netTopInnerY) * i / 4;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(rgNetSideInnerLeftX, yLine);
+        pixelCtx.lineTo(rgNetSideInnerRightX, yLine);
+        pixelCtx.stroke();
+    }
+     for (let i = 1; i < 5; i++) { // Vertical net lines
+        const xLine = rgNetSideInnerLeftX + (rgNetSideInnerRightX - rgNetSideInnerLeftX) * i / 5;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xLine, netTopInnerY);
+        pixelCtx.lineTo(xLine, netBottomInnerY);
+        pixelCtx.stroke();
+    }
+
 
     if (ball) { drawPixelCircle(pixelCtx, ball, BALL_COLOR); }
     players.forEach(player => {
