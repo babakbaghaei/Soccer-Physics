@@ -567,6 +567,17 @@ function setup() {
 // --- Timer Functions --- (no changes)
 function startGameTimer() { /* ... */ }
 function updateRoundTimer() { /* ... */ }
+
+// Function to update the score display in the HTML
+function updateScoreDisplay() {
+    if (team1ScoreDisplay && team2ScoreDisplay) {
+        team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
+        team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
+    } else {
+        // console.warn("Score display elements not found in the DOM.");
+    }
+}
+
 function updateTimerDisplay() { /* ... */ }
 function getFieldDerivedConstants() {
     return { actualGoalOpeningHeight: GOAL_HEIGHT - CROSSBAR_THICKNESS };
@@ -1234,7 +1245,38 @@ function isShotPathBlocked(aiPlayer, targetGoalPos, humanPlayer, ballPos) {
 
 // --- handleGoalScored, checkWinCondition, resetPositions (no changes) ---
 let goalScoredRecently = false;
-function handleGoalScored(scoringTeam) { /* ... */ }
+function handleGoalScored(scoringTeam) {
+    if (goalScoredRecently || isGameOver) return;
+    goalScoredRecently = true;
+
+    if (scoringTeam === 1) {
+        team1Score++;
+        showGameMessage("Goal for Team 1!", 2000, '#D9534F');
+    } else {
+        team2Score++;
+        showGameMessage("Goal for Team 2!", 2000, '#428BCA');
+    }
+    playSound('goal.wav');
+    updateScoreDisplay(); // Update the score on screen
+
+    // Stop game logic briefly, show message, then reset
+    if (runner) Runner.stop(runner); // Stop the engine updates temporarily
+    // Cancel current game loop to prevent physics updates while showing goal message
+    if (typeof gameRenderLoopId !== 'undefined') cancelAnimationFrame(gameRenderLoopId);
+
+
+    setTimeout(() => {
+        goalScoredRecently = false;
+        if (!isGameOver) { // Only reset if game is not over
+            resetPositions();
+            if (runner) Runner.run(runner, engine); // Restart the engine updates
+            gameRenderLoopId = requestAnimationFrame(gameRenderLoop); // Restart render loop
+            showGameMessage("Play on!", 1500);
+        }
+        checkWinCondition(); // Check win condition AFTER resetting positions and scores are updated
+    }, 2000); // Delay before reset
+}
+
 function checkWinCondition() { /* ... */ }
 function resetPositions() { /* ... */ }
 
