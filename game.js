@@ -397,12 +397,10 @@ function setup() {
     console.log("SETUP: New runner created.");
 
     Events.on(engine, 'beforeUpdate', updateGame);
-    // Events.on(engine, 'collisionStart', handleCollisions); // Temporarily commented out
-    Events.on(engine, 'collisionStart', function(event) {
-        console.log('Collision event directly from engine:', event.pairs.length, 'pairs collided at time:', engine.timing.timestamp);
-        // You might want to call handleCollisions manually here for testing if the direct log works
-        // handleCollisions(event);
-    });
+    Events.on(engine, 'collisionStart', handleCollisions); // Restored
+    // Events.on(engine, 'collisionStart', function(event) { // This line is now commented out/removed
+    //     console.log('Collision event directly from engine:', event.pairs.length, 'pairs collided at time:', engine.timing.timestamp);
+    // });
 
     // Start the game immediately
     isGameStarted = true;
@@ -675,34 +673,41 @@ function updatePlayerStates() {
         const RESTORING_TORQUE_FACTOR = 0.005; // قدرت بازگرداندن به زاویه صفر
 
         if (player.isRotating) { // بازیکن در حال حرکت با کلیدها
+            console.log(`UPS: Player ${player.playerTeam} isRotating. Vel: ${player.playerBody.angularVelocity.toFixed(3)}, Angle: ${player.playerBody.angle.toFixed(3)}, Target: ${player.targetAngle.toFixed(3)}, RollDir: ${player.rollDirection}`); // DEBUG LOG
             const currentAngle = player.playerBody.angle;
-            const targetAngleDuringRoll = player.targetAngle; // این همان مضرب ۹۰ درجه است
+            const targetAngleDuringRoll = player.targetAngle;
             const angularSpeed = player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET;
 
-            Body.setAngularVelocity(player.playerBody, angularSpeed);
+            // Body.setAngularVelocity(player.playerBody, angularSpeed); // موقتا غیرفعال شود تا ببینیم آیا translate کار می‌کند
 
             if (player.isGrounded) {
-                const rollSpeed = Math.abs(angularSpeed) * (PLAYER_RECT_SIZE / 2);
-                Body.translate(player.playerBody, { x: player.rollDirection * rollSpeed * 0.6, y: 0 });
+                const rollSpeed = Math.abs(angularSpeed) * (PLAYER_RECT_SIZE / 2); // این هنوز به angularSpeed نیاز دارد
+                // برای تست، یک سرعت ثابت برای translate در نظر بگیریم:
+                const testTranslateSpeed = player.rollDirection * PLAYER_ROLL_TRANSLATE_SPEED * 2; // سرعت تست بیشتر
+                Body.translate(player.playerBody, { x: testTranslateSpeed, y: 0 });
+                console.log(`UPS: Translating player ${player.playerTeam} by x: ${testTranslateSpeed}`); // DEBUG LOG
             }
 
             let overShot = false;
+            // ... (منطق overShot بدون تغییر) ...
             if (player.rollDirection === 1 && currentAngle >= targetAngleDuringRoll - SNAP_TO_ANGLE_THRESHOLD) {
                 overShot = true;
             } else if (player.rollDirection === -1 && currentAngle <= targetAngleDuringRoll + SNAP_TO_ANGLE_THRESHOLD) {
                 overShot = true;
             }
 
+
             if (overShot) {
+                console.log(`UPS: Player ${player.playerTeam} overShot. Setting angle to ${targetAngleDuringRoll}`); // DEBUG LOG
                 Body.setAngle(player.playerBody, targetAngleDuringRoll);
-                Body.setAngularVelocity(player.playerBody, 0);
+                Body.setAngularVelocity(player.playerBody, 0); // سرعت زاویه‌ای را صفر کن
                 player.isRotating = false;
-                player.rollDirection = 0;
+                player.rollDirection = 0; // مهم: rollDirection را صفر کن
                 player.currentFace = (Math.round(targetAngleDuringRoll / (Math.PI / 2)) % 4 + 4) % 4;
-                // پس از اتمام چرخش برای حرکت، بلافاصله هدف را زاویه صفر قرار بده
-                player.targetAngle = 0; // هدف جدید: بازگشت به عمود
+                player.targetAngle = 0;
             }
-        } else { // بازیکن کلیدی را فشار نمی‌دهد یا چرخش اولیه برای حرکت تمام شده
+        } else {
+            // ... (منطق بازگشت به حالت عمود که قبلا اصلاح شد) ...
             const currentAngle = player.playerBody.angle;
             const desiredAngle = 0; // هدف: بازگشت به عمود
 
@@ -756,6 +761,8 @@ function handleHumanPlayerControls() {
     const player = players[0];
     if (!player || player.isAI) return;
 
+    console.log(`HPC: Keys A: ${keysPressed['KeyA']}, D: ${keysPressed['KeyD']}, Grounded: ${player.isGrounded}, Rotating: ${player.isRotating}`); // DEBUG LOG
+
     if (player.jumpCooldown > 0) player.jumpCooldown--;
 
     if (!player.isRotating && player.isGrounded) {
@@ -765,15 +772,15 @@ function handleHumanPlayerControls() {
         } else if (keysPressed['KeyD']) {
             roll = 1;
         }
+        console.log(`HPC: Calculated roll: ${roll}`); // DEBUG LOG
 
         if (roll !== 0) {
             player.isRotating = true;
             player.rollDirection = roll;
-            // Ensure targetAngle is based on the *current* snapped face to avoid accumulation errors
             const snappedCurrentAngle = Math.round(player.playerBody.angle / (Math.PI / 2)) * (Math.PI / 2);
             player.targetAngle = snappedCurrentAngle + roll * (Math.PI / 2);
-
             Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
+            console.log(`HPC: Initiating roll. Direction: ${player.rollDirection}, TargetAngle: ${player.targetAngle}, AngularVel: ${player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET}`); // DEBUG LOG
         }
     }
 
@@ -1515,15 +1522,18 @@ function drawPixelIsoRectangle(pCtx, body, colorOverride = null) {
         }
 
         // Add subtle grass blade texture (optional, can be kept or modified)
-        pixelCtx.fillStyle = shadeColor(mainGrassColor, -0.05); // Slightly darker blades
+        // REMOVE OR COMMENT OUT THE FOLLOWING BLOCK TO REMOVE DOTS:
+        /*
+        pixelCtx.fillStyle = shadeColor(mainGrassColor, -0.05);
         const grassBlade = Math.max(1, Math.round(1 / PIXEL_SCALE));
         for (let x_tex = -pWidth / 2; x_tex < pWidth / 2; x_tex += grassBlade * 3) {
             for (let y_tex = -pHeight / 2; y_tex < pHeight / 2; y_tex += grassBlade * 3) {
-                if (Math.random() > 0.65) { // Reduced density
+                if (Math.random() > 0.65) {
                     pixelCtx.fillRect(x_tex + Math.random() * grassBlade, y_tex + Math.random() * grassBlade, grassBlade, grassBlade);
                 }
             }
         }
+        */
         // --- END OF NEW LOGIC FOR STRIPED GRASS ---
     } else if (label.includes('wall-left') || label.includes('wall-right')) {
         const darkerWall = shadeColor(color, -0.15);
