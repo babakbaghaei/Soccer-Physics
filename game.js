@@ -645,18 +645,18 @@ function createField() {
     // --- Left Goal Posts ---
     const goalMouthStartX_L = WALL_THICKNESS;
     const goalTopY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT;
-    const goalOpeningActualHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
+    // const goalOpeningActualHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS; // Use global actualGoalOpeningHeight
 
     const postLV_L = Bodies.rectangle(
         goalMouthStartX_L + PHYSICAL_POST_THICKNESS / 2,
-        goalTopY + goalOpeningActualHeight / 2,
-        PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
+        goalTopY + actualGoalOpeningHeight / 2, // Use global
+        PHYSICAL_POST_THICKNESS, actualGoalOpeningHeight, // Use global
         { isStatic: true, label: 'post-vl-L', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
     const postRV_L = Bodies.rectangle(
         goalMouthStartX_L + GOAL_MOUTH_VISUAL_WIDTH - PHYSICAL_POST_THICKNESS / 2,
-        goalTopY + goalOpeningActualHeight / 2, PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
+        goalTopY + actualGoalOpeningHeight / 2, PHYSICAL_POST_THICKNESS, actualGoalOpeningHeight, // Use global
         { isStatic: true, label: 'post-vr-L', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
@@ -671,13 +671,13 @@ function createField() {
     const goalMouthStartX_R = CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH;
     const postLV_R = Bodies.rectangle(
         goalMouthStartX_R + PHYSICAL_POST_THICKNESS / 2,
-        goalTopY + goalOpeningActualHeight / 2, PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
+        goalTopY + actualGoalOpeningHeight / 2, PHYSICAL_POST_THICKNESS, actualGoalOpeningHeight, // Use global
         { isStatic: true, label: 'post-vl-R', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
     const postRV_R = Bodies.rectangle(
         goalMouthStartX_R + GOAL_MOUTH_VISUAL_WIDTH - PHYSICAL_POST_THICKNESS / 2,
-        goalTopY + goalOpeningActualHeight / 2, PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
+        goalTopY + actualGoalOpeningHeight / 2, PHYSICAL_POST_THICKNESS, actualGoalOpeningHeight, // Use global
         { isStatic: true, label: 'post-vr-R', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
@@ -689,19 +689,19 @@ function createField() {
     );
 
     // Goal Sensors ( Adjusted to be behind the posts )
-    const sensorActualHeight = goalOpeningActualHeight;
+    const sensorActualHeight = actualGoalOpeningHeight; // Use global
     const sensorCenterY = goalTopY + sensorActualHeight / 2;
     const sensorWidth = GOAL_MOUTH_VISUAL_WIDTH - 2 * PHYSICAL_POST_THICKNESS;
     const sensorRenderStyle = { visible: true, fillStyle: 'rgba(0, 255, 0, 0.15)' }; // Slightly more transparent
 
     const mainLeftGoalSensor = Bodies.rectangle(
         goalMouthStartX_L + PHYSICAL_POST_THICKNESS + sensorWidth / 2,
-        sensorCenterY, sensorWidth, sensorActualHeight,
+        sensorCenterY, sensorWidth, sensorActualHeight, // sensorActualHeight uses global actualGoalOpeningHeight
         { isStatic: true, isSensor: true, label: 'goal-left-sensor', render: sensorRenderStyle }
     );
     const mainRightGoalSensor = Bodies.rectangle(
         goalMouthStartX_R + PHYSICAL_POST_THICKNESS + sensorWidth / 2,
-        sensorCenterY, sensorWidth, sensorActualHeight,
+        sensorCenterY, sensorWidth, sensorActualHeight, // sensorActualHeight uses global actualGoalOpeningHeight
         { isStatic: true, isSensor: true, label: 'goal-right-sensor', render: sensorRenderStyle }
     );
 
@@ -1709,7 +1709,8 @@ function customRenderAll() {
     // It should visually connect to the physical posts.
     const netColor = activeTheme.net || 'rgba(200, 200, 200, 0.6)';
     const postThickness = Math.max(1, Math.round(PHYSICAL_POST_THICKNESS / PIXEL_SCALE / 2)); // Visual thickness based on physical
-    const goalPixelH = Math.round(goalOpeningActualHeight / PIXEL_SCALE);
+    const { actualGoalOpeningHeight: currentGoalNetOpeningHeight } = getFieldDerivedConstants(); // Use helper
+    const goalPixelH = Math.round(currentGoalNetOpeningHeight / PIXEL_SCALE);
     const goalPixelMW = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
     const goalPixDepth = Math.round((GOAL_MOUTH_VISUAL_WIDTH * 0.5) / PIXEL_SCALE); // Visual depth
     const gndY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
