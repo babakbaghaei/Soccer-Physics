@@ -303,14 +303,65 @@ function initMenu() {
             action: 'start'
         },
         {
-            x: PIXEL_CANVAS_WIDTH / 2 - 25,
+            x: PIXEL_CANVAS_WIDTH / 2 - 20,
             y: PIXEL_CANVAS_HEIGHT / 2 + 8,
-            width: 50,
+            width: 40,
             height: 10,
-            text: 'SETTINGS',
-            action: 'settings'
+            text: 'HELP',
+            action: 'help'
         }
     ];
+}
+
+// Show help screen
+function showHelp() {
+    gameState = 'help';
+}
+
+// Handle help input
+function handleHelpInput() {
+    if (keysPressed['KeyW'] || keysPressed['Escape'] || keysPressed['KeyB']) {
+        gameState = 'menu';
+        keysPressed['KeyW'] = false;
+        keysPressed['Escape'] = false;
+        keysPressed['KeyB'] = false;
+    }
+}
+
+function drawHelp() {
+    // Help background
+    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(0.5, '#16213e');
+    gradient.addColorStop(1, '#0f0f23');
+    pixelCtx.fillStyle = gradient;
+    pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
+    
+    // Title
+    pixelCtx.fillStyle = '#00FF00';
+    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 15, 20, 'HELP', 2);
+    
+    // Controls
+    pixelCtx.fillStyle = '#FFFFFF';
+    drawPixelText(10, 50, 'CONTROLS', 1);
+    
+    pixelCtx.fillStyle = '#FFFF00';
+    drawPixelText(10, 65, 'A D   MOVE LEFT RIGHT', 1);
+    drawPixelText(10, 75, 'W     JUMP', 1);
+    drawPixelText(10, 85, 'HOLD W FOR HIGHER JUMP', 1);
+    
+    pixelCtx.fillStyle = '#FFFFFF';
+    drawPixelText(10, 105, 'GAME INFO', 1);
+    
+    pixelCtx.fillStyle = '#FFFF00';
+    drawPixelText(10, 120, 'PLAY AGAINST AI', 1);
+    drawPixelText(10, 130, 'SCORE GOALS TO WIN', 1);
+    drawPixelText(10, 140, 'MATCH TIME 90 SECONDS', 1);
+    drawPixelText(10, 150, 'KICK BALL NEAR GOAL', 1);
+    
+    // Back instruction
+    pixelCtx.fillStyle = '#00FF00';
+    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 30, PIXEL_CANVAS_HEIGHT - 20, 'PRESS W TO GO BACK', 1);
 }
 
 // --- Initialization Function ---
@@ -551,6 +602,12 @@ function updateGame() {
     if (gameState === 'menu') {
         handleMenuInput();
         return;
+    } else if (gameState === 'help') {
+        handleHelpInput();
+        return;
+    } else if (gameState === 'gameOver') {
+        // Game over state - no game logic updates
+        return;
     }
     
     if (!isGameStarted || isGameOver) return;
@@ -615,6 +672,7 @@ function handleMenuInput() {
     if (keysPressed['KeyW'] || keysPressed['Enter']) {
         gameState = 'playing';
         isGameStarted = true;
+        isGameOver = false;
         showGameMessage('');
         if (runner) {
             Runner.run(runner, engine);
@@ -628,6 +686,9 @@ function handleMenuInput() {
         if (!audioContext) {
             initAudioContext();
         }
+    } else if (keysPressed['KeyH']) {
+        gameState = 'help';
+        keysPressed['KeyH'] = false;
     }
 }
 
@@ -657,7 +718,9 @@ function updatePlayerStates() {
             Body.setAngularVelocity(player.playerBody, angularSpeed);
 
             if (player.isGrounded) {
-                Body.translate(player.playerBody, { x: player.rollDirection * PLAYER_ROLL_TRANSLATE_SPEED, y: 0 });
+                // Movement speed should match rotation speed for natural rolling
+                const rollSpeed = Math.abs(angularSpeed) * (PLAYER_RECT_SIZE / 2);
+                Body.translate(player.playerBody, { x: player.rollDirection * rollSpeed * 0.6, y: 0 });
             }
 
             let overShot = false;
@@ -802,14 +865,22 @@ function executeAIPlayerLogic(player) {
     const playerPos = player.playerBody.position;
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
     let AImoveDirection = 0; // -1 for left, 1 for right, 0 for no move
-    const aiGoalX = CANVAS_WIDTH - WALL_THICKNESS;
-    const opponentGoalX = WALL_THICKNESS;
+    
+    // AI is Team 2 (right side)
+    const aiGoalX = CANVAS_WIDTH - WALL_THICKNESS; // AI's own goal (right)
+    const opponentGoalX = WALL_THICKNESS; // Player's goal (left) - AI should attack this
     const { actualGoalOpeningHeight } = getFieldDerivedConstants();
 
     const isBallInAIHalf = ballPos.x > CANVAS_WIDTH / 2;
+    const isBallNearAIGoal = ballPos.x > CANVAS_WIDTH * 0.8;
+    const isBallMovingTowardsAIGoal = ball.velocity.x > 0;
+    
     let intent = 'pursue_ball';
 
-    if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE * 1.2 && ballPos.x > CANVAS_WIDTH * 0.65) {
+    // Emergency defense - ball very close to AI goal
+    if (isBallNearAIGoal && isBallMovingTowardsAIGoal) {
+        intent = 'emergency_defense';
+    } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE * 1.2 && ballPos.x > CANVAS_WIDTH * 0.7) {
         intent = 'defend_goal_line';
     } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE) {
         intent = 'defensive_positioning';
@@ -818,15 +889,24 @@ function executeAIPlayerLogic(player) {
     }
 
     switch (intent) {
+        case 'emergency_defense':
+            // Get between ball and goal, closer to goal
+            const emergencyDefenseX = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.2;
+            const directionToEmergencyPos = emergencyDefenseX - playerPos.x;
+            if (Math.abs(directionToEmergencyPos) > PLAYER_RECT_SIZE / 2) {
+                AImoveDirection = Math.sign(directionToEmergencyPos);
+            }
+            break;
         case 'defend_goal_line':
-            const defensiveTargetXGoalLine = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 0.75;
+            const defensiveTargetXGoalLine = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.0;
             const directionToTargetXGoalLine = defensiveTargetXGoalLine - playerPos.x;
             if (Math.abs(directionToTargetXGoalLine) > PLAYER_RECT_SIZE / 2) {
                 AImoveDirection = Math.sign(directionToTargetXGoalLine);
             }
             break;
         case 'defensive_positioning':
-            const idealDefensiveX = ballPos.x + Math.sign(aiGoalX - ballPos.x) * (PLAYER_RECT_SIZE + BALL_RADIUS + 20);
+            // Position between ball and own goal, but not too close to goal
+            const idealDefensiveX = Math.min(ballPos.x + 50, aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.5);
             const finalDefensiveTargetX = Math.max(CANVAS_WIDTH / 2 + WALL_THICKNESS, Math.min(aiGoalX - WALL_THICKNESS - PLAYER_RECT_SIZE, idealDefensiveX));
             const dirToDefTarget = finalDefensiveTargetX - playerPos.x;
             if (Math.abs(dirToDefTarget) > PLAYER_RECT_SIZE / 2) {
@@ -834,7 +914,8 @@ function executeAIPlayerLogic(player) {
             }
             break;
         case 'advance_to_attack':
-            const offensiveMidfieldTargetX = CANVAS_WIDTH / 2 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.1);
+            // Move towards opponent's half
+            const offensiveMidfieldTargetX = CANVAS_WIDTH * 0.3 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.1);
             const dirToAdvanceTarget = offensiveMidfieldTargetX - playerPos.x;
             if (Math.abs(dirToAdvanceTarget) > PLAYER_RECT_SIZE) {
                 AImoveDirection = Math.sign(dirToAdvanceTarget);
@@ -858,22 +939,28 @@ function executeAIPlayerLogic(player) {
         Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
     }
 
-
     if (player.jumpCooldown === 0 && distanceToBall < AI_ACTION_RANGE * 1.2 && !player.isRotating) {
         const ballIsHigh = ballPos.y < playerPos.y - PLAYER_RECT_SIZE / 2 * 0.7;
+        const shouldJump = ballIsHigh || distanceToBall < AI_KICK_BALL_RANGE * 0.7 || intent === 'emergency_defense' || intent === 'defend_goal_line';
 
-        if ( (ballIsHigh || distanceToBall < AI_KICK_BALL_RANGE * 0.7 || intent === 'defend_goal_line') && player.isGrounded ) {
+        if (shouldJump && player.isGrounded) {
             player.isGrounded = false;
-            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * (1.1 + Math.random()*0.4);
+            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * (1.1 + Math.random() * 0.4);
             player.lastJumpTime = Date.now();
             playSound('jump.wav');
 
-            let horizontalActionForceDirection = (playerPos.x < ballPos.x) ? 0.001 : -0.001;
-            if (intent === 'defend_goal_line' || intent === 'defensive_positioning') {
-                horizontalActionForceDirection = (playerPos.x < opponentGoalX + 100) ? 0.0002 : -0.0002;
+            let horizontalActionForceDirection = 0;
+            
+            if (intent === 'emergency_defense' || intent === 'defend_goal_line') {
+                // When defending, jump towards the ball to clear it away from goal
+                horizontalActionForceDirection = (ballPos.x > playerPos.x) ? -0.003 : 0.003;
+            } else {
+                // When attacking, move towards opponent goal
+                horizontalActionForceDirection = (playerPos.x > opponentGoalX) ? -0.001 : 0.001;
             }
-            const jumpStrengthFactor = (intent === 'defend_goal_line') ? 1.25 : 0.95;
-            const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.75 + Math.random() * 0.4) ;
+            
+            const jumpStrengthFactor = (intent === 'emergency_defense') ? 1.3 : 0.95;
+            const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.75 + Math.random() * 0.4);
             Body.applyForce(player.playerBody, playerPos, { x: horizontalActionForceDirection, y: verticalJumpForce });
         }
     }
@@ -948,14 +1035,26 @@ function checkWinCondition() {
 
     if (winner !== null) {
         isGameOver = true;
+        gameState = 'gameOver';
         const restartKey = 'W';
 
-        showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${restartKey}' to Play Again.`);
+        showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${restartKey}' to return to menu.`);
         if (runner) Runner.stop(runner);
         if (roundTimerId) {
             clearInterval(roundTimerId);
             roundTimerId = null;
         }
+        
+        // Auto return to menu after 5 seconds
+        setTimeout(() => {
+            if (gameState === 'gameOver') {
+                gameState = 'menu';
+                isGameOver = false;
+                isGameStarted = false;
+                showGameMessage('');
+            }
+        }, 5000);
+        
         return true;
     }
     return false;
@@ -1061,19 +1160,47 @@ function handleCollisions(event) {
                      kickAngleFactorY *= JUMP_SHOT_LOFT_FACTOR;
                 }
 
+                // Determine opponent goal correctly
                 const opponentGoalX = (playerCollidedObject.playerTeam === 1) ? CANVAS_WIDTH - WALL_THICKNESS : WALL_THICKNESS;
+                const ownGoalX = (playerCollidedObject.playerTeam === 1) ? WALL_THICKNESS : CANVAS_WIDTH - WALL_THICKNESS;
                 const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
 
+                // Special logic for AI to prevent own goals
                 let kickTargetPos = { x: opponentGoalX, y: goalCenterY };
-                if(isTimedShot){
-                     kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.05) + (Math.random() * actualGoalOpeningHeight * 0.1);
+                
+                if (playerCollidedObject.isAI) {
+                    // AI is smarter about kick direction
+                    const ballToOwnGoal = Math.abs(ballBody.position.x - ownGoalX);
+                    const ballToOpponentGoal = Math.abs(ballBody.position.x - opponentGoalX);
+                    
+                    // If ball is closer to own goal, kick it away from own goal
+                    if (ballToOwnGoal < ballToOpponentGoal * 0.7) {
+                        kickTargetPos.x = opponentGoalX;
+                        kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.3;
+                    } else {
+                        // Normal attack towards opponent goal
+                        kickTargetPos.x = opponentGoalX;
+                        kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.6;
+                    }
                 } else {
-                     kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5);
+                    // Human player - normal targeting
+                    if(isTimedShot){
+                         kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.05) + (Math.random() * actualGoalOpeningHeight * 0.1);
+                    } else {
+                         kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5);
+                    }
                 }
 
                 const kickOrigin = playerPhysicsBodyCollided.position;
                 let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
                 kickVector = Matter.Vector.normalise(kickVector);
+
+                // Ensure kick direction is correct
+                const expectedDirection = Math.sign(opponentGoalX - kickOrigin.x);
+                if (Math.sign(kickVector.x) !== expectedDirection && playerCollidedObject.isAI) {
+                    // Force correct direction for AI
+                    kickVector.x = expectedDirection * Math.abs(kickVector.x);
+                }
 
                 const baseKickXSign = Math.sign(kickVector.x);
                 kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
@@ -1129,16 +1256,17 @@ function gameRenderLoop() {
     customRenderAll();
     
     // Handle game over state
-    if (isGameOver && gameState === 'playing') {
+    if (gameState === 'gameOver') {
         const restartKey = 'KeyW';
         if (keysPressed[restartKey]) {
             if (!restartDebounce) {
-                console.log("RENDER_LOOP: Key pressed, restarting game.");
+                console.log("RENDER_LOOP: Key pressed, returning to menu.");
                 restartDebounce = true;
                 keysPressed[restartKey] = false;
-                if (gameRenderLoopId) cancelAnimationFrame(gameRenderLoopId);
-                if (roundTimerId) clearInterval(roundTimerId); roundTimerId = null;
-                setup();
+                gameState = 'menu';
+                isGameOver = false;
+                isGameStarted = false;
+                showGameMessage('');
                 return;
             }
         }
@@ -1556,23 +1684,61 @@ function drawPixelText(x, y, text, pixelSize) {
 function drawMenu() {
     // Menu background
     const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
-    gradient.addColorStop(0, '#1a1a2e');
-    gradient.addColorStop(0.5, '#16213e');
-    gradient.addColorStop(1, '#0f0f23');
+    gradient.addColorStop(0, '#4A90E2');
+    gradient.addColorStop(0.5, '#2E5C8A');
+    gradient.addColorStop(1, '#1E3A5F');
     pixelCtx.fillStyle = gradient;
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     
+    // Draw football field elements in background
+    pixelCtx.fillStyle = 'rgba(34, 139, 34, 0.3)';
+    pixelCtx.fillRect(0, PIXEL_CANVAS_HEIGHT - 30, PIXEL_CANVAS_WIDTH, 30);
+    
+    // Goal posts
+    pixelCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    pixelCtx.fillRect(5, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
+    pixelCtx.fillRect(15, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
+    pixelCtx.fillRect(5, PIXEL_CANVAS_HEIGHT - 25, 12, 2);
+    
+    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 17, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
+    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 7, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
+    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 17, PIXEL_CANVAS_HEIGHT - 25, 12, 2);
+    
+    // Soccer ball
+    const ballX = PIXEL_CANVAS_WIDTH / 2;
+    const ballY = PIXEL_CANVAS_HEIGHT / 3 + 40;
+    pixelCtx.fillStyle = '#FFFFFF';
+    for (let x = 0; x < 6; x++) {
+        for (let y = 0; y < 6; y++) {
+            const distance = Math.sqrt((x - 3) ** 2 + (y - 3) ** 2);
+            if (distance < 3) {
+                pixelCtx.fillRect(ballX - 3 + x, ballY - 3 + y, 1, 1);
+            }
+        }
+    }
+    // Ball pattern
+    pixelCtx.fillStyle = '#000000';
+    pixelCtx.fillRect(ballX - 1, ballY - 2, 1, 1);
+    pixelCtx.fillRect(ballX + 1, ballY - 1, 1, 1);
+    pixelCtx.fillRect(ballX, ballY + 1, 1, 1);
+    
     // Title
     const titleX = PIXEL_CANVAS_WIDTH / 2 - 40;
-    const titleY = PIXEL_CANVAS_HEIGHT / 3;
-    pixelCtx.fillStyle = '#00FF00';
+    const titleY = PIXEL_CANVAS_HEIGHT / 4;
+    pixelCtx.fillStyle = '#FFFFFF';
     drawPixelText(titleX, titleY, 'PIXEL', 2);
     drawPixelText(titleX, titleY + 15, 'SOCCER', 2);
     
+    // Subtitle
+    pixelCtx.fillStyle = '#FFFF00';
+    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 35, titleY + 35, 'STADIUM EDITION', 1);
+    
     // Buttons
-    menuButtons.forEach(button => {
+    menuButtons.forEach((button, index) => {
+        const isHovered = false; // Could add mouse support later
+        
         // Button background
-        pixelCtx.fillStyle = '#333333';
+        pixelCtx.fillStyle = isHovered ? '#444444' : '#333333';
         pixelCtx.fillRect(button.x, button.y, button.width, button.height);
         
         // Button border
@@ -1585,11 +1751,23 @@ function drawMenu() {
         // Button text
         pixelCtx.fillStyle = '#FFFFFF';
         drawPixelText(button.x + 2, button.y + 2, button.text, 1);
+        
+        // Button instructions
+        pixelCtx.fillStyle = '#AAAAAA';
+        if (index === 0) {
+            drawPixelText(button.x + button.width + 5, button.y + 3, 'PRESS W', 1);
+        } else {
+            drawPixelText(button.x + button.width + 5, button.y + 3, 'PRESS H', 1);
+        }
     });
     
-    // Instructions
-    pixelCtx.fillStyle = '#AAAAAA';
-    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 25, PIXEL_CANVAS_HEIGHT - 20, 'PRESS W TO START', 1);
+    // Main instructions
+    pixelCtx.fillStyle = '#00FF00';
+    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 35, PIXEL_CANVAS_HEIGHT - 30, 'W START   H HELP', 1);
+    
+    // Game info
+    pixelCtx.fillStyle = '#CCCCCC';
+    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 30, PIXEL_CANVAS_HEIGHT - 15, 'HUMAN VS AI MATCH', 1);
 }
 
 function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
@@ -1657,6 +1835,9 @@ function customRenderAll() {
         drawMenu();
         // Still draw animated background elements
         clouds.forEach(cloud => drawCloud(cloud));
+        return;
+    } else if (gameState === 'help') {
+        drawHelp();
         return;
     }
     

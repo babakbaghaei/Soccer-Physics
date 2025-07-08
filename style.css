@@ -8,9 +8,9 @@ body {
     justify-content: center;
     min-height: 100vh;
     margin: 0;
-    background: linear-gradient(45deg, #2c3e50, #34495e, #2c3e50);
-    background-size: 40px 40px;
-    animation: backgroundMove 20s linear infinite;
+    background: linear-gradient(135deg, #E3F2FD, #BBDEFB, #90CAF9);
+    background-size: 60px 60px;
+    animation: backgroundMove 30s linear infinite;
     color: #fff;
     font-size: 10px; /* Base font size for pixel font - adjust as needed */
 }
