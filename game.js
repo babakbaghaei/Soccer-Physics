@@ -318,7 +318,6 @@ function setup() {
         initAudioContext();
     }
     initClouds();
-    initSpectators();
     initStadiumLights();
 
     if (roundTimerId) {
@@ -400,7 +399,12 @@ function setup() {
 
     updateScoreDisplay();
     updateTimerDisplay();
-    showGameMessage("Game Started! Controls: A/D Move, W Jump");
+    showGameMessage("Game Started! Controls: A/D Move");
+    
+    // Play game start sound
+    createTone(440, 100, 'sine', 0.15);
+    setTimeout(() => createTone(554, 100, 'sine', 0.15), 100);
+    setTimeout(() => createTone(659, 200, 'sine', 0.15), 200);
     
     console.log("SETUP: Game started immediately!");
 }
@@ -547,7 +551,6 @@ function updateGame() {
     // Always update visual elements
     updateClouds();
     updateSun();
-    updateSpectators();
     
     if (gameState === 'gameOver') {
         // Game over state - restart game
@@ -693,8 +696,6 @@ function handleHumanPlayerControls() {
     const player = players[0];
     if (!player || player.isAI) return;
 
-    if (player.jumpCooldown > 0) player.jumpCooldown--;
-
     if (!player.isRotating && player.isGrounded) {
         let roll = 0;
         if (keysPressed['KeyA']) {
@@ -713,63 +714,6 @@ function handleHumanPlayerControls() {
             Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
         }
     }
-
-    const canStartNewJumpAttempt = (player.isGrounded || player.coyoteTimeFramesRemaining > 0);
-    const commonJumpConditionsMet = player.jumpCooldown === 0;
-
-    if (keysPressed['KeyW'] && commonJumpConditionsMet) {
-        if (!player.isAttemptingVariableJump && canStartNewJumpAttempt && !player.isRotating) {
-            player.isGrounded = false;
-            player.coyoteTimeFramesRemaining = 0;
-            player.jumpInputBuffered = false;
-            player.isAttemptingVariableJump = true;
-            player.variableJumpForceAppliedDuration = 0;
-            player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
-
-            Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
-
-            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
-            player.lastJumpTime = Date.now();
-            playSound('jump.wav');
-
-        } else if (player.isAttemptingVariableJump) {
-            if (player.variableJumpForceAppliedDuration < PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES &&
-                player.totalJumpImpulseThisJump < PLAYER_MAX_JUMP_IMPULSE) {
-
-                let forceToApply = PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE;
-                if (player.totalJumpImpulseThisJump + forceToApply > PLAYER_MAX_JUMP_IMPULSE) {
-                    forceToApply = PLAYER_MAX_JUMP_IMPULSE - player.totalJumpImpulseThisJump;
-                }
-
-                if (forceToApply > 0) {
-                    Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -forceToApply });
-                    player.totalJumpImpulseThisJump += forceToApply;
-                }
-                player.variableJumpForceAppliedDuration++;
-            } else {
-                player.isAttemptingVariableJump = false;
-            }
-        }
-    }
-
-    if (player.jumpInputBuffered && player.isGrounded && commonJumpConditionsMet && !player.isAttemptingVariableJump && !player.isRotating) {
-        player.isGrounded = false;
-        player.coyoteTimeFramesRemaining = 0;
-        player.jumpInputBuffered = false;
-        player.isAttemptingVariableJump = true;
-        player.variableJumpForceAppliedDuration = 0;
-        player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
-
-        Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
-
-        player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
-        player.lastJumpTime = Date.now();
-        playSound('jump.wav');
-    }
-
-    if (player.jumpInputBuffered && (!player.isGrounded || player.isAttemptingVariableJump || !commonJumpConditionsMet) ) {
-         player.jumpInputBuffered = false;
-    }
 }
 
 
@@ -777,8 +721,6 @@ function updateAIPlayers() {
     players.forEach((player) => {
         if (player.isAI) {
             if (player.actionCooldown > 0) player.actionCooldown--;
-            if (player.jumpCooldown > 0) player.jumpCooldown--;
-
             executeAIPlayerLogic(player);
         }
     });
@@ -864,32 +806,6 @@ function executeAIPlayerLogic(player) {
         player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
         Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
     }
-
-    if (player.jumpCooldown === 0 && distanceToBall < AI_ACTION_RANGE * 1.2 && !player.isRotating) {
-        const ballIsHigh = ballPos.y < playerPos.y - PLAYER_RECT_SIZE / 2 * 0.7;
-        const shouldJump = ballIsHigh || distanceToBall < AI_KICK_BALL_RANGE * 0.7 || intent === 'emergency_defense' || intent === 'defend_goal_line';
-
-        if (shouldJump && player.isGrounded) {
-            player.isGrounded = false;
-            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * (1.1 + Math.random() * 0.4);
-            player.lastJumpTime = Date.now();
-            playSound('jump.wav');
-
-            let horizontalActionForceDirection = 0;
-            
-            if (intent === 'emergency_defense' || intent === 'defend_goal_line') {
-                // When defending, jump towards the ball to clear it away from goal
-                horizontalActionForceDirection = (ballPos.x > playerPos.x) ? -0.003 : 0.003;
-            } else {
-                // When attacking, move towards opponent goal
-                horizontalActionForceDirection = (playerPos.x > opponentGoalX) ? -0.001 : 0.001;
-            }
-            
-            const jumpStrengthFactor = (intent === 'emergency_defense') ? 1.3 : 0.95;
-            const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.75 + Math.random() * 0.4);
-            Body.applyForce(player.playerBody, playerPos, { x: horizontalActionForceDirection, y: verticalJumpForce });
-        }
-    }
 }
 
 function perpDistToLine(p1, p2, p3) {
@@ -909,7 +825,12 @@ let goalScoredRecently = false;
 function handleGoalScored(scoringTeam) {
     if (isGameOver || goalScoredRecently) return;
     goalScoredRecently = true;
-    playSound('goal.wav');
+    
+    // Play goal sound melody
+    createTone(523, 150, 'square', 0.2); // C5
+    setTimeout(() => createTone(659, 150, 'square', 0.2), 150); // E5
+    setTimeout(() => createTone(784, 300, 'square', 0.2), 300); // G5
+    
     if (scoringTeam === 1) team1Score++; else if (scoringTeam === 2) team2Score++;
     updateScoreDisplay();
 
@@ -1683,9 +1604,6 @@ function customRenderAll() {
     
     // Draw stadium lights first (background lighting)
     stadiumLights.forEach(light => drawStadiumLight(light));
-    
-    // Draw spectators
-    spectators.forEach(spectator => drawSpectator(spectator));
     
     // Draw clouds
     clouds.forEach(cloud => drawCloud(cloud));
