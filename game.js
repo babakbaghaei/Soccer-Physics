@@ -32,8 +32,7 @@ let pixelCtx;
 
 let engine;
 let world;
-// let runner;
-let render; // Added for Render.create
+let runner;
 let isGameOver = false;
 let isGameStarted = false;
 let restartDebounce = false;
@@ -296,7 +295,7 @@ function initStadiumLights() {
 
 // --- Initialization Function ---
 function setup() {
-    console.log("Simplified SETUP: Initializing basic canvas and render loop...");
+    console.log("SETUP: Initializing game state...");
     isGameStarted = false;
     isGameOver = false;
     restartDebounce = false;
@@ -347,18 +346,13 @@ function setup() {
 
     engine = Engine.create();
     world = engine.world;
-    // engine.world.gravity.y = 1.1;
+    engine.world.gravity.y = 1.1;
+    console.log("SETUP: New engine and world created.");
 
     render = Render.create({
         canvas: canvas,
         engine: engine,
-        options: {
-            width: CANVAS_WIDTH,
-            height: CANVAS_HEIGHT,
-            wireframes: false,
-            background: '#0000FF',
-            enabled: false
-        }
+        options: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, wireframes: false, background: activeTheme.background, enabled: false }
     });
 
     canvas.width = CANVAS_WIDTH;
@@ -372,42 +366,50 @@ function setup() {
         pixelCanvas.height = PIXEL_CANVAS_HEIGHT;
         pixelCtx = pixelCanvas.getContext('2d');
     }
-    if (pixelCtx) {
-        pixelCtx.imageSmoothingEnabled = false;
-    } else {
-        console.error("Failed to get pixelCtx");
-        return;
-    }
+    pixelCtx.imageSmoothingEnabled = false;
+
+    createField();
+    createBall();
+
+    players = [];
+    const playerSpawnY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 5;
+    players.push(createPlayer(CANVAS_WIDTH / 4, playerSpawnY, activeTeam1Color, true, false));
+    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, playerSpawnY, activeTeam2Color, false, true));
     
-    // createField();
-    // createBall();
-    // players = [];
-    // const playerSpawnY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 5;
-    // players.push(createPlayer(CANVAS_WIDTH / 4, playerSpawnY, activeTeam1Color, true, false));
-    // players.push(createPlayer(CANVAS_WIDTH * 3 / 4, playerSpawnY, activeTeam2Color, false, true));
-    // setupInputListeners();
-    // runner = Runner.create();
-    // Events.on(engine, 'beforeUpdate', updateGame);
-    // Events.on(engine, 'collisionStart', handleCollisions);
-    // Runner.run(runner, engine);
-    // startGameTimer();
+    setupInputListeners();
+
+    runner = Runner.create();
+    console.log("SETUP: New runner created.");
+
+    Events.on(engine, 'beforeUpdate', updateGame);
+    Events.on(engine, 'collisionStart', handleCollisions);
+
+    // Start the game immediately
+    isGameStarted = true;
+    isGameOver = false;
+    Runner.run(runner, engine);
+    console.log("SETUP: Matter.js Runner started immediately.");
+    startGameTimer();
 
     if (typeof gameRenderLoopId !== 'undefined') {
         cancelAnimationFrame(gameRenderLoopId);
     }
     gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
-    console.log("Simplified SETUP: Started gameRenderLoop.");
+    console.log("SETUP: Started new gameRenderLoopId:", gameRenderLoopId);
 
-    // updateScoreDisplay();
-    // updateTimerDisplay();
-    // showGameMessage("Game Started! Controls: A/D Move");
-    // createTone(440, 100, 'sine', 0.15);
-    // setTimeout(() => createTone(554, 100, 'sine', 0.15), 100);
-    // setTimeout(() => createTone(659, 200, 'sine', 0.15), 200);
-    // console.log("SETUP: Game started immediately!");
-    // console.log("Players:", players.length);
-    // console.log("Ball:", ball ? "Created" : "Missing");
-    // console.log("Clouds:", clouds ? clouds.length : 0);
+    updateScoreDisplay();
+    updateTimerDisplay();
+    showGameMessage("Game Started! Controls: A/D Move");
+
+    // Play game start sound
+    createTone(440, 100, 'sine', 0.15);
+    setTimeout(() => createTone(554, 100, 'sine', 0.15), 100);
+    setTimeout(() => createTone(659, 200, 'sine', 0.15), 200);
+
+    console.log("SETUP: Game started immediately!");
+    console.log("Players:", players.length);
+    console.log("Ball:", ball ? "Created" : "Missing");
+    console.log("Clouds:", clouds ? clouds.length : 0);
 }
 
 // --- Timer Functions ---
@@ -569,7 +571,7 @@ function updateGame() {
     if (!isGameStarted || isGameOver) return;
 
     gameTime++;
-    updatePlayerStates();
+    // updatePlayerStates(); // Temporarily commented out to prevent game freeze
     handleHumanPlayerControls();
     updateAIPlayers();
     updatePlayerAnimations();
@@ -1237,25 +1239,14 @@ function showGameMessage(message) {
 
 // --- Custom Pixel Art Rendering ---
 function gameRenderLoop() {
-    if (!pixelCtx || !canvas) {
-        console.error("pixelCtx or canvas not available in gameRenderLoop");
-        return;
-    }
+    // Always render the game
+    customRenderAll();
 
-    try {
-        pixelCtx.fillStyle = '#0000FF'; // Blue
-        pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
-
-        const mainCtx = canvas.getContext('2d');
-        mainCtx.imageSmoothingEnabled = false;
-        mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    } catch(e) {
-        console.error("Error in simplified gameRenderLoop:", e);
-        if (gameRenderLoopId) cancelAnimationFrame(gameRenderLoopId);
-        return;
-    }
+    // Render to main canvas
+    const mainCtx = canvas.getContext('2d');
+    mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    mainCtx.imageSmoothingEnabled = false;
+    mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
 }
