@@ -112,7 +112,7 @@ let clouds = [];
 let sunPosition = { x: 0, y: 0 };
 let gameTime = 0;
 let gameStartTime = 0;
-// let spectators = []; // Removed
+let spectators = [];
 let stadiumLights = [];
 
 // --- Game States ---
@@ -251,6 +251,12 @@ function initClouds() {
     // Initialize sun at dawn position
     sunPosition.x = PIXEL_CANVAS_WIDTH * 0.1; // Start from left (sunrise)
     sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.3;
+}
+
+// Initialize spectators
+function initSpectators() {
+    spectators = [];
+    console.log("SPECTATORS: Initialized empty array");
 }
 
 // Initialize stadium lights
@@ -589,6 +595,11 @@ function getCurrentSunColor() {
     return SUN_COLORS.night;
 }
 
+// Update spectators animation
+function updateSpectators() {
+    // Simplified - no spectators
+}
+
 // Menu input function removed - game starts directly
 
 function updatePlayerStates() {
@@ -691,7 +702,7 @@ function updateAIPlayers() {
     players.forEach((player) => {
         if (player.isAI) {
             if (player.actionCooldown > 0) player.actionCooldown--;
-            executeAdvancedAI(player); // Changed to executeAdvancedAI
+            executeSimpleAI(player);
         }
     });
 }
@@ -722,28 +733,6 @@ function executeSimpleAI(player) {
     if (Math.abs(directionToTarget) > PLAYER_RECT_SIZE / 2) {
         const moveDirection = Math.sign(directionToTarget);
         
-        // Prevent AI from moving into its own goal with the ball
-        const ownGoalX = (player.playerTeam === 1) ? 0 : CANVAS_WIDTH;
-        const distanceToOwnGoal = Math.abs(playerPos.x - ownGoalX);
-        const ballDistanceToOwnGoal = Math.abs(ballPos.x - ownGoalX);
-
-        if (distanceToBall < PLAYER_RECT_SIZE && ballDistanceToOwnGoal < PLAYER_RECT_SIZE * 2) {
-            // If AI is close to the ball and the ball is very close to its own goal
-            if ((player.playerTeam === 1 && ballPos.x < playerPos.x) || (player.playerTeam === 2 && ballPos.x > playerPos.x)) {
-                // If ball is between AI and its own goal, try to move away from goal
-                const awayFromGoalDirection = (player.playerTeam === 1) ? 1 : -1;
-                if (awayFromGoalDirection !== 0 && !player.isRotating && player.isGrounded) {
-                    player.isRotating = true;
-                    player.rollDirection = awayFromGoalDirection;
-                    const currentAngle = player.playerBody.angle;
-                    const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-                    player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-                    Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
-                    return; // Prioritize moving away from own goal
-                }
-            }
-        }
-
         if (moveDirection !== 0 && !player.isRotating && player.isGrounded) {
             player.isRotating = true;
             player.rollDirection = moveDirection;
@@ -755,120 +744,7 @@ function executeSimpleAI(player) {
     }
 }
 
-function executeAdvancedAI(player) {
-    if (!ball || !player || !player.playerBody) return;
-
-    const ballPos = ball.position;
-    const playerPos = player.playerBody.position;
-    const playerVel = player.playerBody.velocity;
-    const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
-
-    const ownGoalX = player.playerTeam === 1 ? WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2 : CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2;
-    const opponentGoalX = player.playerTeam === 1 ? CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2 : WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2;
-    const goalY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
-
-    let targetX = playerPos.x;
-    let action = 'none'; // 'move', 'kick', 'jump_kick', 'defend'
-
-    // --- Strategic Positioning ---
-    const isDefensiveStance = (player.playerTeam === 1 && ballPos.x < CANVAS_WIDTH / 3) || (player.playerTeam === 2 && ballPos.x > CANVAS_WIDTH * 2 / 3);
-    const isOffensiveStance = (player.playerTeam === 1 && ballPos.x > CANVAS_WIDTH / 2) || (player.playerTeam === 2 && ballPos.x < CANVAS_WIDTH / 2);
-
-    // Time and score considerations (simple version)
-    const timeRatio = gameTimeRemaining / ROUND_DURATION_SECONDS;
-    const scoreDifference = player.playerTeam === 1 ? team1Score - team2Score : team2Score - team1Score;
-
-    if (distanceToBall < AI_ACTION_RANGE * 1.5) {
-        // --- Ball is relatively close ---
-        if (scoreDifference < 0 && timeRatio < 0.3) { // Losing and time running out
-            targetX = ballPos.x; // Aggressive pursuit
-            action = 'kick';
-        } else if (isDefensiveStance && Math.abs(ballPos.x - ownGoalX) < CANVAS_WIDTH / 4) {
-            // Ball is near own goal, prioritize clearing
-            targetX = ballPos.x + (playerPos.x > ballPos.x ? 10 : -10); // Get slightly behind ball to clear
-            action = 'kick'; // Or a defensive clear
-        } else {
-            targetX = ballPos.x; // General ball pursuit
-            action = 'kick';
-        }
-    } else {
-        // --- Ball is further away ---
-        if (scoreDifference > 0 && timeRatio < 0.4) { // Winning and time running out
-            // Defensive positioning between ball and own goal
-            targetX = ownGoalX + (player.playerTeam === 1 ? 70 : -70); // Stay closer to own goal
-            action = 'defend';
-        } else if (isOffensiveStance) {
-            // Support attack, move towards opponent's half
-            targetX = opponentGoalX - (player.playerTeam === 1 ? CANVAS_WIDTH / 3 : -CANVAS_WIDTH / 3);
-            action = 'move';
-        }
-        else {
-            // Default defensive position if ball is far
-            targetX = ownGoalX + (player.playerTeam === 1 ? 100 : -100); // Mid-defensive position
-            action = 'defend';
-        }
-    }
-
-    // Safety check: Don't get too close to own goal if not necessary
-    if (Math.abs(targetX - ownGoalX) < PLAYER_RECT_SIZE * 1.5 && Math.abs(ballPos.x - ownGoalX) > PLAYER_RECT_SIZE * 3) {
-        targetX = ownGoalX + (player.playerTeam === 1 ? PLAYER_RECT_SIZE * 1.5 : -PLAYER_RECT_SIZE * 1.5);
-    }
-
-
-    // --- Movement Execution ---
-    const directionToTarget = targetX - playerPos.x;
-    if (Math.abs(directionToTarget) > PLAYER_RECT_SIZE / 3 && player.isGrounded && !player.isRotating) {
-        const moveDirection = Math.sign(directionToTarget);
-
-        // Check for immediate own goal risk before moving
-        const nextPotentialBallPos = { x: ballPos.x, y: ballPos.y }; // Simplified
-        const playerToOwnGoalVec = { x: ownGoalX - playerPos.x, y: goalY - playerPos.y };
-        const playerToBallVec = { x: ballPos.x - playerPos.x, y: ballPos.y - playerPos.y };
-        const dotProduct = playerToOwnGoalVec.x * playerToBallVec.x + playerToOwnGoalVec.y * playerToBallVec.y;
-        const ballDistToOwnGoal = Math.abs(ballPos.x - ownGoalX);
-
-        if (distanceToBall < PLAYER_RECT_SIZE * 1.5 && ballDistToOwnGoal < PLAYER_RECT_SIZE * 2 && dotProduct > 0) {
-            // AI is between ball and own goal, and ball is close to own goal.
-            // This indicates a high risk of own goal if AI moves towards the ball.
-            // Instead, try to move to the side of the ball or away from own goal.
-            const clearDirection = (player.playerTeam === 1) ? 1 : -1; // Move towards opponent goal side
-             if (!player.isRotating && player.isGrounded) {
-                player.isRotating = true;
-                player.rollDirection = clearDirection;
-                const currentAngle = player.playerBody.angle;
-                const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-                player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-                Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
-                return;
-            }
-        } else if (moveDirection !== 0 ) {
-             player.isRotating = true;
-             player.rollDirection = moveDirection;
-             const currentAngle = player.playerBody.angle;
-             const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-             player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-             Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
-        }
-    }
-
-    // --- Action Execution (Kicking/Jumping) ---
-    // This part is mostly handled by handleCollisions for AI kicks.
-    // We can add proactive jumping here if needed.
-    // For example, if ball is high and AI is below it.
-    if (action === 'kick' && distanceToBall < AI_KICK_BALL_RANGE && player.actionCooldown === 0) {
-        // The actual kick is triggered by collision, but we can prepare for a jump kick.
-        if (ballPos.y < playerPos.y - PLAYER_RECT_SIZE / 2 && player.isGrounded && player.jumpCooldown === 0) {
-            // Attempt a jump if ball is significantly above
-            // Body.applyForce(player.playerBody, playerPos, { x: 0, y: -PLAYER_MAX_JUMP_IMPULSE * 0.7 });
-            // player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
-            // player.lastJumpTime = Date.now();
-            // player.isGrounded = false;
-            // This jump logic needs to be compatible with the new square player jump.
-            // For now, AI relies on collision-based kicks.
-        }
-    }
-}
-
+// Old AI function removed - replaced with advanced AI system
 
 function perpDistToLine(p1, p2, p3) {
     const dx = p2.x - p1.x;
@@ -904,32 +780,24 @@ function handleGoalScored(scoringTeam) {
     gameMessageDisplay.style.color = 'gold';
     gameMessageDisplay.style.textShadow = '2px 2px #000';
 
-    // Check win condition, but don't let it interfere with goalScoredRecently logic here
-    const gameHasEnded = checkWinCondition();
-
-    if (gameHasEnded) {
-        // If game ended, the game over message from checkWinCondition will take precedence.
-        // We still need to allow the goal effects to play out if desired.
-        // goalScoredRecently will be reset by its own timer or by setup() if game restarts.
+    if (checkWinCondition()) {
+        goalScoredRecently = false;
+        gameMessageDisplay.style.fontSize = '';
+        gameMessageDisplay.style.color = '';
+        gameMessageDisplay.style.textShadow = '';
+        return;
     }
 
     setTimeout(() => {
-        // Only clear goal message if game hasn't ended with a different message
-        if (!isGameOver && gameMessageDisplay.textContent === `GOAL!!! TEAM ${scoringTeam}!`) {
+        if (gameMessageDisplay.textContent === `GOAL!!! TEAM ${scoringTeam}!`) {
             showGameMessage('');
         }
-        // Reset visual styles for game message if it was a goal message
-        if (gameMessageDisplay.textContent === '' || gameMessageDisplay.textContent === `GOAL!!! TEAM ${scoringTeam}!`) {
-            gameMessageDisplay.style.fontSize = '';
-            gameMessageDisplay.style.color = '';
-            gameMessageDisplay.style.textShadow = '';
-        }
-        goalScoredRecently = false; // This is the primary place to reset this flag
+        gameMessageDisplay.style.fontSize = '';
+        gameMessageDisplay.style.color = '';
+        gameMessageDisplay.style.textShadow = '';
+        goalScoredRecently = false;
     }, 2200);
-
-    if (!gameHasEnded) { // Only reset positions if the game is continuing after this goal
-        resetPositions();
-    }
+    resetPositions();
 }
 
 function checkWinCondition() {
@@ -1036,10 +904,8 @@ function resetPositions() {
 }
 
 function handleCollisions(event) {
-    // Allow collisions to be processed if game has started,
-    // even if isGameOver is true, as a goal might occur simultaneously with game ending.
-    // handleGoalScored and checkWinCondition will manage the game state.
-    if (!isGameStarted) return;
+    if (!isGameStarted && !isGameOver) return;
+    if (isGameOver && !goalScoredRecently) return;
 
     const pairs = event.pairs;
     const { actualGoalOpeningHeight } = getFieldDerivedConstants();
@@ -1092,49 +958,21 @@ function handleCollisions(event) {
                 let kickTargetPos = { x: opponentGoalX, y: goalCenterY };
                 
                 if (playerCollidedObject.isAI) {
-                    const ballToOwnGoalDist = Math.abs(ballBody.position.x - ownGoalX);
-                    const playerToOwnGoalDist = Math.abs(playerPhysicsBodyCollided.position.x - ownGoalX);
-
-                    // Priority 1: Avoid immediate own goal.
-                    // If AI is very close to its own goal and ball is also very close, try to clear it safely.
-                    if (playerToOwnGoalDist < PLAYER_RECT_SIZE * 2 && ballToOwnGoalDist < PLAYER_RECT_SIZE * 2.5) {
-                        // Check if the ball is between the player and the own goal line
-                        const playerIsBetweenBallAndOwnGoal = (playerCollidedObject.playerTeam === 1 && ballBody.position.x < playerPhysicsBodyCollided.position.x) ||
-                                                              (playerCollidedObject.playerTeam === 2 && ballBody.position.x > playerPhysicsBodyCollided.position.x);
-
-                        if (playerIsBetweenBallAndOwnGoal) {
-                             // Kick towards the side, away from own goal center.
-                            kickTargetPos.x = playerPhysicsBodyCollided.position.x + (playerCollidedObject.playerTeam === 1 ? 100 : -100); // Kick sideways strongly
-                            kickTargetPos.y = playerPhysicsBodyCollided.position.y - 50; // Kick slightly upwards
-                            kickAngleFactorY = -0.8; // More upward lift for clearance
-                            kickForce *= 1.1; // Slightly stronger kick to clear
-                        } else {
-                            // Player is not directly between ball and own goal, but still very defensive.
-                            // Kick towards opponent's side, but aim wide to be safe.
-                            kickTargetPos.x = opponentGoalX;
-                            kickTargetPos.y = goalCenterY + (Math.random() > 0.5 ? actualGoalOpeningHeight * 0.7 : -actualGoalOpeningHeight * 0.7); // Aim wide
-                            kickAngleFactorY = -0.6;
-                        }
+                    // AI is smarter about kick direction
+                    const ballToOwnGoal = Math.abs(ballBody.position.x - ownGoalX);
+                    const ballToOpponentGoal = Math.abs(ballBody.position.x - opponentGoalX);
+                    
+                    // If ball is closer to own goal, kick it away from own goal
+                    if (ballToOwnGoal < ballToOpponentGoal * 0.7) {
+                        kickTargetPos.x = opponentGoalX;
+                        kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.3;
+                    } else {
+                        // Normal attack towards opponent goal
+                        kickTargetPos.x = opponentGoalX;
+                        kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.6;
                     }
-                    // Priority 2: General play - aim for opponent goal, but with awareness.
-                    else {
-                        const ballToOpponentGoalDist = Math.abs(ballBody.position.x - opponentGoalX);
-                        // If ball is generally closer to own goal than opponent's goal, or AI is in defensive half.
-                        if (ballToOwnGoalDist < ballToOpponentGoalDist * 1.2 ||
-                            (playerCollidedObject.playerTeam === 1 && playerPhysicsBodyCollided.position.x < CANVAS_WIDTH / 2) ||
-                            (playerCollidedObject.playerTeam === 2 && playerPhysicsBodyCollided.position.x > CANVAS_WIDTH / 2) ) {
-                            // More controlled kick, possibly aiming for corners or less direct.
-                            kickTargetPos.x = opponentGoalX;
-                            kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.4; // Less centered
-                            kickAngleFactorY = -0.5 - Math.random() * 0.3; // Vary loft
-                        } else {
-                            // Offensive situation: More direct shot.
-                            kickTargetPos.x = opponentGoalX;
-                            kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.7; // Aim more centrally
-                            kickAngleFactorY = -0.4 - Math.random() * 0.4; // More aggressive loft/power
-                        }
-                    }
-                } else { // Human player
+                } else {
+                    // Human player - normal targeting
                     if(isTimedShot){
                          kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.05) + (Math.random() * actualGoalOpeningHeight * 0.1);
                     } else {
@@ -1144,33 +982,19 @@ function handleCollisions(event) {
 
                 const kickOrigin = playerPhysicsBodyCollided.position;
                 let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
-
-                // Prevent AI from kicking directly backwards if target is somehow behind it (should be rare with new logic)
-                if (playerCollidedObject.isAI) {
-                    const intendedKickDirection = Math.sign(opponentGoalX - kickOrigin.x);
-                    if (Math.sign(kickVector.x) !== intendedKickDirection && intendedKickDirection !== 0) {
-                         // If kick vector is going the wrong way (e.g. directly backwards)
-                         // Re-evaluate or default to a safe forward/sideways kick
-                         kickVector.x = intendedKickDirection * Math.abs(kickVector.x); // Force correct general direction
-                         if (Math.abs(kickVector.x) < 0.1) kickVector.x = intendedKickDirection * 0.1; // Ensure some forward component
-                         kickVector.y = -0.5 + (Math.random() * -0.3); // Default to a slightly lofted forward kick
-                    }
-                }
-
                 kickVector = Matter.Vector.normalise(kickVector);
 
-                // Adjust y-component for loft, apply timed shot bonus if applicable
-                const baseKickXSign = Math.sign(kickVector.x) || (playerCollidedObject.playerTeam === 1 ? 1 : -1); // Ensure a direction if vector is purely vertical
-                kickVector.y = Math.min(kickAngleFactorY * (isTimedShot && !playerCollidedObject.isAI ? JUMP_SHOT_LOFT_FACTOR : 1), kickVector.y * Math.sign(kickAngleFactorY));
-
-                // Ensure X component has a reasonable magnitude, especially for AI
-                let kickStrengthXFactor = (isTimedShot && !playerCollidedObject.isAI ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4));
-                if (playerCollidedObject.isAI) {
-                    kickStrengthXFactor = 0.5 + Math.random() * 0.4; // AI has more consistent side power
+                // Ensure kick direction is correct
+                const expectedDirection = Math.sign(opponentGoalX - kickOrigin.x);
+                if (Math.sign(kickVector.x) !== expectedDirection && playerCollidedObject.isAI) {
+                    // Force correct direction for AI
+                    kickVector.x = expectedDirection * Math.abs(kickVector.x);
                 }
-                kickVector.x = baseKickXSign * kickStrengthXFactor;
 
-                kickVector = Matter.Vector.normalise(kickVector); // Re-normalize after adjustments
+                const baseKickXSign = Math.sign(kickVector.x);
+                kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
+                kickVector.x = baseKickXSign * (isTimedShot ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4) );
+                kickVector = Matter.Vector.normalise(kickVector);
 
                 // Play kick sound based on force
                 const kickPitch = 150 + (kickForce * 50);
@@ -1685,6 +1509,25 @@ function drawCloud(cloud) {
     });
     
     pixelCtx.globalAlpha = 1.0;
+}
+
+function drawSpectator(spectator) {
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    const size = pixelSize * 2;
+    
+    // Body
+    pixelCtx.fillStyle = spectator.color;
+    pixelCtx.fillRect(spectator.x, spectator.y, size, size);
+    
+    // Head
+    pixelCtx.fillStyle = '#FFDBAC';
+    pixelCtx.fillRect(spectator.x, spectator.y - size, size, size);
+    
+    // Animation (occasional wave)
+    if (Math.sin(spectator.animation) > 0.8) {
+        pixelCtx.fillStyle = spectator.color;
+        pixelCtx.fillRect(spectator.x + size, spectator.y - size/2, size/2, size/2);
+    }
 }
 
 function drawStadiumLight(light) {
