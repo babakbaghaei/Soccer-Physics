@@ -355,7 +355,42 @@ function updateGame() {
                     Body.setAngularVelocity(part, part.angularVelocity * LANDING_DAMPING_FACTOR);
                 });
                 if (Math.abs(player.body.angle) > 0.15) {
-                    Matter.Body.setTorque(player.body, -player.body.angle * UPRIGHT_TORQUE_STRENGTH_FACTOR);
+                    // Matter.Body.setTorque(player.body, -player.body.angle * UPRIGHT_TORQUE_STRENGTH_FACTOR);
+                    // Alternative using applyForce:
+                    const body = player.body;
+                    const angle = body.angle;
+                    const forceMagnitude = UPRIGHT_TORQUE_STRENGTH_FACTOR * 0.25; // Tuned from 0.05
+
+                    // Apply force to top-left/bottom-right or top-right/bottom-left to create rotation
+                    // The points should be relative to the body's center and rotated by its current angle
+                    const offsetX = BODY_WIDTH / 2; // Use player body dimensions
+                    const offsetY = BODY_HEIGHT / 2;
+
+                    // Point1: Top of the body, slightly to one side (e.g., left if tilted right)
+                    // Point2: Bottom of the body, slightly to the other side (e.g., right if tilted right)
+                    // This is a simplified approach. A more robust one would transform points to world space.
+
+                    // If tilted to the right (positive angle), apply counter-clockwise torque
+                    // Force up on right side, down on left side (or left on top, right on bottom)
+                    if (angle > 0.15) { // Tilted right
+                        Matter.Body.applyForce(body,
+                            { x: body.position.x + offsetX * Math.cos(angle) - offsetY * Math.sin(angle), y: body.position.y + offsetX * Math.sin(angle) + offsetY * Math.cos(angle) }, // Approx top-right point
+                            { x: 0, y: -forceMagnitude } // Force upwards
+                        );
+                        Matter.Body.applyForce(body,
+                            { x: body.position.x - offsetX * Math.cos(angle) + offsetY * Math.sin(angle), y: body.position.y - offsetX * Math.sin(angle) - offsetY * Math.cos(angle) }, // Approx bottom-left point
+                            { x: 0, y: forceMagnitude } // Force downwards
+                        );
+                    } else if (angle < -0.15) { // Tilted left
+                         Matter.Body.applyForce(body,
+                            { x: body.position.x - offsetX * Math.cos(angle) - offsetY * Math.sin(angle), y: body.position.y - offsetX * Math.sin(angle) + offsetY * Math.cos(angle) }, // Approx top-left point
+                            { x: 0, y: -forceMagnitude } // Force upwards
+                        );
+                        Matter.Body.applyForce(body,
+                            { x: body.position.x + offsetX * Math.cos(angle) + offsetY * Math.sin(angle), y: body.position.y + offsetX * Math.sin(angle) - offsetY * Math.cos(angle) }, // Approx bottom-right point
+                            { x: 0, y: forceMagnitude } // Force downwards
+                        );
+                    }
                 }
             }
         }
