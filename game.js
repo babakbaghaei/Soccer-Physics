@@ -1293,7 +1293,9 @@ function customRenderAll() {
 
     function renderPlayerPart(partBody, playerObject, mainBodyAngle, mainBodyPosition) {
         let renderAngle = mainBodyAngle + partBody.angle; // Part's angle is relative to compound body's angle
-        let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(Matter.Vector.sub(partBody.position, mainBody.position), mainBodyAngle));
+        // Corrected calculation for world position of a compound body part:
+        // partBody.position is the local position relative to the mainBody's center when mainBody's angle is 0.
+        let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle));
 
         let yRenderOffset = 0;
         let currentPartHeight = partBody.label.includes('leg') ? LEG_HEIGHT : BODY_HEIGHT; // Default to original
