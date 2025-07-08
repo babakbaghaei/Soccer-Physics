@@ -1996,196 +1996,140 @@ function customRenderAll() {
     // Draw in-game scoreboard
     drawInGameScoreboard();
 
-    const goalPostColor = '#FFFFFF';
-    const netColor = activeTheme.net;
-    const postPixelThickness = Math.max(1, Math.round(8 / PIXEL_SCALE));
+    // --- New Goal Rendering Logic ---
+    const goalPostColor = '#FFFFFF'; // رنگ تیرک‌ها
+    const netColor = activeTheme.net || 'rgba(200, 200, 200, 0.6)'; // رنگ تور
+    const postThickness = Math.max(2, Math.round(6 / PIXEL_SCALE)); // ضخامت تیرک‌ها در pixelCanvas
+
     const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
-    const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
-    const goalBaseY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
-    const goalTopActualY = goalBaseY - goalPixelHeight;
+    const goalPixelMouthWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE); // عرض دهانه دروازه
+    const goalPixelDepth = Math.round((GOAL_MOUTH_VISUAL_WIDTH * 0.6) / PIXEL_SCALE); // عمق دروازه (قابل تنظیم)
 
-    const isoDepth = postPixelThickness * ISOMETRIC_DEPTH_FACTOR * 1.5;
+    const groundY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
+    const goalTopY = groundY - goalPixelHeight;
 
+    // Helper function to draw a "3D" post (ساده شده)
+    function drawPost(x, y, width, height, depth, color) {
+        const darkColor = shadeColor(color, -0.2);
+        const darkerColor = shadeColor(color, -0.4);
+
+        // Front face
+        pixelCtx.fillStyle = color;
+        pixelCtx.fillRect(x - width / 2, y, width, height);
+
+        // Top face (اگر افقی است، یا برای عمق تیرک عمودی)
+        // این بخش برای تیرک‌های ایزومتریک واقعی نیاز به محاسبات پرسپکتیو دارد
+        // برای سادگی، یک سایه ساده می‌گذاریم
+        if (height < width * 2) { // تیرک افقی
+             pixelCtx.fillStyle = darkColor;
+             pixelCtx.beginPath();
+             pixelCtx.moveTo(x - width/2, y);
+             pixelCtx.lineTo(x - width/2 + depth * 0.5, y - depth * 0.25);
+             pixelCtx.lineTo(x + width/2 + depth * 0.5, y - depth * 0.25);
+             pixelCtx.lineTo(x + width/2, y);
+             pixelCtx.closePath();
+             pixelCtx.fill();
+        } else { // تیرک عمودی
+            pixelCtx.fillStyle = darkColor;
+            pixelCtx.beginPath();
+            pixelCtx.moveTo(x + width / 2, y);
+            pixelCtx.lineTo(x + width / 2 + depth * 0.5, y + depth * 0.25);
+            pixelCtx.lineTo(x + width / 2 + depth * 0.5, y + height + depth * 0.25);
+            pixelCtx.lineTo(x + width / 2, y + height);
+            pixelCtx.closePath();
+            pixelCtx.fill();
+        }
+    }
+
+    pixelCtx.strokeStyle = netColor;
     pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
 
-    // Left Goal
-    const leftGoalMouthX = Math.round(WALL_THICKNESS / PIXEL_SCALE);
+    // --- Render Left Goal ---
+    const leftGoalFrontX = Math.round(WALL_THICKNESS / PIXEL_SCALE);
+    // تیرک چپ عمودی
+    drawPost(leftGoalFrontX + postThickness / 2, goalTopY, postThickness, goalPixelHeight, postThickness * 2, goalPostColor);
+    // تیرک راست عمودی دروازه چپ
+    drawPost(leftGoalFrontX + goalPixelMouthWidth - postThickness / 2, goalTopY, postThickness, goalPixelHeight, postThickness * 2, goalPostColor);
+    // تیرک افقی بالای دروازه چپ
+    drawPost(leftGoalFrontX + goalPixelMouthWidth / 2, goalTopY, goalPixelMouthWidth - postThickness, postThickness, postThickness * 2, goalPostColor);
 
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.15);
-    pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, goalMouthPixelWidth, postPixelThickness);
+    // تور دروازه چپ (ساده شده)
+    const netTopBackY_L = goalTopY + postThickness / 2; // کمی داخل‌تر از بالای تیرک
+    const netBottomBackY_L = groundY - postThickness / 2; // کمی بالاتر از زمین در عقب
+    const netBackX_L_Start = leftGoalFrontX + postThickness + goalPixelDepth * 0.2;
+    const netBackX_L_End = leftGoalFrontX + goalPixelMouthWidth - postThickness - goalPixelDepth * 0.2;
+    const netDepthAnchorY_L = groundY - goalPixelDepth * 0.5; // نقطه اتصال تور به زمین در عقب
 
+    for (let i = 0; i <= 5; i++) { // خطوط افقی تور
+        const t = i / 5;
+        const yFront = goalTopY + postThickness + t * (goalPixelHeight - postThickness * 2);
+        const yBack = netTopBackY_L + t * ( (netDepthAnchorY_L - postThickness/2) - netTopBackY_L); // اینترپولیشن برای عمق
+        const xBackStart = netBackX_L_Start + t * (goalPixelDepth*0.3); // تور به سمت داخل جمع می‌شود
+        const xBackEnd = netBackX_L_End - t * (goalPixelDepth*0.3);
 
-    pixelCtx.fillStyle = goalPostColor;
-    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness);
-
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.1);
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalMouthX + postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness + isoDepth, goalBaseY - isoDepth * 0.5);
-    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalBaseY - isoDepth*0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalMouthX, goalTopActualY);
-    pixelCtx.lineTo(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth, goalTopActualY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-
-    pixelCtx.strokeStyle = netColor;
-    const netTopFrontY = goalTopActualY + postPixelThickness;
-    const netBottomFrontY = goalBaseY -1;
-    const netFrontLeftX = leftGoalMouthX + postPixelThickness;
-    const netFrontRightX = leftGoalMouthX + goalMouthPixelWidth - postPixelThickness;
-
-    const netTopBackY = goalTopActualY - isoDepth * 0.5 + postPixelThickness;
-    const netBottomBackY = goalBaseY - isoDepth * 0.5 -1;
-    const netBackLeftX = leftGoalMouthX + isoDepth + postPixelThickness;
-    const netBackRightX = leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth;
-
-    for (let i = 0; i <= 4; i++) {
-        const tFront = i / 4;
-        const yFrontLine = netTopFrontY + (netBottomFrontY - netTopFrontY) * tFront;
         pixelCtx.beginPath();
-        pixelCtx.moveTo(netFrontLeftX, yFrontLine);
-        pixelCtx.lineTo(netFrontRightX, yFrontLine);
-        pixelCtx.stroke();
-
-        const tBack = i / 4;
-        const yBackLine = netTopBackY + (netBottomBackY - netTopBackY) * tBack;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(netBackLeftX, yBackLine);
-        pixelCtx.lineTo(netBackRightX, yBackLine);
-        pixelCtx.stroke();
+        pixelCtx.moveTo(leftGoalFrontX + postThickness, yFront); // اتصال به جلوی تیرک
+        pixelCtx.lineTo(xBackStart, yBack);
+        pixelCtx.lineTo(xBackEnd, yBack);
+        pixelCtx.lineTo(leftGoalFrontX + goalPixelMouthWidth - postThickness, yFront); // اتصال به جلوی تیرک دیگر
+        if(i < 5 && i > 0) pixelCtx.stroke(); // خطوط میانی تور
     }
-
-    for (let i = 0; i <= 6; i++) {
-        const tFront = i / 6;
-        const xFrontLine = netFrontLeftX + (netFrontRightX - netFrontLeftX) * tFront;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xFrontLine, netBottomFrontY);
-        pixelCtx.stroke();
-
-        const tBack = i / 6;
-        const xBackLine = netBackLeftX + (netBackRightX - netBackLeftX) * tBack;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xBackLine, netTopBackY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
-        pixelCtx.stroke();
+    for (let i = 0; i <= 6; i++) { // خطوط عمودی تور
+        const t = i / 6;
+        const xFront = leftGoalFrontX + postThickness + t * (goalPixelMouthWidth - 2 * postThickness);
+        const xBack = netBackX_L_Start + t * (netBackX_L_End - netBackX_L_Start);
 
         pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xBackLine, netTopBackY);
-        pixelCtx.stroke();
-
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netBottomFrontY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
+        pixelCtx.moveTo(xFront, goalTopY + postThickness);
+        pixelCtx.lineTo(xBack, netTopBackY_L);
+        pixelCtx.lineTo(xBack, netDepthAnchorY_L - postThickness/2); // پایین تور در عقب
+        // pixelCtx.lineTo(xFront, groundY - postThickness); // اگر تور تا پایین می‌آید
         pixelCtx.stroke();
     }
 
 
-    const rightGoalMouthX = PIXEL_CANVAS_WIDTH - Math.round(WALL_THICKNESS / PIXEL_SCALE) - goalMouthPixelWidth;
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.15);
-    pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, goalMouthPixelWidth, postPixelThickness);
+    // --- Render Right Goal ---
+    const rightGoalFrontX = PIXEL_CANVAS_WIDTH - Math.round(WALL_THICKNESS / PIXEL_SCALE) - goalPixelMouthWidth;
+    // تیرک چپ عمودی دروازه راست
+    drawPost(rightGoalFrontX + postThickness / 2, goalTopY, postThickness, goalPixelHeight, postThickness * 2, goalPostColor);
+    // تیرک راست عمودی دروازه راست
+    drawPost(rightGoalFrontX + goalPixelMouthWidth - postThickness / 2, goalTopY, postThickness, goalPixelHeight, postThickness * 2, goalPostColor);
+    // تیرک افقی بالای دروازه راست
+    drawPost(rightGoalFrontX + goalPixelMouthWidth / 2, goalTopY, goalPixelMouthWidth - postThickness, postThickness, postThickness * 2, goalPostColor);
 
+    // تور دروازه راست (ساده شده)
+    const netTopBackY_R = goalTopY + postThickness / 2;
+    const netBottomBackY_R = groundY - postThickness / 2;
+    const netBackX_R_Start = rightGoalFrontX + postThickness + goalPixelDepth * 0.2;
+    const netBackX_R_End = rightGoalFrontX + goalPixelMouthWidth - postThickness - goalPixelDepth * 0.2;
+    const netDepthAnchorY_R = groundY - goalPixelDepth * 0.5;
 
-    pixelCtx.fillStyle = goalPostColor;
-    pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness);
+    for (let i = 0; i <= 5; i++) { // خطوط افقی تور
+        const t = i / 5;
+        const yFront = goalTopY + postThickness + t * (goalPixelHeight - postThickness * 2);
+        const yBack = netTopBackY_R + t * ( (netDepthAnchorY_R - postThickness/2) - netTopBackY_R);
+        const xBackStart = netBackX_R_Start + t * (goalPixelDepth*0.3);
+        const xBackEnd = netBackX_R_End - t * (goalPixelDepth*0.3);
 
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.1);
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalMouthX + postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness + isoDepth, goalBaseY - isoDepth * 0.5);
-    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalBaseY - isoDepth*0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalMouthX, goalTopActualY);
-    pixelCtx.lineTo(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth, goalTopActualY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.strokeStyle = netColor;
-    const rgNetFrontLeftX = rightGoalMouthX + postPixelThickness;
-    const rgNetFrontRightX = rightGoalMouthX + goalMouthPixelWidth - postPixelThickness;
-    const rgNetBackLeftX = rightGoalMouthX + isoDepth + postPixelThickness;
-    const rgNetBackRightX = rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth;
-
-    for (let i = 0; i <= 4; i++) {
-        const tFront = i / 4;
-        const yFrontLine = netTopFrontY + (netBottomFrontY - netTopFrontY) * tFront;
         pixelCtx.beginPath();
-        pixelCtx.moveTo(rgNetFrontLeftX, yFrontLine);
-        pixelCtx.lineTo(rgNetFrontRightX, yFrontLine);
-        pixelCtx.stroke();
+        pixelCtx.moveTo(rightGoalFrontX + postThickness, yFront);
+        pixelCtx.lineTo(xBackStart, yBack);
+        pixelCtx.lineTo(xBackEnd, yBack);
+        pixelCtx.lineTo(rightGoalFrontX + goalPixelMouthWidth - postThickness, yFront);
+        if(i < 5 && i > 0) pixelCtx.stroke();
+    }
+     for (let i = 0; i <= 6; i++) { // خطوط عمودی تور
+        const t = i / 6;
+        const xFront = rightGoalFrontX + postThickness + t * (goalPixelMouthWidth - 2 * postThickness);
+        const xBack = netBackX_R_Start + t * (netBackX_R_End - netBackX_R_Start);
 
-        const tBack = i / 4;
-        const yBackLine = netTopBackY + (netBottomBackY - netTopBackY) * tBack;
         pixelCtx.beginPath();
-        pixelCtx.moveTo(rgNetBackLeftX, yBackLine);
-        pixelCtx.lineTo(rgNetBackRightX, yBackLine);
+        pixelCtx.moveTo(xFront, goalTopY + postThickness);
+        pixelCtx.lineTo(xBack, netTopBackY_R);
+        pixelCtx.lineTo(xBack, netDepthAnchorY_R - postThickness/2);
         pixelCtx.stroke();
     }
-
-    for (let i = 0; i <= 6; i++) {
-        const tFront = i / 6;
-        const xFrontLine = rgNetFrontLeftX + (rgNetFrontRightX - rgNetFrontLeftX) * tFront;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xFrontLine, netBottomFrontY);
-        pixelCtx.stroke();
-
-        const tBack = i / 6;
-        const xBackLine = rgNetBackLeftX + (rgNetBackRightX - rgNetBackLeftX) * tBack;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xBackLine, netTopBackY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
-        pixelCtx.stroke();
-
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xBackLine, netTopBackY);
-        pixelCtx.stroke();
-
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netBottomFrontY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
-        pixelCtx.stroke();
-    }
+    // --- End of New Goal Rendering Logic ---
 }
 
 document.addEventListener('DOMContentLoaded', setup);
