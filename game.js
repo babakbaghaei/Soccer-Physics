@@ -321,6 +321,7 @@ function showHelp() {
 // Handle help input
 function handleHelpInput() {
     if (keysPressed['KeyW'] || keysPressed['Escape'] || keysPressed['KeyB']) {
+        console.log("HELP: Returning to menu");
         gameState = 'menu';
         keysPressed['KeyW'] = false;
         keysPressed['Escape'] = false;
@@ -378,6 +379,11 @@ function setup() {
     gameTime = 0;
     gameStartTime = Date.now();
     gameState = 'menu';
+
+    // Clear keys
+    Object.keys(keysPressed).forEach(key => {
+        keysPressed[key] = false;
+    });
 
     // Initialize audio and visual elements
     if (!audioContext) {
@@ -461,6 +467,11 @@ function setup() {
     updateScoreDisplay();
     updateTimerDisplay();
     showGameMessage("Controls: A/D Move, W Jump. Press W to Start!");
+    
+    // Debug key status
+    console.log("SETUP: Keys setup, gameState:", gameState);
+    console.log("SETUP: Initial keysPressed object:", keysPressed);
+    
     console.log("SETUP: Complete.");
 }
 
@@ -564,29 +575,40 @@ function createPlayer(x, y, teamColor, isTeam1, isAI) {
 }
 
 function setupInputListeners() {
-    document.addEventListener('keydown', (event) => {
-        if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight'].includes(event.code)) {
-            event.preventDefault();
-        }
-        keysPressed[event.code] = true;
+    // Remove existing listeners to prevent duplicates
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
+    
+    // Add new listeners
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+}
 
-        const humanPlayer = players.find(p => !p.isAI);
-        if (humanPlayer && event.code === 'KeyW' && !humanPlayer.isGrounded && humanPlayer.jumpCooldown === 0) {
-            if (humanPlayer.coyoteTimeFramesRemaining <= 0) {
-                 humanPlayer.jumpInputBuffered = true;
-                 setTimeout(() => { humanPlayer.jumpInputBuffered = false; }, 200);
-            }
+function handleKeyDown(event) {
+    console.log("KEY_DOWN:", event.code, "gameState:", gameState);
+    
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyH', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'Escape'].includes(event.code)) {
+        event.preventDefault();
+    }
+    keysPressed[event.code] = true;
+
+    const humanPlayer = players.find(p => !p.isAI);
+    if (humanPlayer && event.code === 'KeyW' && !humanPlayer.isGrounded && humanPlayer.jumpCooldown === 0) {
+        if (humanPlayer.coyoteTimeFramesRemaining <= 0) {
+             humanPlayer.jumpInputBuffered = true;
+             setTimeout(() => { humanPlayer.jumpInputBuffered = false; }, 200);
         }
-    });
-    document.addEventListener('keyup', (event) => {
-        keysPressed[event.code] = false;
-        const humanPlayer = players.find(p => !p.isAI);
-        if (humanPlayer) {
-            if (event.code === 'KeyW') {
-                humanPlayer.isAttemptingVariableJump = false;
-            }
+    }
+}
+
+function handleKeyUp(event) {
+    keysPressed[event.code] = false;
+    const humanPlayer = players.find(p => !p.isAI);
+    if (humanPlayer) {
+        if (event.code === 'KeyW') {
+            humanPlayer.isAttemptingVariableJump = false;
         }
-    });
+    }
 }
 
 function updatePlayerAnimations() {
@@ -606,7 +628,16 @@ function updateGame() {
         handleHelpInput();
         return;
     } else if (gameState === 'gameOver') {
-        // Game over state - no game logic updates
+        // Game over state - only handle menu return
+        if (keysPressed['KeyW']) {
+            console.log("GAME_OVER: Returning to menu");
+            gameState = 'menu';
+            isGameOver = false;
+            isGameStarted = false;
+            restartDebounce = false;
+            showGameMessage('');
+            keysPressed['KeyW'] = false;
+        }
         return;
     }
     
@@ -669,24 +700,32 @@ function updateSpectators() {
 
 // Handle menu input
 function handleMenuInput() {
-    if (keysPressed['KeyW'] || keysPressed['Enter']) {
-        gameState = 'playing';
-        isGameStarted = true;
-        isGameOver = false;
-        showGameMessage('');
-        if (runner) {
-            Runner.run(runner, engine);
-            console.log("RENDER_LOOP: Matter.js Runner started.");
-        }
-        startGameTimer();
-        keysPressed['KeyW'] = false;
-        keysPressed['Enter'] = false;
+    if (keysPressed['KeyW']) {
+        console.log("MENU: W key pressed, starting game");
         
         // Initialize audio context on user interaction
         if (!audioContext) {
             initAudioContext();
         }
+        
+        gameState = 'playing';
+        isGameStarted = true;
+        isGameOver = false;
+        restartDebounce = false;
+        showGameMessage('');
+        
+        if (runner) {
+            Runner.run(runner, engine);
+            console.log("MENU: Matter.js Runner started.");
+        } else {
+            console.error("MENU: Runner not available!");
+        }
+        
+        startGameTimer();
+        keysPressed['KeyW'] = false;
+        
     } else if (keysPressed['KeyH']) {
+        console.log("MENU: H key pressed, showing help");
         gameState = 'help';
         keysPressed['KeyH'] = false;
     }
