@@ -116,8 +116,8 @@ let spectators = [];
 let stadiumLights = [];
 
 // --- Game States ---
-let gameState = 'menu'; // 'menu', 'playing', 'paused', 'gameOver'
-let menuButtons = [];
+let gameState = 'playing'; // 'playing', 'gameOver'
+// Menu buttons removed
 
 // --- Dynamic Sun System ---
 const SUN_COLORS = {
@@ -291,79 +291,7 @@ function initStadiumLights() {
     ];
 }
 
-// Initialize menu
-function initMenu() {
-    menuButtons = [
-        {
-            x: PIXEL_CANVAS_WIDTH / 2 - 30,
-            y: PIXEL_CANVAS_HEIGHT / 2 - 10,
-            width: 60,
-            height: 12,
-            text: 'START GAME',
-            action: 'start'
-        },
-        {
-            x: PIXEL_CANVAS_WIDTH / 2 - 20,
-            y: PIXEL_CANVAS_HEIGHT / 2 + 8,
-            width: 40,
-            height: 10,
-            text: 'HELP',
-            action: 'help'
-        }
-    ];
-}
-
-// Show help screen
-function showHelp() {
-    gameState = 'help';
-}
-
-// Handle help input
-function handleHelpInput() {
-    if (keysPressed['KeyW'] || keysPressed['Escape'] || keysPressed['KeyB']) {
-        console.log("HELP: Returning to menu");
-        gameState = 'menu';
-        keysPressed['KeyW'] = false;
-        keysPressed['Escape'] = false;
-        keysPressed['KeyB'] = false;
-    }
-}
-
-function drawHelp() {
-    // Help background
-    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
-    gradient.addColorStop(0, '#1a1a2e');
-    gradient.addColorStop(0.5, '#16213e');
-    gradient.addColorStop(1, '#0f0f23');
-    pixelCtx.fillStyle = gradient;
-    pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
-    
-    // Title
-    pixelCtx.fillStyle = '#00FF00';
-    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 15, 20, 'HELP', 2);
-    
-    // Controls
-    pixelCtx.fillStyle = '#FFFFFF';
-    drawPixelText(10, 50, 'CONTROLS', 1);
-    
-    pixelCtx.fillStyle = '#FFFF00';
-    drawPixelText(10, 65, 'A D   MOVE LEFT RIGHT', 1);
-    drawPixelText(10, 75, 'W     JUMP', 1);
-    drawPixelText(10, 85, 'HOLD W FOR HIGHER JUMP', 1);
-    
-    pixelCtx.fillStyle = '#FFFFFF';
-    drawPixelText(10, 105, 'GAME INFO', 1);
-    
-    pixelCtx.fillStyle = '#FFFF00';
-    drawPixelText(10, 120, 'PLAY AGAINST AI', 1);
-    drawPixelText(10, 130, 'SCORE GOALS TO WIN', 1);
-    drawPixelText(10, 140, 'MATCH TIME 90 SECONDS', 1);
-    drawPixelText(10, 150, 'KICK BALL NEAR GOAL', 1);
-    
-    // Back instruction
-    pixelCtx.fillStyle = '#00FF00';
-    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 30, PIXEL_CANVAS_HEIGHT - 20, 'PRESS W TO GO BACK', 1);
-}
+// Menu and help functions removed - game starts directly
 
 // --- Initialization Function ---
 function setup() {
@@ -378,7 +306,7 @@ function setup() {
     particles = [];
     gameTime = 0;
     gameStartTime = Date.now();
-    gameState = 'menu';
+    gameState = 'playing';
 
     // Clear keys
     Object.keys(keysPressed).forEach(key => {
@@ -392,7 +320,6 @@ function setup() {
     initClouds();
     initSpectators();
     initStadiumLights();
-    initMenu();
 
     if (roundTimerId) {
         clearInterval(roundTimerId);
@@ -458,6 +385,13 @@ function setup() {
     Events.on(engine, 'beforeUpdate', updateGame);
     Events.on(engine, 'collisionStart', handleCollisions);
 
+    // Start the game immediately
+    isGameStarted = true;
+    isGameOver = false;
+    Runner.run(runner, engine);
+    console.log("SETUP: Matter.js Runner started immediately.");
+    startGameTimer();
+
     if (typeof gameRenderLoopId !== 'undefined') {
         cancelAnimationFrame(gameRenderLoopId);
     }
@@ -466,13 +400,9 @@ function setup() {
 
     updateScoreDisplay();
     updateTimerDisplay();
-    showGameMessage("Controls: A/D Move, W Jump. Press W to Start!");
+    showGameMessage("Game Started! Controls: A/D Move, W Jump");
     
-    // Debug key status
-    console.log("SETUP: Keys setup, gameState:", gameState);
-    console.log("SETUP: Initial keysPressed object:", keysPressed);
-    
-    console.log("SETUP: Complete.");
+    console.log("SETUP: Game started immediately!");
 }
 
 // --- Timer Functions ---
@@ -585,8 +515,6 @@ function setupInputListeners() {
 }
 
 function handleKeyDown(event) {
-    console.log("KEY_DOWN:", event.code, "gameState:", gameState);
-    
     if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyH', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'Escape'].includes(event.code)) {
         event.preventDefault();
     }
@@ -621,21 +549,11 @@ function updateGame() {
     updateSun();
     updateSpectators();
     
-    if (gameState === 'menu') {
-        handleMenuInput();
-        return;
-    } else if (gameState === 'help') {
-        handleHelpInput();
-        return;
-    } else if (gameState === 'gameOver') {
-        // Game over state - only handle menu return
+    if (gameState === 'gameOver') {
+        // Game over state - restart game
         if (keysPressed['KeyW']) {
-            console.log("GAME_OVER: Returning to menu");
-            gameState = 'menu';
-            isGameOver = false;
-            isGameStarted = false;
-            restartDebounce = false;
-            showGameMessage('');
+            console.log("GAME_OVER: Restarting game");
+            setup(); // Restart the entire game
             keysPressed['KeyW'] = false;
         }
         return;
@@ -698,38 +616,7 @@ function updateSpectators() {
     });
 }
 
-// Handle menu input
-function handleMenuInput() {
-    if (keysPressed['KeyW']) {
-        console.log("MENU: W key pressed, starting game");
-        
-        // Initialize audio context on user interaction
-        if (!audioContext) {
-            initAudioContext();
-        }
-        
-        gameState = 'playing';
-        isGameStarted = true;
-        isGameOver = false;
-        restartDebounce = false;
-        showGameMessage('');
-        
-        if (runner) {
-            Runner.run(runner, engine);
-            console.log("MENU: Matter.js Runner started.");
-        } else {
-            console.error("MENU: Runner not available!");
-        }
-        
-        startGameTimer();
-        keysPressed['KeyW'] = false;
-        
-    } else if (keysPressed['KeyH']) {
-        console.log("MENU: H key pressed, showing help");
-        gameState = 'help';
-        keysPressed['KeyH'] = false;
-    }
-}
+// Menu input function removed - game starts directly
 
 function updatePlayerStates() {
     players.forEach(player => {
@@ -1294,23 +1181,6 @@ function gameRenderLoop() {
     // Always render the game
     customRenderAll();
     
-    // Handle game over state
-    if (gameState === 'gameOver') {
-        const restartKey = 'KeyW';
-        if (keysPressed[restartKey]) {
-            if (!restartDebounce) {
-                console.log("RENDER_LOOP: Key pressed, returning to menu.");
-                restartDebounce = true;
-                keysPressed[restartKey] = false;
-                gameState = 'menu';
-                isGameOver = false;
-                isGameStarted = false;
-                showGameMessage('');
-                return;
-            }
-        }
-    }
-    
     // Render to main canvas
     const mainCtx = canvas.getContext('2d');
     mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -1720,94 +1590,7 @@ function drawPixelText(x, y, text, pixelSize) {
     }
 }
 
-function drawMenu() {
-    // Menu background
-    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
-    gradient.addColorStop(0, '#4A90E2');
-    gradient.addColorStop(0.5, '#2E5C8A');
-    gradient.addColorStop(1, '#1E3A5F');
-    pixelCtx.fillStyle = gradient;
-    pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
-    
-    // Draw football field elements in background
-    pixelCtx.fillStyle = 'rgba(34, 139, 34, 0.3)';
-    pixelCtx.fillRect(0, PIXEL_CANVAS_HEIGHT - 30, PIXEL_CANVAS_WIDTH, 30);
-    
-    // Goal posts
-    pixelCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    pixelCtx.fillRect(5, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
-    pixelCtx.fillRect(15, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
-    pixelCtx.fillRect(5, PIXEL_CANVAS_HEIGHT - 25, 12, 2);
-    
-    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 17, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
-    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 7, PIXEL_CANVAS_HEIGHT - 25, 2, 15);
-    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 17, PIXEL_CANVAS_HEIGHT - 25, 12, 2);
-    
-    // Soccer ball
-    const ballX = PIXEL_CANVAS_WIDTH / 2;
-    const ballY = PIXEL_CANVAS_HEIGHT / 3 + 40;
-    pixelCtx.fillStyle = '#FFFFFF';
-    for (let x = 0; x < 6; x++) {
-        for (let y = 0; y < 6; y++) {
-            const distance = Math.sqrt((x - 3) ** 2 + (y - 3) ** 2);
-            if (distance < 3) {
-                pixelCtx.fillRect(ballX - 3 + x, ballY - 3 + y, 1, 1);
-            }
-        }
-    }
-    // Ball pattern
-    pixelCtx.fillStyle = '#000000';
-    pixelCtx.fillRect(ballX - 1, ballY - 2, 1, 1);
-    pixelCtx.fillRect(ballX + 1, ballY - 1, 1, 1);
-    pixelCtx.fillRect(ballX, ballY + 1, 1, 1);
-    
-    // Title
-    const titleX = PIXEL_CANVAS_WIDTH / 2 - 40;
-    const titleY = PIXEL_CANVAS_HEIGHT / 4;
-    pixelCtx.fillStyle = '#FFFFFF';
-    drawPixelText(titleX, titleY, 'PIXEL', 2);
-    drawPixelText(titleX, titleY + 15, 'SOCCER', 2);
-    
-    // Subtitle
-    pixelCtx.fillStyle = '#FFFF00';
-    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 35, titleY + 35, 'STADIUM EDITION', 1);
-    
-    // Buttons
-    menuButtons.forEach((button, index) => {
-        const isHovered = false; // Could add mouse support later
-        
-        // Button background
-        pixelCtx.fillStyle = isHovered ? '#444444' : '#333333';
-        pixelCtx.fillRect(button.x, button.y, button.width, button.height);
-        
-        // Button border
-        pixelCtx.fillStyle = '#00FF00';
-        pixelCtx.fillRect(button.x - 1, button.y - 1, button.width + 2, 1);
-        pixelCtx.fillRect(button.x - 1, button.y + button.height, button.width + 2, 1);
-        pixelCtx.fillRect(button.x - 1, button.y, 1, button.height);
-        pixelCtx.fillRect(button.x + button.width, button.y, 1, button.height);
-        
-        // Button text
-        pixelCtx.fillStyle = '#FFFFFF';
-        drawPixelText(button.x + 2, button.y + 2, button.text, 1);
-        
-        // Button instructions
-        pixelCtx.fillStyle = '#AAAAAA';
-        if (index === 0) {
-            drawPixelText(button.x + button.width + 5, button.y + 3, 'PRESS W', 1);
-        } else {
-            drawPixelText(button.x + button.width + 5, button.y + 3, 'PRESS H', 1);
-        }
-    });
-    
-    // Main instructions
-    pixelCtx.fillStyle = '#00FF00';
-    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 35, PIXEL_CANVAS_HEIGHT - 30, 'W START   H HELP', 1);
-    
-    // Game info
-    pixelCtx.fillStyle = '#CCCCCC';
-    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 30, PIXEL_CANVAS_HEIGHT - 15, 'HUMAN VS AI MATCH', 1);
-}
+// Draw menu function removed - game starts directly
 
 function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
     const x = body.position.x / PIXEL_SCALE;
@@ -1870,15 +1653,7 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 
 
 function customRenderAll() {
-    if (gameState === 'menu') {
-        drawMenu();
-        // Still draw animated background elements
-        clouds.forEach(cloud => drawCloud(cloud));
-        return;
-    } else if (gameState === 'help') {
-        drawHelp();
-        return;
-    }
+    // Always render the game without menu checks
     
     // Draw sky gradient background
     const currentSunColor = getCurrentSunColor();
