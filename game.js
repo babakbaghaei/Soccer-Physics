@@ -71,6 +71,7 @@ const GOAL_HEIGHT = 120; // Height of the goal opening itself
 const GOAL_SENSOR_DEPTH = 30; // Depth of the sensor inside the goal
 const GOAL_MOUTH_VISUAL_WIDTH = 60; // Visual width of the goal mouth
 const CROSSBAR_THICKNESS = 10; // Thickness of the horizontal crossbar
+const PHYSICAL_POST_THICKNESS = 8; // Thickness of the physical posts (moved from createField)
 let actualGoalOpeningHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS; // Recalculated in setup if needed, but used for sensor height
 
 // --- Color Palettes ---
@@ -639,7 +640,7 @@ function createField() {
     });
 
     const goalPostRenderStyle = { fillStyle: '#E0E0E0', strokeStyle: '#777777', lineWidth: 1 };
-    const physicalPostThickness = 8;
+    // const physicalPostThickness = 8; // Moved to global scope (Field Constants)
 
     // --- Left Goal Posts ---
     const goalMouthStartX_L = WALL_THICKNESS;
@@ -647,15 +648,15 @@ function createField() {
     const goalOpeningActualHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
 
     const postLV_L = Bodies.rectangle(
-        goalMouthStartX_L + physicalPostThickness / 2,
+        goalMouthStartX_L + PHYSICAL_POST_THICKNESS / 2,
         goalTopY + goalOpeningActualHeight / 2,
-        physicalPostThickness, goalOpeningActualHeight,
+        PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
         { isStatic: true, label: 'post-vl-L', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
     const postRV_L = Bodies.rectangle(
-        goalMouthStartX_L + GOAL_MOUTH_VISUAL_WIDTH - physicalPostThickness / 2,
-        goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight,
+        goalMouthStartX_L + GOAL_MOUTH_VISUAL_WIDTH - PHYSICAL_POST_THICKNESS / 2,
+        goalTopY + goalOpeningActualHeight / 2, PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
         { isStatic: true, label: 'post-vr-L', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
@@ -669,14 +670,14 @@ function createField() {
     // --- Right Goal Posts ---
     const goalMouthStartX_R = CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH;
     const postLV_R = Bodies.rectangle(
-        goalMouthStartX_R + physicalPostThickness / 2,
-        goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight,
+        goalMouthStartX_R + PHYSICAL_POST_THICKNESS / 2,
+        goalTopY + goalOpeningActualHeight / 2, PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
         { isStatic: true, label: 'post-vl-R', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
     const postRV_R = Bodies.rectangle(
-        goalMouthStartX_R + GOAL_MOUTH_VISUAL_WIDTH - physicalPostThickness / 2,
-        goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight,
+        goalMouthStartX_R + GOAL_MOUTH_VISUAL_WIDTH - PHYSICAL_POST_THICKNESS / 2,
+        goalTopY + goalOpeningActualHeight / 2, PHYSICAL_POST_THICKNESS, goalOpeningActualHeight,
         { isStatic: true, label: 'post-vr-R', render: goalPostRenderStyle, ...postChamfer,
           collisionFilter: { category: goalPostCategory, mask: ballCategory } }
     );
@@ -690,16 +691,16 @@ function createField() {
     // Goal Sensors ( Adjusted to be behind the posts )
     const sensorActualHeight = goalOpeningActualHeight;
     const sensorCenterY = goalTopY + sensorActualHeight / 2;
-    const sensorWidth = GOAL_MOUTH_VISUAL_WIDTH - 2 * physicalPostThickness;
+    const sensorWidth = GOAL_MOUTH_VISUAL_WIDTH - 2 * PHYSICAL_POST_THICKNESS;
     const sensorRenderStyle = { visible: true, fillStyle: 'rgba(0, 255, 0, 0.15)' }; // Slightly more transparent
 
     const mainLeftGoalSensor = Bodies.rectangle(
-        goalMouthStartX_L + physicalPostThickness + sensorWidth / 2,
+        goalMouthStartX_L + PHYSICAL_POST_THICKNESS + sensorWidth / 2,
         sensorCenterY, sensorWidth, sensorActualHeight,
         { isStatic: true, isSensor: true, label: 'goal-left-sensor', render: sensorRenderStyle }
     );
     const mainRightGoalSensor = Bodies.rectangle(
-        goalMouthStartX_R + physicalPostThickness + sensorWidth / 2,
+        goalMouthStartX_R + PHYSICAL_POST_THICKNESS + sensorWidth / 2,
         sensorCenterY, sensorWidth, sensorActualHeight,
         { isStatic: true, isSensor: true, label: 'goal-right-sensor', render: sensorRenderStyle }
     );
@@ -1646,7 +1647,7 @@ function customRenderAll() {
         // For posts, use their specific dimensions. For others, use bounds from drawPixelIsoRectangle if needed.
         let pWidth, pHeight;
         if (body.label.startsWith('post-')) {
-            pWidth = (body.label.includes('-h-') ? GOAL_MOUTH_VISUAL_WIDTH : physicalPostThickness) / PIXEL_SCALE;
+            pWidth = (body.label.includes('-h-') ? GOAL_MOUTH_VISUAL_WIDTH : PHYSICAL_POST_THICKNESS) / PIXEL_SCALE;
             pHeight = (body.label.includes('-h-') ? CROSSBAR_THICKNESS : (GOAL_HEIGHT - CROSSBAR_THICKNESS)) / PIXEL_SCALE;
         } else if (body.label === 'ground') {
             pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = GROUND_THICKNESS / PIXEL_SCALE;
@@ -1707,7 +1708,7 @@ function customRenderAll() {
     // This part needs to be carefully placed in the Z-order.
     // It should visually connect to the physical posts.
     const netColor = activeTheme.net || 'rgba(200, 200, 200, 0.6)';
-    const postThickness = Math.max(1, Math.round(physicalPostThickness / PIXEL_SCALE / 2)); // Visual thickness based on physical
+    const postThickness = Math.max(1, Math.round(PHYSICAL_POST_THICKNESS / PIXEL_SCALE / 2)); // Visual thickness based on physical
     const goalPixelH = Math.round(goalOpeningActualHeight / PIXEL_SCALE);
     const goalPixelMW = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
     const goalPixDepth = Math.round((GOAL_MOUTH_VISUAL_WIDTH * 0.5) / PIXEL_SCALE); // Visual depth
