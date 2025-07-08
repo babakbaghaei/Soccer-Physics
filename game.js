@@ -1524,7 +1524,44 @@ function handleCollisions(event) {
 // drawCloud was updated previously. Other drawing functions are assumed to be fine unless specified.
 function drawPlayer(pCtx, body, playerColor) { /* ... (no changes) ... */ }
 function drawPixelIsoRectangle(pCtx, body, colorOverride = null) { /* ... (no changes, includes new grass) ... */ }
-function shadeColor(color, percent) { /* ... (no changes) ... */ }
+function shadeColor(color, percent) {
+    // 1. Validate the input color string
+    if (typeof color !== 'string' || !color.match(/^#[0-9a-fA-F]{6}$/)) {
+        console.warn(`DEBUG: shadeColor received an invalid color format: '${color}'. Returning a default color '#CCCCCC'.`);
+        return '#CCCCCC'; // Return a default valid color
+    }
+
+    try {
+        let R = parseInt(color.substring(1, 3), 16);
+        let G = parseInt(color.substring(3, 5), 16);
+        let B = parseInt(color.substring(5, 7), 16);
+
+        // Check if parsing was successful (though regex should ensure this)
+        if (isNaN(R) || isNaN(G) || isNaN(B)) {
+            console.warn(`DEBUG: shadeColor failed to parse R,G,B from '${color}'. Returning default '#CCCCCC'.`);
+            return '#CCCCCC';
+        }
+
+        R = parseInt(R * (100 + percent) / 100);
+        G = parseInt(G * (100 + percent) / 100);
+        B = parseInt(B * (100 + percent) / 100);
+
+        R = Math.max(0, Math.min(255, R)); // Clamp between 0 and 255
+        G = Math.max(0, Math.min(255, G));
+        B = Math.max(0, Math.min(255, B));
+
+        // Convert to hex, ensuring two digits
+        const RR = R.toString(16).padStart(2, '0');
+        const GG = G.toString(16).padStart(2, '0');
+        const BB = B.toString(16).padStart(2, '0');
+
+        return `#${RR}${GG}${BB}`;
+
+    } catch (e) {
+        console.error(`DEBUG: Error in shadeColor with color '${color}' and percent '${percent}':`, e);
+        return '#CCCCCC'; // Fallback color in case of any unexpected error
+    }
+}
 function drawCloud(cloud) { /* ... (new fluffy clouds) ... */ }
 function drawSpectator(spectator) { /* ... (no changes, but not rendered) ... */ }
 function drawStadiumLight(light) { /* ... (no changes) ... */ }
@@ -1551,7 +1588,25 @@ function customRenderAll() {
         skyMid = activeTheme.skyColor;
         skyBottom = shadeColor(activeTheme.skyColor, -0.3);
     }
-    gradient.addColorStop(0, skyTop); gradient.addColorStop(0.6, skyMid); gradient.addColorStop(1, skyBottom);
+
+    console.log(`DEBUG: Sky Colors for gradient before validation: skyTop='${skyTop}', skyMid='${skyMid}', skyBottom='${skyBottom}'`);
+
+    // Validate and provide defaults for sky colors to prevent errors with addColorStop
+    const validateColor = (color, defaultColor = '#CCCCCC') => {
+        if (typeof color === 'string' && (color.match(/^#[0-9a-fA-F]{6}$/) || color.match(/^#[0-9a-fA-F]{3}$/))) {
+            return color;
+        }
+        console.warn(`DEBUG: Invalid color detected: '${color}'. Defaulting to '${defaultColor}'.`);
+        return defaultColor;
+    };
+
+    const finalSkyTop = validateColor(skyTop, '#87CEEB'); // Default light blue
+    const finalSkyMid = validateColor(skyMid, '#FFFFFF'); // Default white
+    const finalSkyBottom = validateColor(skyBottom, '#ADD8E6'); // Default lighter blue
+
+    gradient.addColorStop(0, finalSkyTop);
+    gradient.addColorStop(0.6, finalSkyMid);
+    gradient.addColorStop(1, finalSkyBottom);
     pixelCtx.fillStyle = gradient;
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     stadiumLights.forEach(light => drawStadiumLight(light));
