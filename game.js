@@ -149,17 +149,17 @@ const PLAYER_MOVE_FORCE = 0.008; // Will be adapted for square's rolling motion 
 const PLAYER_ROLL_ANGULAR_VELOCITY_TARGET = 0.20;
 const PLAYER_ROLL_TRANSLATE_SPEED = 1.0;
 
-const PLAYER_VARIABLE_JUMP_INITIAL_FORCE = 0.06;
+const PLAYER_VARIABLE_JUMP_INITIAL_FORCE = 0.07; // Increased
 const PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE = 0.007;
-const PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES = 10;
-const PLAYER_MAX_JUMP_IMPULSE = 0.135;
+const PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES = 10; // Max hold frames for jump
+const PLAYER_MAX_JUMP_IMPULSE = 0.18; // Increased for higher jump
 const COYOTE_TIME_FRAMES = 7;
 
 const KICK_RANGE = PLAYER_RECT_SIZE / 2 + BALL_RADIUS + 10;
 const KICK_FORCE_MAGNITUDE = 0.065;
 const TIMED_JUMP_SHOT_BONUS_FACTOR = 1.6;
 const JUMP_SHOT_LOFT_FACTOR = 1.6;
-const PLAYER_AIR_CONTROL_FACTOR = 0.35;
+const PLAYER_AIR_CONTROL_FACTOR = 1.0; // Set to 1.0, actual reduction (0.1) will be in code
 
 const AI_ACTION_RANGE = PLAYER_RECT_SIZE * 2.5;
 const AI_MOVE_FORCE = 0.0035;
@@ -373,7 +373,13 @@ function setup() {
     render = Render.create({
         canvas: canvas,
         engine: engine,
-        options: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, wireframes: false, background: activeTheme.background, enabled: false }
+        options: {
+            width: CANVAS_WIDTH,
+            height: CANVAS_HEIGHT,
+            wireframes: true, // ENABLE WIREFRAMES FOR DEBUGGING
+            background: activeTheme.background,
+            enabled: false
+        }
     });
 
     canvas.width = CANVAS_WIDTH;
@@ -867,6 +873,23 @@ function handleHumanPlayerControls() {
 
     if (player.jumpInputBuffered && (!player.isGrounded || player.isAttemptingVariableJump || !commonJumpConditionsMet) ) {
          player.jumpInputBuffered = false;
+    }
+
+    // --- Air Control ---
+    if (!player.isGrounded && !player.isRotating) { // If in air and not doing a ground roll action
+        let airMoveDirection = 0;
+        if (keysPressed['KeyA']) {
+            airMoveDirection = -1;
+        } else if (keysPressed['KeyD']) {
+            airMoveDirection = 1;
+        }
+
+        if (airMoveDirection !== 0) {
+            // Apply air control force (10% of PLAYER_MOVE_FORCE, using PLAYER_AIR_CONTROL_FACTOR as a base multiplier if needed)
+            const airControlForceMagnitude = PLAYER_MOVE_FORCE * PLAYER_AIR_CONTROL_FACTOR * 0.1; // 0.1 for 10%
+            Body.applyForce(player.playerBody, player.playerBody.position, { x: airMoveDirection * airControlForceMagnitude, y: 0 });
+            // console.log(`HPC: Air control. Force: ${airMoveDirection * airControlForceMagnitude}`); // DEBUG LOG (optional)
+        }
     }
 }
 
