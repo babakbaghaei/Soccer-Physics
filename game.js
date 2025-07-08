@@ -759,7 +759,7 @@ function initializeAIBrain(player) {
         currentState: AI_STATES.POSITIONING,
         formation: AI_FORMATION.BALANCED,
         lastDecisionTime: 0,
-        decisionInterval: 100, // ms
+        decisionInterval: 100,
         threatLevel: 0,
         confidence: 0.5,
         lastBallPosition: { x: 0, y: 0 },
@@ -767,97 +767,107 @@ function initializeAIBrain(player) {
         riskAssessment: 0.5,
         strategicTarget: null,
         emergencyMode: false,
-        reactionTime: 150 + Math.random() * 100, // Variable reaction time
-        memory: {
-            lastPlayerCollision: 0,
-            lastSuccessfulIntercept: 0,
-            lastGoalConceded: 0,
-            opponentPatterns: []
-        }
+        reactionTime: 150 + Math.random() * 100
     };
 }
 
-function executeAIPlayerLogic(player) {
-    if (!ball) return;
+function updateAIBrain(player) {
+    if (!ball || !player.aiBrain) return;
+    
+    const brain = player.aiBrain;
+    const now = Date.now();
+    
+    // Update ball prediction
+    brain.predictedBallPosition = {
+        x: ball.position.x + ball.velocity.x * 10,
+        y: ball.position.y + ball.velocity.y * 10
+    };
+    
+    // Assess threat level
+    const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ball.position, player.playerBody.position));
+    const ballToAIGoal = Math.abs(ball.position.x - (CANVAS_WIDTH - 30));
+    brain.threatLevel = Math.max(0, 1 - (ballToAIGoal / CANVAS_WIDTH));
+    
+    // Choose formation based on game state
+    const scoreDiff = team2Score - team1Score;
+    const timeLeft = gameTimeRemaining / ROUND_DURATION_SECONDS;
+    
+    if (scoreDiff < 0 && timeLeft < 0.3) {
+        brain.formation = AI_FORMATION.DESPERATE;
+    } else if (brain.threatLevel > 0.7) {
+        brain.formation = AI_FORMATION.DEFENSIVE;
+    } else if (scoreDiff > 0) {
+        brain.formation = AI_FORMATION.DEFENSIVE;
+    } else {
+        brain.formation = AI_FORMATION.BALANCED;
+    }
+}
 
+function executeAdvancedAILogic(player) {
+    if (!ball || !player.aiBrain) return;
+    
+    const brain = player.aiBrain;
     const ballPos = ball.position;
     const playerPos = player.playerBody.position;
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
-    let AImoveDirection = 0; // -1 for left, 1 for right, 0 for no move
     
-    // AI is Team 2 (right side)
-    const aiGoalX = CANVAS_WIDTH - WALL_THICKNESS; // AI's own goal (right)
-    const opponentGoalX = WALL_THICKNESS; // Player's goal (left) - AI should attack this
-    const { actualGoalOpeningHeight } = getFieldDerivedConstants();
-
-    const isBallInAIHalf = ballPos.x > CANVAS_WIDTH / 2;
-    const isBallNearAIGoal = ballPos.x > CANVAS_WIDTH * 0.8;
-    const isBallMovingTowardsAIGoal = ball.velocity.x > 0;
+    // AI positioning logic
+    const aiGoalX = CANVAS_WIDTH - 30;
+    const opponentGoalX = 30;
+    const idealX = aiGoalX - (CANVAS_WIDTH * brain.formation.homeX);
     
-    let intent = 'pursue_ball';
-
-    // Emergency defense - ball very close to AI goal
-    if (isBallNearAIGoal && isBallMovingTowardsAIGoal) {
-        intent = 'emergency_defense';
-    } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE * 1.2 && ballPos.x > CANVAS_WIDTH * 0.7) {
-        intent = 'defend_goal_line';
-    } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE) {
-        intent = 'defensive_positioning';
-    } else if (!isBallInAIHalf && playerPos.x > CANVAS_WIDTH * 0.6) {
-        intent = 'advance_to_attack';
+    let targetX = idealX;
+    let moveDirection = 0;
+    
+    // Emergency defense
+    if (ballPos.x > CANVAS_WIDTH * 0.8 && ball.velocity.x > 0) {
+        targetX = Math.max(aiGoalX - 60, ballPos.x - 40);
+        brain.currentState = AI_STATES.EMERGENCY_DEFENSE;
     }
-
-    switch (intent) {
-        case 'emergency_defense':
-            // Get between ball and goal, closer to goal
-            const emergencyDefenseX = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.2;
-            const directionToEmergencyPos = emergencyDefenseX - playerPos.x;
-            if (Math.abs(directionToEmergencyPos) > PLAYER_RECT_SIZE / 2) {
-                AImoveDirection = Math.sign(directionToEmergencyPos);
-            }
-            break;
-        case 'defend_goal_line':
-            const defensiveTargetXGoalLine = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.0;
-            const directionToTargetXGoalLine = defensiveTargetXGoalLine - playerPos.x;
-            if (Math.abs(directionToTargetXGoalLine) > PLAYER_RECT_SIZE / 2) {
-                AImoveDirection = Math.sign(directionToTargetXGoalLine);
-            }
-            break;
-        case 'defensive_positioning':
-            // Position between ball and own goal, but not too close to goal
-            const idealDefensiveX = Math.min(ballPos.x + 50, aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.5);
-            const finalDefensiveTargetX = Math.max(CANVAS_WIDTH / 2 + WALL_THICKNESS, Math.min(aiGoalX - WALL_THICKNESS - PLAYER_RECT_SIZE, idealDefensiveX));
-            const dirToDefTarget = finalDefensiveTargetX - playerPos.x;
-            if (Math.abs(dirToDefTarget) > PLAYER_RECT_SIZE / 2) {
-                AImoveDirection = Math.sign(dirToDefTarget);
-            }
-            break;
-        case 'advance_to_attack':
-            // Move towards opponent's half
-            const offensiveMidfieldTargetX = CANVAS_WIDTH * 0.3 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.1);
-            const dirToAdvanceTarget = offensiveMidfieldTargetX - playerPos.x;
-            if (Math.abs(dirToAdvanceTarget) > PLAYER_RECT_SIZE) {
-                AImoveDirection = Math.sign(dirToAdvanceTarget);
-            }
-            break;
-        case 'pursue_ball':
-        default:
-            const dirToBallX = ballPos.x - playerPos.x;
-            if (Math.abs(dirToBallX) > BALL_RADIUS + PLAYER_RECT_SIZE / 2 * 0.5 ) {
-                AImoveDirection = Math.sign(dirToBallX);
-            }
-            break;
+    // Ball in AI half - defend
+    else if (ballPos.x > CANVAS_WIDTH * 0.6) {
+        targetX = Math.min(ballPos.x + 30, aiGoalX - 50);
+        brain.currentState = AI_STATES.DEFENDING;
     }
-
-    if (AImoveDirection !== 0 && !player.isRotating && player.isGrounded) {
+    // Ball in opponent half - attack or return
+    else if (ballPos.x < CANVAS_WIDTH * 0.4) {
+        if (distanceToBall < 80 && brain.formation.aggressiveness > 0.6) {
+            targetX = ballPos.x;
+            brain.currentState = AI_STATES.ATTACKING;
+        } else {
+            targetX = idealX;
+            brain.currentState = AI_STATES.POSITIONING;
+        }
+    }
+    // Middle field
+    else {
+        if (distanceToBall < 60) {
+            targetX = ballPos.x;
+            brain.currentState = AI_STATES.INTERCEPTING;
+        } else {
+            targetX = idealX;
+            brain.currentState = AI_STATES.POSITIONING;
+        }
+    }
+    
+    // Calculate movement
+    const directionToTarget = targetX - playerPos.x;
+    if (Math.abs(directionToTarget) > PLAYER_RECT_SIZE / 2) {
+        moveDirection = Math.sign(directionToTarget);
+    }
+    
+    // Execute movement
+    if (moveDirection !== 0 && !player.isRotating && player.isGrounded) {
         player.isRotating = true;
-        player.rollDirection = AImoveDirection;
+        player.rollDirection = moveDirection;
         const currentAngle = player.playerBody.angle;
         const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
         player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
         Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
     }
 }
+
+// Old AI function removed - replaced with advanced AI system
 
 function perpDistToLine(p1, p2, p3) {
     const dx = p2.x - p1.x;
