@@ -702,41 +702,47 @@ function updatePlayerStates() {
                 // پس از اتمام چرخش برای حرکت، بلافاصله هدف را زاویه صفر قرار بده
                 player.targetAngle = 0; // هدف جدید: بازگشت به عمود
             }
-        } else { // بازیکن کلیدی را فشار نمی‌دهد یا چرخش برای حرکت تمام شده
+        } else { // بازیکن کلیدی را فشار نمی‌دهد یا چرخش اولیه برای حرکت تمام شده
             const currentAngle = player.playerBody.angle;
-            let desiredAngle = 0; // همیشه به سمت زاویه صفر (عمود) برگرد
+            const desiredAngle = 0; // هدف: بازگشت به عمود
 
-            // اگر بازیکن روی زمین است و کلیدی فشار داده نشده، به شدت به سمت زاویه صفر برگرد
-            // (برای بازیکن AI هم این منطق اعمال می‌شود تا صاف بایستد)
-            if (player.isGrounded && (!keysPressed['KeyA'] && !keysPressed['KeyD'] && !player.isAI && player.rollDirection === 0) || (player.isAI && player.rollDirection === 0) ) {
+            // فقط اگر بازیکن روی زمین است و هیچ کلید حرکتی فشار داده نشده (برای بازیکن انسان)
+            // و بازیکن در حال حاضر برای حرکتی برنامه‌ریزی نشده (rollDirection === 0)
+            // یا اگر بازیکن AI است و برای حرکتی برنامه‌ریزی نشده
+            let shouldSnapToVertical = false;
+            if (!player.isAI && player.isGrounded && !keysPressed['KeyA'] && !keysPressed['KeyD'] && player.rollDirection === 0) {
+                shouldSnapToVertical = true;
+            } else if (player.isAI && player.isGrounded && player.rollDirection === 0 && !player.isRotating) {
+                // برای AI، فقط اگر isRotating هم false باشد (یعنی AI هم فعلا قصد چرخش ندارد)
+                shouldSnapToVertical = true;
+            }
+
+            if (shouldSnapToVertical) {
                 const angleDifference = desiredAngle - currentAngle;
-
-                // اگر اختلاف زاویه زیاد است، یک گشتاور برای بازگرداندن اعمال کن
                 if (Math.abs(angleDifference) > SNAP_TO_ANGLE_THRESHOLD) {
-                    // Body.setAngle(player.playerBody, desiredAngle); // Snap فوری
-                    // Body.setAngularVelocity(player.playerBody, 0);
-                    // به جای snap فوری، یک گشتاور ملایم اعمال می‌کنیم تا "آهنربایی" به نظر برسد
-                     Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.85); // کاهش سرعت فعلی
-                     Body.applyForce(player.playerBody, {
-                         x: player.playerBody.position.x + Math.sin(currentAngle + Math.PI/2) * 10, // نقطه اعمال نیرو برای ایجاد گشتاور
-                         y: player.playerBody.position.y - Math.cos(currentAngle + Math.PI/2) * 10
-                     }, {
-                         x: Math.sin(angleDifference) * RESTORING_TORQUE_FACTOR * (player.isAI ? 0.7 : 1), // نیرو برای چرخاندن به سمت زاویه صفر
-                         y: -Math.cos(angleDifference) * RESTORING_TORQUE_FACTOR * (player.isAI ? 0.7 : 1)
-                     });
+                    // کاهش سرعت زاویه‌ای فعلی برای جلوگیری از چرخش بیش از حد
+                    Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.80);
 
+                    // اعمال یک گشتاور کوچک برای بازگشت به desiredAngle
+                    // این روش اعمال نیرو برای گشتاور ممکن است نیاز به تنظیم دقیق داشته باشد
+                    // یا می‌توان از Body.setAngularVelocity با یک مقدار کوچک به سمت desiredAngle استفاده کرد.
+                    // برای سادگی فعلاً از یک snap نرم‌تر استفاده می‌کنیم:
+                    if (Math.abs(player.playerBody.angularVelocity) < 0.05) { // اگر به اندازه کافی کند شده
+                         Body.setAngle(player.playerBody, currentAngle + angleDifference * 0.1); // حرکت آرام به سمت زاویه هدف
+                    }
                 } else {
-                    // اگر به اندازه کافی نزدیک است، دقیقاً تنظیم کن و سرعت زاویه‌ای را صفر کن
                     Body.setAngle(player.playerBody, desiredAngle);
                     Body.setAngularVelocity(player.playerBody, 0);
                 }
-                player.targetAngle = desiredAngle; // اطمینان از اینکه targetAngle هم صفر است
-                player.currentFace = 0; // صورت پیش‌فرض
+                player.targetAngle = desiredAngle;
+                if (Math.abs(currentAngle - desiredAngle) < SNAP_TO_ANGLE_THRESHOLD) {
+                     player.currentFace = 0;
+                }
             }
-            // محدود کردن زاویه کلی بازیکن حتی اگر در هوا باشد یا AI در حال تصمیم‌گیری برای چرخش باشد
-            // این بخش از چپه شدن کامل جلوگیری می‌کند
+
+            // محدود کردن زاویه کلی بازیکن برای جلوگیری از چپه شدن (این بخش خوب به نظر می‌رسد)
             if (player.playerBody.angle > MAX_ROTATION_ANGLE && player.playerBody.angularVelocity > 0) {
-                 Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.5); // کاهش سرعت اگر از حد رد شده
+                 Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.5);
             } else if (player.playerBody.angle < -MAX_ROTATION_ANGLE && player.playerBody.angularVelocity < 0) {
                  Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.5);
             }
