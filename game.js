@@ -353,7 +353,13 @@ function setup() {
     engine = Engine.create({ enableSleeping: false }); // Explicitly set enableSleeping
     world = engine.world;
     engine.world.gravity.y = 1.1;
-    console.log("SETUP: New engine and world created.");
+
+    // Adjust collision handling parameters
+    world.slop = 0.08; // Default is 0.05. Slightly more slop can prevent sticking.
+    engine.positionIterations = 8; // Default is 6. More iterations for position correction.
+    engine.velocityIterations = 6; // Default is 4. More iterations for velocity correction.
+    console.log("SETUP: New engine and world created with custom collision settings (slop, iterations).");
+
 
     // --- Test objects for collision ---
     const testBoxA = Bodies.rectangle(CANVAS_WIDTH / 2 - 100, CANVAS_HEIGHT / 2 - 100, 40, 40, { label: "testBoxA", render: {fillStyle: 'orange'} });
@@ -471,10 +477,32 @@ function getFieldDerivedConstants() {
 }
 
 function createField() {
-    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: activeTheme.ground } });
-    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { fillStyle: activeTheme.walls } });
-    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: activeTheme.walls } });
-    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: activeTheme.walls } });
+    const chamferOptions = { chamfer: { radius: 5 } }; // آپشن chamfer برای دیوار و زمین
+
+    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, {
+        isStatic: true,
+        label: 'ground',
+        render: { fillStyle: activeTheme.ground },
+        ...chamferOptions // افزودن chamfer
+    });
+    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, {
+        isStatic: true,
+        label: 'wall-left',
+        render: { fillStyle: activeTheme.walls },
+        ...chamferOptions // افزودن chamfer
+    });
+    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, {
+        isStatic: true,
+        label: 'wall-right',
+        render: { fillStyle: activeTheme.walls },
+        ...chamferOptions // افزودن chamfer
+    });
+    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, {
+        isStatic: true,
+        label: 'ceiling',
+        render: { fillStyle: activeTheme.walls },
+        ...chamferOptions // افزودن chamfer
+    });
 
     const { actualGoalOpeningHeight: localActualGoalOpeningHeight } = getFieldDerivedConstants();
     const goalSensorY = CANVAS_HEIGHT - GROUND_THICKNESS - localActualGoalOpeningHeight / 2;
@@ -2055,16 +2083,17 @@ function customRenderAll() {
 
     // تور دروازه چپ (ساده شده)
     const netTopBackY_L = goalTopY + postThickness / 2; // کمی داخل‌تر از بالای تیرک
-    const netBottomBackY_L = groundY - postThickness / 2; // کمی بالاتر از زمین در عقب
+    // const netBottomBackY_L = groundY - postThickness / 2; // دیگر استفاده نمی‌شود به این شکل
     const netBackX_L_Start = leftGoalFrontX + postThickness + goalPixelDepth * 0.2;
     const netBackX_L_End = leftGoalFrontX + goalPixelMouthWidth - postThickness - goalPixelDepth * 0.2;
-    const netDepthAnchorY_L = groundY - goalPixelDepth * 0.5; // نقطه اتصال تور به زمین در عقب
+    const netDepthAnchorY_L = groundY - Math.max(1, Math.round(1 / PIXEL_SCALE)); // جدید: تور تا نزدیک زمین در عقب
 
     for (let i = 0; i <= 5; i++) { // خطوط افقی تور
         const t = i / 5;
-        const yFront = goalTopY + postThickness + t * (goalPixelHeight - postThickness * 2);
-        const yBack = netTopBackY_L + t * ( (netDepthAnchorY_L - postThickness/2) - netTopBackY_L); // اینترپولیشن برای عمق
-        const xBackStart = netBackX_L_Start + t * (goalPixelDepth*0.3); // تور به سمت داخل جمع می‌شود
+        const yFront = goalTopY + postThickness + t * (goalPixelHeight - postThickness * 2); // جلوی تور از بالای تیرک تا پایین تیرک
+        // yBack باید از بالای تور در عقب (netTopBackY_L) تا پایین تور در عقب (netDepthAnchorY_L) اینترپوله شود
+        const yBack = netTopBackY_L + t * (netDepthAnchorY_L - netTopBackY_L);
+        const xBackStart = netBackX_L_Start + t * (goalPixelDepth*0.3);
         const xBackEnd = netBackX_L_End - t * (goalPixelDepth*0.3);
 
         pixelCtx.beginPath();
@@ -2082,7 +2111,7 @@ function customRenderAll() {
         pixelCtx.beginPath();
         pixelCtx.moveTo(xFront, goalTopY + postThickness);
         pixelCtx.lineTo(xBack, netTopBackY_L);
-        pixelCtx.lineTo(xBack, netDepthAnchorY_L - postThickness/2); // پایین تور در عقب
+        pixelCtx.lineTo(xBack, netDepthAnchorY_L); // جدید: تا پایین‌تر
         // pixelCtx.lineTo(xFront, groundY - postThickness); // اگر تور تا پایین می‌آید
         pixelCtx.stroke();
     }
@@ -2099,15 +2128,16 @@ function customRenderAll() {
 
     // تور دروازه راست (ساده شده)
     const netTopBackY_R = goalTopY + postThickness / 2;
-    const netBottomBackY_R = groundY - postThickness / 2;
+    // const netBottomBackY_R = groundY - postThickness / 2; // دیگر استفاده نمی‌شود
     const netBackX_R_Start = rightGoalFrontX + postThickness + goalPixelDepth * 0.2;
     const netBackX_R_End = rightGoalFrontX + goalPixelMouthWidth - postThickness - goalPixelDepth * 0.2;
-    const netDepthAnchorY_R = groundY - goalPixelDepth * 0.5;
+    const netDepthAnchorY_R = groundY - Math.max(1, Math.round(1 / PIXEL_SCALE)); // جدید: تور تا نزدیک زمین در عقب
 
     for (let i = 0; i <= 5; i++) { // خطوط افقی تور
         const t = i / 5;
         const yFront = goalTopY + postThickness + t * (goalPixelHeight - postThickness * 2);
-        const yBack = netTopBackY_R + t * ( (netDepthAnchorY_R - postThickness/2) - netTopBackY_R);
+        // yBack باید از بالای تور در عقب (netTopBackY_R) تا پایین تور در عقب (netDepthAnchorY_R) اینترپوله شود
+        const yBack = netTopBackY_R + t * (netDepthAnchorY_R - netTopBackY_R);
         const xBackStart = netBackX_R_Start + t * (goalPixelDepth*0.3);
         const xBackEnd = netBackX_R_End - t * (goalPixelDepth*0.3);
 
@@ -2126,7 +2156,7 @@ function customRenderAll() {
         pixelCtx.beginPath();
         pixelCtx.moveTo(xFront, goalTopY + postThickness);
         pixelCtx.lineTo(xBack, netTopBackY_R);
-        pixelCtx.lineTo(xBack, netDepthAnchorY_R - postThickness/2);
+        pixelCtx.lineTo(xBack, netDepthAnchorY_R); // جدید: تا پایین‌تر
         pixelCtx.stroke();
     }
     // --- End of New Goal Rendering Logic ---
