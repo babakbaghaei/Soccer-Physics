@@ -535,6 +535,8 @@ function createBall() {
 
 function createPlayer(x, y, teamColor, isTeam1, isAI) {
     const playerLabelPrefix = isTeam1 ? 'player-t1' : 'player-t2';
+    const playerCollisionGroup = 1; // همان گروهی که تیرک‌ها با آن برخورد نمی‌کنند
+
     const options = {
         density: PLAYER_DENSITY,
         friction: PLAYER_FRICTION,
@@ -543,8 +545,10 @@ function createPlayer(x, y, teamColor, isTeam1, isAI) {
         label: `${playerLabelPrefix}-square`,
         chamfer: { radius: 2 },
         inertia: Infinity,
+        collisionFilter: { // افزودن فیلتر برخورد برای بازیکن
+            group: playerCollisionGroup
+        }
     };
-
     const playerBody = Bodies.rectangle(x, y, PLAYER_RECT_SIZE, PLAYER_RECT_SIZE, options);
     World.add(world, playerBody);
 
@@ -664,6 +668,363 @@ function getCurrentSunColor() {
     const dayDuration = 180;
     const progress = (elapsedTime % dayDuration) / dayDuration;
     
+    if (progress < 0.15) return SUN_COLORS.dawn;
+    if (progress < 0.3) return SUN_COLORS.morning;
+    if (progress < 0.5) return SUN_COLORS.noon;
+    if (progress < 0.7) return SUN_COLORS.afternoon;
+    if (progress < 0.85) return SUN_COLORS.evening;
+    return SUN_COLORS.night;
+}
+
+// Update spectators animation
+function updateSpectators() {
+    spectators.forEach(spectator => {
+        spectator.animation += 0.1;
+        if (Math.random() < 0.001) { // Occasional wave
+            spectator.animation = 0;
+        }
+    });
+}
+
+// Menu input function removed - game starts directly
+
+function updatePlayerStates() {
+    players.forEach(player => {
+        if (!player.isAI) {
+            if (player.wasGrounded && !player.isGrounded && !player.isAttemptingVariableJump && player.playerBody.velocity.y > -0.5) {
+                player.coyoteTimeFramesRemaining = COYOTE_TIME_FRAMES;
+            }
+
+            if (player.coyoteTimeFramesRemaining > 0) {
+                player.coyoteTimeFramesRemaining--;
+            }
+            player.wasGrounded = player.isGrounded;
+        }
+
+        if (player.isGrounded && !player.isAttemptingVariableJump) {
+            player.totalJumpImpulseThisJump = 0;
+        }
+
+        // --- Enhanced Square Rolling and Stability Logic ---
+        const MAX_ROTATION_ANGLE = Math.PI / 6; // حداکثر 30 درجه چرخش از حالت عمود
+        const SNAP_TO_ANGLE_THRESHOLD = 0.02; // (حدود 1 درجه)
+        const RESTORING_TORQUE_FACTOR = 0.005; // قدرت بازگرداندن به زاویه صفر
+
+        if (player.isRotating) { // بازیکن در حال حرکت با کلیدها
+            console.log(`UPS: Player ${player.playerTeam} isRotating. Vel: ${player.playerBody.angularVelocity.toFixed(3)}, Angle: ${player.playerBody.angle.toFixed(3)}, Target: ${player.targetAngle.toFixed(3)}, RollDir: ${player.rollDirection}`); // DEBUG LOG
+            const currentAngle = player.playerBody.angle;
+            const targetAngleDuringRoll = player.targetAngle;
+            const angularSpeed = player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET;
+
+            // Body.setAngularVelocity(player.playerBody, angularSpeed); // موقتا غیرفعال شود تا ببینیم آیا translate کار می‌کند
+
+            if (player.isGrounded) {
+                // const rollSpeed = Math.abs(angularSpeed) * (PLAYER_RECT_SIZE / 2); // این هنوز به angularSpeed نیاز دارد
+                // برای تست، یک سرعت ثابت برای translate در نظر بگیریم:
+                const testTranslateSpeed = player.rollDirection * PLAYER_ROLL_TRANSLATE_SPEED * 2; // سرعت تست بیشتر
+                Body.translate(player.playerBody, { x: testTranslateSpeed, y: 0 });
+                console.log(`UPS: Translating player ${player.playerTeam} by x: ${testTranslateSpeed}`); // DEBUG LOG
+            }
+
+            let overShot = false;
+            // ... (منطق overShot بدون تغییر) ...
+            if (player.rollDirection === 1 && currentAngle >= targetAngleDuringRoll - SNAP_TO_ANGLE_THRESHOLD) {
+                overShot = true;
+            } else if (player.rollDirection === -1 && currentAngle <= targetAngleDuringRoll + SNAP_TO_ANGLE_THRESHOLD) {
+                overShot = true;
+            }
+
+
+            if (overShot) {
+                console.log(`UPS: Player ${player.playerTeam} overShot. Setting angle to ${targetAngleDuringRoll}`); // DEBUG LOG
+                Body.setAngle(player.playerBody, targetAngleDuringRoll);
+                Body.setAngularVelocity(player.playerBody, 0); // سرعت زاویه‌ای را صفر کن
+                player.isRotating = false;
+                player.rollDirection = 0; // مهم: rollDirection را صفر کن
+                player.currentFace = (Math.round(targetAngleDuringRoll / (Math.PI / 2)) % 4 + 4) % 4;
+                player.targetAngle = 0;
+            }
+        } else {
+            // ... (منطق بازگشت به حالت عمود که قبلا اصلاح شد) ...
+            const currentAngle = player.playerBody.angle;
+            const desiredAngle = 0; // هدف: بازگشت به عمود
+
+            // فقط اگر بازیکن روی زمین است و هیچ کلید حرکتی فشار داده نشده (برای بازیکن انسان)
+            // و بازیکن در حال حاضر برای حرکتی برنامه‌ریزی نشده (rollDirection === 0)
+            // یا اگر بازیکن AI است و برای حرکتی برنامه‌ریزی نشده
+            let shouldSnapToVertical = false;
+            if (!player.isAI && player.isGrounded && !keysPressed['KeyA'] && !keysPressed['KeyD'] && player.rollDirection === 0) {
+                shouldSnapToVertical = true;
+            } else if (player.isAI && player.isGrounded && player.rollDirection === 0 && !player.isRotating) {
+                // برای AI، فقط اگر isRotating هم false باشد (یعنی AI هم فعلا قصد چرخش ندارد)
+                shouldSnapToVertical = true;
+            }
+
+            if (shouldSnapToVertical) {
+                const angleDifference = desiredAngle - currentAngle;
+                if (Math.abs(angleDifference) > SNAP_TO_ANGLE_THRESHOLD) {
+                    // کاهش سرعت زاویه‌ای فعلی برای جلوگیری از چرخش بیش از حد
+                    Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.80);
+
+                    // اعمال یک گشتاور کوچک برای بازگشت به desiredAngle
+                    // این روش اعمال نیرو برای گشتاور ممکن است نیاز به تنظیم دقیق داشته باشد
+                    // یا می‌توان از Body.setAngularVelocity با یک مقدار کوچک به سمت desiredAngle استفاده کرد.
+                    // برای سادگی فعلاً از یک snap نرم‌تر استفاده می‌کنیم:
+                    if (Math.abs(player.playerBody.angularVelocity) < 0.05) { // اگر به اندازه کافی کند شده
+                         Body.setAngle(player.playerBody, currentAngle + angleDifference * 0.1); // حرکت آرام به سمت زاویه هدف
+                    }
+                } else {
+                    Body.setAngle(player.playerBody, desiredAngle);
+                    Body.setAngularVelocity(player.playerBody, 0);
+                }
+                player.targetAngle = desiredAngle;
+                if (Math.abs(currentAngle - desiredAngle) < SNAP_TO_ANGLE_THRESHOLD) {
+                     player.currentFace = 0;
+                }
+            }
+
+            // محدود کردن زاویه کلی بازیکن برای جلوگیری از چپه شدن (این بخش خوب به نظر می‌رسد)
+            if (player.playerBody.angle > MAX_ROTATION_ANGLE && player.playerBody.angularVelocity > 0) {
+                 Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.5);
+            } else if (player.playerBody.angle < -MAX_ROTATION_ANGLE && player.playerBody.angularVelocity < 0) {
+                 Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.5);
+            }
+        }
+        // --- End of Enhanced Square Rolling and Stability Logic ---
+    });
+}
+
+
+function handleHumanPlayerControls() {
+    const player = players[0];
+    if (!player || player.isAI) return;
+
+    console.log(`HPC: Keys A: ${keysPressed['KeyA']}, D: ${keysPressed['KeyD']}, Grounded: ${player.isGrounded}, Rotating: ${player.isRotating}`); // DEBUG LOG
+
+    if (player.jumpCooldown > 0) player.jumpCooldown--;
+
+    if (!player.isRotating && player.isGrounded) {
+        let roll = 0;
+        if (keysPressed['KeyA']) {
+            roll = -1;
+        } else if (keysPressed['KeyD']) {
+            roll = 1;
+        }
+        console.log(`HPC: Calculated roll: ${roll}`); // DEBUG LOG
+
+        if (roll !== 0) {
+            player.isRotating = true;
+            player.rollDirection = roll;
+            const snappedCurrentAngle = Math.round(player.playerBody.angle / (Math.PI / 2)) * (Math.PI / 2);
+            player.targetAngle = snappedCurrentAngle + roll * (Math.PI / 2);
+            Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
+            console.log(`HPC: Initiating roll. Direction: ${player.rollDirection}, TargetAngle: ${player.targetAngle}, AngularVel: ${player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET}`); // DEBUG LOG
+        }
+    }
+
+    const canStartNewJumpAttempt = (player.isGrounded || player.coyoteTimeFramesRemaining > 0);
+    const commonJumpConditionsMet = player.jumpCooldown === 0;
+
+    if (keysPressed['KeyW'] && commonJumpConditionsMet) {
+        if (!player.isAttemptingVariableJump && canStartNewJumpAttempt && !player.isRotating) {
+            player.isGrounded = false;
+            player.coyoteTimeFramesRemaining = 0;
+            player.jumpInputBuffered = false;
+            player.isAttemptingVariableJump = true;
+            player.variableJumpForceAppliedDuration = 0;
+            player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
+
+            Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
+
+            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
+            player.lastJumpTime = Date.now();
+            playSound('jump.wav');
+
+        } else if (player.isAttemptingVariableJump) {
+            if (player.variableJumpForceAppliedDuration < PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES &&
+                player.totalJumpImpulseThisJump < PLAYER_MAX_JUMP_IMPULSE) {
+
+                let forceToApply = PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE;
+                if (player.totalJumpImpulseThisJump + forceToApply > PLAYER_MAX_JUMP_IMPULSE) {
+                    forceToApply = PLAYER_MAX_JUMP_IMPULSE - player.totalJumpImpulseThisJump;
+                }
+
+                if (forceToApply > 0) {
+                    Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -forceToApply });
+                    player.totalJumpImpulseThisJump += forceToApply;
+                }
+                player.variableJumpForceAppliedDuration++;
+            } else {
+                player.isAttemptingVariableJump = false;
+            }
+        }
+    }
+
+    if (player.jumpInputBuffered && player.isGrounded && commonJumpConditionsMet && !player.isAttemptingVariableJump && !player.isRotating) {
+        player.isGrounded = false;
+        player.coyoteTimeFramesRemaining = 0;
+        player.jumpInputBuffered = false;
+        player.isAttemptingVariableJump = true;
+        player.variableJumpForceAppliedDuration = 0;
+        player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
+
+        Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
+
+        player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
+        player.lastJumpTime = Date.now();
+        playSound('jump.wav');
+    }
+
+    if (player.jumpInputBuffered && (!player.isGrounded || player.isAttemptingVariableJump || !commonJumpConditionsMet) ) {
+         player.jumpInputBuffered = false;
+    }
+
+    // --- Air Control ---
+    if (!player.isGrounded && !player.isRotating) { // If in air and not doing a ground roll action
+        let airMoveDirection = 0;
+        if (keysPressed['KeyA']) {
+            airMoveDirection = -1;
+        } else if (keysPressed['KeyD']) {
+            airMoveDirection = 1;
+        }
+
+        if (airMoveDirection !== 0) {
+            // Apply air control force (10% of PLAYER_MOVE_FORCE, using PLAYER_AIR_CONTROL_FACTOR as a base multiplier if needed)
+            const airControlForceMagnitude = PLAYER_MOVE_FORCE * PLAYER_AIR_CONTROL_FACTOR * 0.1; // 0.1 for 10%
+            Body.applyForce(player.playerBody, player.playerBody.position, { x: airMoveDirection * airControlForceMagnitude, y: 0 });
+            // console.log(`HPC: Air control. Force: ${airMoveDirection * airControlForceMagnitude}`); // DEBUG LOG (optional)
+        }
+    }
+}
+
+
+function updateAIPlayers() {
+        restitution: PLAYER_RESTITUTION,
+        render: { fillStyle: teamColor },
+        label: `${playerLabelPrefix}-square`,
+        chamfer: { radius: 2 },
+        inertia: Infinity,
+    };
+
+    const playerBody = Bodies.rectangle(x, y, PLAYER_RECT_SIZE, PLAYER_RECT_SIZE, options);
+    World.add(world, playerBody);
+
+    return {
+        playerBody: playerBody,
+        playerTeam: isTeam1 ? 1 : 2,
+        color: teamColor,
+        actionCooldown: 0,
+        jumpCooldown: 0,
+        isAI: isAI,
+        isGrounded: false,
+        lastJumpTime: 0,
+        isAttemptingVariableJump: false,
+        variableJumpForceAppliedDuration: 0,
+        totalJumpImpulseThisJump: 0,
+        coyoteTimeFramesRemaining: 0,
+        jumpInputBuffered: false,
+        wasGrounded: false,
+        targetAngle: 0,
+        isRotating: false,
+        currentFace: 0,
+        rollDirection: 0
+    };
+}
+
+function setupInputListeners() {
+    // Remove existing listeners to prevent duplicates
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
+
+    // Add new listeners
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+}
+
+function handleKeyDown(event) {
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyH', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'Escape'].includes(event.code)) {
+        event.preventDefault();
+    }
+    keysPressed[event.code] = true;
+
+    const humanPlayer = players.find(p => !p.isAI);
+    if (humanPlayer && event.code === 'KeyW' && !humanPlayer.isGrounded && humanPlayer.jumpCooldown === 0) {
+        if (humanPlayer.coyoteTimeFramesRemaining <= 0) {
+             humanPlayer.jumpInputBuffered = true;
+             setTimeout(() => { humanPlayer.jumpInputBuffered = false; }, 200);
+        }
+    }
+}
+
+function handleKeyUp(event) {
+    keysPressed[event.code] = false;
+    const humanPlayer = players.find(p => !p.isAI);
+    if (humanPlayer) {
+        if (event.code === 'KeyW') {
+            humanPlayer.isAttemptingVariableJump = false;
+        }
+    }
+}
+
+function updatePlayerAnimations() {
+    // Visual feedback for square rotation/state can be added here later if needed.
+}
+
+function updateGame() {
+    // Always update visual elements
+    updateClouds();
+    updateSun();
+    updateSpectators();
+
+    if (gameState === 'gameOver') {
+        // Game over state - restart game
+        if (keysPressed['KeyW']) {
+            console.log("GAME_OVER: Restarting game");
+            setup(); // Restart the entire game
+            keysPressed['KeyW'] = false;
+        }
+        return;
+    }
+
+    if (!isGameStarted || isGameOver) return;
+
+    gameTime++;
+    updatePlayerStates();
+    handleHumanPlayerControls();
+    updateAIPlayers();
+    updatePlayerAnimations();
+    updateParticles();
+}
+
+// Update cloud positions
+function updateClouds() {
+    clouds.forEach(cloud => {
+        cloud.x += cloud.speed;
+        if (cloud.x > PIXEL_CANVAS_WIDTH + 30) {
+            cloud.x = -30;
+            cloud.y = Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5;
+        }
+    });
+}
+
+// Update sun position based on game time
+function updateSun() {
+    const elapsedTime = (Date.now() - gameStartTime) / 1000; // seconds
+    const dayDuration = 180; // 3 minutes for full day cycle
+    const progress = (elapsedTime % dayDuration) / dayDuration;
+
+    // Sun moves in an arc across the sky
+    const angle = progress * Math.PI; // 0 to PI (sunrise to sunset)
+    sunPosition.x = PIXEL_CANVAS_WIDTH * 0.1 + Math.cos(Math.PI - angle) * PIXEL_CANVAS_WIDTH * 0.8;
+    sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.05 + Math.sin(angle) * PIXEL_CANVAS_HEIGHT * 0.3;
+}
+
+// Get current sun color based on position
+function getCurrentSunColor() {
+    const elapsedTime = (Date.now() - gameStartTime) / 1000;
+    const dayDuration = 180;
+    const progress = (elapsedTime % dayDuration) / dayDuration;
+
     if (progress < 0.15) return SUN_COLORS.dawn;
     if (progress < 0.3) return SUN_COLORS.morning;
     if (progress < 0.5) return SUN_COLORS.noon;
@@ -1266,115 +1627,115 @@ function handleCollisions(event) {
                 // Special logic for AI to prevent own goals
                 let kickTargetPos = { x: opponentGoalX, y: goalCenterY };
                 const kickOrigin = playerPhysicsBodyCollided.position;
-                
+                // let kickAngleFactorY = -0.7; // Default, will be overridden by specific logic
+
                 if (playerCollidedObject.isAI) {
+                    const aiPlayerPos = playerCollidedObject.playerBody.position;
+                    const targetGoalPos = { x: opponentGoalX, y: goalCenterY };
+                    let humanPlayerObstacle = false;
+                    const humanPlayer = players.find(p => !p.isAI);
+
+                    if (humanPlayer) {
+                        const humanPlayerPos = humanPlayer.playerBody.position;
+                        const vecAiToGoal = Matter.Vector.sub(targetGoalPos, aiPlayerPos);
+                        const vecAiToHuman = Matter.Vector.sub(humanPlayerPos, aiPlayerPos);
+                        if (Matter.Vector.dot(vecAiToGoal, vecAiToHuman) > 0 &&
+                            Matter.Vector.magnitudeSquared(vecAiToHuman) < Matter.Vector.magnitudeSquared(vecAiToGoal) &&
+                            Math.abs(humanPlayerPos.y - aiPlayerPos.y) < PLAYER_RECT_SIZE * 2 &&
+                            perpDistToLine(aiPlayerPos, targetGoalPos, humanPlayerPos) < PLAYER_RECT_SIZE * 1.5) {
+                            humanPlayerObstacle = true;
+                        }
+                    }
+
+                    // Own goal risk check (copied from your existing logic, ensure it's correctly placed)
                     const ballToOwnGoalVector = Matter.Vector.sub({x: ownGoalX, y: goalCenterY}, ballBody.position);
                     const playerToBallVector = Matter.Vector.sub(ballBody.position, playerPhysicsBodyCollided.position);
-
-                    // Check if kicking directly towards own goal
-                    const kickTowardsOwnGoalAngleThreshold = Math.PI / 2.5; // Generous angle to avoid own goal
+                    const kickTowardsOwnGoalAngleThreshold = Math.PI / 2.5;
                     const angleToOwnGoal = Matter.Vector.angle(playerToBallVector, ballToOwnGoalVector);
-
                     let isOwnGoalRisk = false;
-                    if (playerPhysicsBodyCollided.position.x > ballBody.position.x && // Player is to the right of the ball
-                        ownGoalX > playerPhysicsBodyCollided.position.x && // Own goal is to the right of player
-                        Math.abs(angleToOwnGoal) > Math.PI - kickTowardsOwnGoalAngleThreshold // Kicking towards general direction of own goal
-                    ) {
+                    if (playerPhysicsBodyCollided.position.x > ballBody.position.x && ownGoalX > playerPhysicsBodyCollided.position.x && Math.abs(angleToOwnGoal) > Math.PI - kickTowardsOwnGoalAngleThreshold) {
                         isOwnGoalRisk = true;
-                    } else if (playerPhysicsBodyCollided.position.x < ballBody.position.x && // Player is to the left of the ball
-                               ownGoalX < playerPhysicsBodyCollided.position.x && // Own goal is to the left of player (should not happen for AI team 2)
-                               Math.abs(angleToOwnGoal) < kickTowardsOwnGoalAngleThreshold
-                    ) {
-                         // This case is for AI team 1 if it were implemented, or if AI is on left side.
-                         // For current AI (Team 2, right goal), this part of condition is less relevant
-                         // but good to have for robustness.
+                    } else if (playerPhysicsBodyCollided.position.x < ballBody.position.x && ownGoalX < playerPhysicsBodyCollided.position.x && Math.abs(angleToOwnGoal) < kickTowardsOwnGoalAngleThreshold) {
                         isOwnGoalRisk = true;
                     }
-
 
                     if (isOwnGoalRisk && Math.abs(ballBody.position.x - ownGoalX) < CANVAS_WIDTH / 3) {
-                        // HIGH RISK of own goal - clear the ball safely
-                        // Kick upwards and towards the center or opponent's side
-                        kickTargetPos.x = CANVAS_WIDTH / 2 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.2); // Kick towards center/opponent side
-                        kickTargetPos.y = goalCenterY - actualGoalOpeningHeight * (0.5 + Math.random() * 0.5); // Kick high
-                        kickForce *= 0.8; // Slightly less force for a clearance
+                        console.log("AI Kick: Avoiding own goal.");
+                        kickTargetPos.x = CANVAS_WIDTH / 2 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.2);
+                        kickTargetPos.y = goalCenterY - actualGoalOpeningHeight * (0.5 + Math.random() * 0.5);
+                        kickForce *= 0.8;
+                        kickAngleFactorY = -1.0 - Math.random() * 0.5; // Higher clearance kick
+
+                        let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
+                        kickVector = Matter.Vector.normalise(kickVector);
+                        kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
+                        kickVector = Matter.Vector.normalise(kickVector);
+                        Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
+                        playSound('kick.wav');
+                        return;
+                    } else if (humanPlayerObstacle) {
+                        console.log("AI Kick: Attempting curved shot.");
+                        kickForce *= 0.9;
+                        const curveAmount = (Math.random() < 0.5 ? -1 : 1) * actualGoalOpeningHeight * 0.4; // Reduced curve amount slightly
+                        kickTargetPos.x = opponentGoalX;
+                        kickTargetPos.y = goalCenterY - actualGoalOpeningHeight * 0.05 + curveAmount;
+                        kickAngleFactorY = -0.7 - Math.random() * 0.3; // Adjusted loft for curve
+
+                        let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
+                        kickVector = Matter.Vector.normalise(kickVector);
+                        kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
+                        kickVector = Matter.Vector.normalise(kickVector);
+
+                        const spinForceMagnitude = KICK_FORCE_MAGNITUDE * 0.6; // Reduced spin force
+                        const sideForceDirection = Matter.Vector.rotate({ x: 0, y: (curveAmount > 0 ? -1 : 1) * spinForceMagnitude }, playerCollidedObject.playerBody.angle);
+                        const forceApplicationPoint = {
+                            x: ballBody.position.x + (curveAmount > 0 ? -BALL_RADIUS * 0.5 : BALL_RADIUS * 0.5), // Apply closer to edge
+                            y: ballBody.position.y + BALL_RADIUS * 0.3 // Apply slightly off-center vertically too
+                        };
+                        Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
+                        Body.applyForce(ballBody, forceApplicationPoint, sideForceDirection);
+                        playSound('kick.wav');
+                        return;
                     } else {
-                        // Standard AI kick logic (aim for opponent goal)
-                        const ballToOpponentGoal = Math.abs(ballBody.position.x - opponentGoalX);
-                        // If ball is very close to own goal, prioritize clearing it further
-                        if (Math.abs(ballBody.position.x - ownGoalX) < PLAYER_RECT_SIZE * 2) {
-                             kickTargetPos.x = opponentGoalX;
-                             kickTargetPos.y = goalCenterY - actualGoalOpeningHeight * (0.2 + Math.random() * 0.3); // Higher loft
+                        console.log("AI Kick: Attempting power shot (goal likely clear).");
+                        kickForce *= 1.2; // Slightly reduced power boost
+                        kickTargetPos.x = opponentGoalX;
+                        const distanceToOpponentGoal = Matter.Vector.magnitude(Matter.Vector.sub(targetGoalPos, aiPlayerPos));
+                        if (distanceToOpponentGoal < CANVAS_WIDTH / 4) {
+                            kickAngleFactorY = -0.35 - Math.random() * 0.2;
                         } else {
-                            kickTargetPos.x = opponentGoalX;
-                            kickTargetPos.y = goalCenterY + (Math.random() - 0.8) * actualGoalOpeningHeight * 0.7; // More variation, aim slightly lower on average
+                            kickAngleFactorY = -0.55 - Math.random() * 0.3;
                         }
-                    }
+                        kickTargetPos.y = goalCenterY - actualGoalOpeningHeight * (0.1 + Math.random() * 0.25);
 
-                    // The rest of the kick vector calculation remains similar
-                    let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
-                    kickVector = Matter.Vector.normalise(kickVector);
-
-                    // Ensure kick direction is generally correct, especially after own-goal avoidance
-                    const expectedDirectionTowardsOpponentGoal = Math.sign(opponentGoalX - kickOrigin.x);
-                    if (isOwnGoalRisk) {
-                        // If clearing, ensure clearance is away from own goal
-                        if (kickOrigin.x < CANVAS_WIDTH / 2) { // If AI is on left half (e.g. after crossing over)
-                            if (kickVector.x < 0.1) kickVector.x = 0.1 + Math.random() * 0.2; // Ensure positive x (rightward)
-                        } else { // AI on right half
-                            if (kickVector.x > -0.1) kickVector.x = -0.1 - Math.random() * 0.2; // Ensure negative x (leftward)
-                        }
-                        kickVector.y = -Math.abs(kickVector.y * (1.5 + Math.random())); // Ensure strong upward component for clearance
+                        let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
                         kickVector = Matter.Vector.normalise(kickVector);
-                    } else if (Math.sign(kickVector.x) !== expectedDirectionTowardsOpponentGoal && expectedDirectionTowardsOpponentGoal !== 0) {
-                        // If not an own goal risk, but kick vector is still weirdly pointed, try to correct
-                        kickVector.x = expectedDirectionTowardsOpponentGoal * Math.abs(kickVector.x);
-                        if (Math.abs(kickVector.x) < 0.2) { // Ensure some horizontal component
-                             kickVector.x = expectedDirectionTowardsOpponentGoal * 0.2;
-                        }
+                        kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
                         kickVector = Matter.Vector.normalise(kickVector);
+                        playSound('kick.wav');
+                        Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
+                        return;
                     }
-
-
-                    const baseKickXSign = Math.sign(kickVector.x);
-                    // Adjust kickAngleFactorY based on situation
-                    if (isOwnGoalRisk) {
-                        kickAngleFactorY = -1.5 - Math.random() * 0.5; // Stronger upward kick for clearance
-                    } else if (isTimedShot){
-                        kickAngleFactorY = -0.6 * JUMP_SHOT_LOFT_FACTOR;
-                    } else {
-                        kickAngleFactorY = -0.5 - Math.random() * 0.3; // General shots
-                    }
-
-                    kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
-                    // Removed the fixed x component setting to allow more natural kick angles based on target
-                    kickVector = Matter.Vector.normalise(kickVector);
-
-                    playSound('kick.wav');
-                    Body.applyForce(ballBody, ballBody.position, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
-
                 } else { // Human player collision with ball
-                    // Human player - normal targeting
-                    if(isTimedShot){
-                         kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.05) + (Math.random() * actualGoalOpeningHeight * 0.1);
+                    if (isTimedShot) {
+                        kickAngleFactorY = -0.8 * JUMP_SHOT_LOFT_FACTOR;
+                        kickForce *= 1.1;
+                        console.log("Player Kick (Natural): Jump shot!");
                     } else {
-                         kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5);
+                        kickAngleFactorY = -0.5 - Math.random() * 0.3;
+                        console.log("Player Kick (Natural): Ground shot!");
                     }
-
+                    kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5);
                     let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
                     kickVector = Matter.Vector.normalise(kickVector);
-
-                    const baseKickXSign = Math.sign(kickVector.x);
-                    kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
-                    kickVector.x = baseKickXSign * (isTimedShot ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4) );
-                    kickVector = Matter.Vector.normalise(kickVector);
-
+                    kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY)); // Apply loft
+                    kickVector = Matter.Vector.normalise(kickVector); // Re-normalize
                     playSound('kick.wav');
-                    Body.applyForce(ballBody, ballBody.position, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
+                    Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
                 }
 
             } else if (otherBody) {
-                    console.log('Ball collided with:', otherBody.label, 'at time:', engine.timing.timestamp); // لاگ جدید
+                    console.log('Ball collided with:', otherBody.label, 'at time:', engine.timing.timestamp);
                 if (isGameStarted && !isGameOver) {
                     if (otherBody.label === 'goal-left') handleGoalScored(2);
                     else if (otherBody.label === 'goal-right') handleGoalScored(1);
