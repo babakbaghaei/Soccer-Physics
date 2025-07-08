@@ -407,6 +407,9 @@ function setup() {
     setTimeout(() => createTone(659, 200, 'sine', 0.15), 200);
     
     console.log("SETUP: Game started immediately!");
+    console.log("Players:", players.length);
+    console.log("Ball:", ball ? "Created" : "Missing");
+    console.log("Clouds:", clouds ? clouds.length : 0);
 }
 
 // --- Timer Functions ---
@@ -584,6 +587,13 @@ function updateClouds() {
             cloud.y = Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5;
         }
     });
+    
+    // Update background clouds animation
+    if (window.backgroundClouds) {
+        window.backgroundClouds.forEach(cloud => {
+            // This is handled in drawBackgroundClouds now for better performance
+        });
+    }
 }
 
 // Update sun position based on game time
@@ -787,6 +797,11 @@ function updateAIBrain(player) {
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ball.position, player.playerBody.position));
     const ballToAIGoal = Math.abs(ball.position.x - (CANVAS_WIDTH - 30));
     brain.threatLevel = Math.max(0, 1 - (ballToAIGoal / CANVAS_WIDTH));
+    
+    // Consider ball velocity towards AI goal
+    if (ball.velocity.x > 0 && ball.position.x > CANVAS_WIDTH * 0.5) {
+        brain.threatLevel = Math.min(1, brain.threatLevel + 0.3);
+    }
     
     // Choose formation based on game state
     const scoreDiff = team2Score - team1Score;
@@ -1490,17 +1505,25 @@ function drawStadiumBackground() {
 }
 
 function drawBackgroundClouds() {
-    // Static clouds for background
-    const cloudPositions = [
-        {x: 30, y: 15, size: 8},
-        {x: 80, y: 10, size: 6},
-        {x: 140, y: 20, size: 10},
-        {x: 200, y: 12, size: 7},
-        {x: 260, y: 18, size: 9}
-    ];
+    // Moving clouds for background
+    if (!window.backgroundClouds) {
+        window.backgroundClouds = [
+            {x: 30, y: 15, size: 8, speed: 0.2},
+            {x: 80, y: 10, size: 6, speed: 0.15},
+            {x: 140, y: 20, size: 10, speed: 0.3},
+            {x: 200, y: 12, size: 7, speed: 0.25},
+            {x: 260, y: 18, size: 9, speed: 0.18}
+        ];
+    }
     
     pixelCtx.fillStyle = '#FFFFFF';
-    cloudPositions.forEach(cloud => {
+    window.backgroundClouds.forEach(cloud => {
+        // Update cloud position
+        cloud.x += cloud.speed;
+        if (cloud.x > PIXEL_CANVAS_WIDTH + 20) {
+            cloud.x = -20;
+        }
+        
         // Simple cloud shape
         for (let i = 0; i < 5; i++) {
             const offsetX = (i - 2) * 3;
@@ -1859,10 +1882,13 @@ function customRenderAll() {
     // Draw stadium lights first (background lighting)
     stadiumLights.forEach(light => drawStadiumLight(light));
     
-    // Draw clouds
-    clouds.forEach(cloud => drawCloud(cloud));
+    // Draw moving clouds
+    if (clouds && clouds.length > 0) {
+        clouds.forEach(cloud => drawCloud(cloud));
+    }
     
     // Draw sun/moon with dynamic color
+    const currentSunColor = getCurrentSunColor();
     const sunSize = Math.max(6, Math.round(8 / PIXEL_SCALE));
     const sunGlow = Math.max(10, Math.round(14 / PIXEL_SCALE));
     
@@ -1932,9 +1958,12 @@ function customRenderAll() {
     
     // Draw in-game scoreboard
     drawInGameScoreboard();
+    
+    // Draw in-canvas control buttons
+    drawControlButtons();
 
     const goalPostColor = '#FFFFFF';
-    const netColor = activeTheme.net;
+    const netColor = '#CCCCCC';
     const postPixelThickness = Math.max(1, Math.round(8 / PIXEL_SCALE));
     const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
     const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
@@ -2134,61 +2163,126 @@ document.addEventListener('DOMContentLoaded', () => {
     setupControlButtons();
 });
 
-function setupControlButtons() {
-    const leftBtn = document.getElementById('leftBtn');
-    const rightBtn = document.getElementById('rightBtn');
+function drawControlButtons() {
+    const buttonSize = 40;
+    const buttonY = PIXEL_CANVAS_HEIGHT - buttonSize - 10;
+    const leftButtonX = 15;
+    const rightButtonX = leftButtonX + buttonSize + 10;
     
-    if (leftBtn && rightBtn) {
-        // Touch/click events for buttons
-        leftBtn.addEventListener('mousedown', () => {
+    // Store button positions for click detection
+    window.controlButtons = {
+        left: { x: leftButtonX, y: buttonY, width: buttonSize, height: buttonSize },
+        right: { x: rightButtonX, y: buttonY, width: buttonSize, height: buttonSize }
+    };
+    
+    // Left button
+    pixelCtx.fillStyle = keysPressed['KeyA'] ? '#45a049' : '#4CAF50';
+    pixelCtx.fillRect(leftButtonX, buttonY, buttonSize, buttonSize);
+    
+    // Button border
+    pixelCtx.strokeStyle = '#2e7d32';
+    pixelCtx.lineWidth = 2;
+    pixelCtx.strokeRect(leftButtonX, buttonY, buttonSize, buttonSize);
+    
+    // Left arrow
+    pixelCtx.fillStyle = '#FFFFFF';
+    const arrowSize = 12;
+    const centerX = leftButtonX + buttonSize / 2;
+    const centerY = buttonY + buttonSize / 2;
+    
+    // Draw left arrow
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(centerX - arrowSize/2, centerY);
+    pixelCtx.lineTo(centerX + arrowSize/2, centerY - arrowSize/2);
+    pixelCtx.lineTo(centerX + arrowSize/2, centerY + arrowSize/2);
+    pixelCtx.closePath();
+    pixelCtx.fill();
+    
+    // Right button
+    pixelCtx.fillStyle = keysPressed['KeyD'] ? '#45a049' : '#4CAF50';
+    pixelCtx.fillRect(rightButtonX, buttonY, buttonSize, buttonSize);
+    
+    // Button border
+    pixelCtx.strokeRect(rightButtonX, buttonY, buttonSize, buttonSize);
+    
+    // Right arrow
+    const rightCenterX = rightButtonX + buttonSize / 2;
+    const rightCenterY = buttonY + buttonSize / 2;
+    
+    pixelCtx.fillStyle = '#FFFFFF';
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(rightCenterX + arrowSize/2, rightCenterY);
+    pixelCtx.lineTo(rightCenterX - arrowSize/2, rightCenterY - arrowSize/2);
+    pixelCtx.lineTo(rightCenterX - arrowSize/2, rightCenterY + arrowSize/2);
+    pixelCtx.closePath();
+    pixelCtx.fill();
+}
+
+function setupControlButtons() {
+    const canvas = document.getElementById('gameCanvas');
+    
+    // Mouse events
+    canvas.addEventListener('mousedown', handleCanvasClick);
+    canvas.addEventListener('mouseup', handleCanvasRelease);
+    canvas.addEventListener('mouseleave', handleCanvasRelease);
+    
+    // Touch events
+    canvas.addEventListener('touchstart', handleCanvasTouch);
+    canvas.addEventListener('touchend', handleCanvasRelease);
+}
+
+function handleCanvasClick(event) {
+    const rect = event.target.getBoundingClientRect();
+    const scaleX = PIXEL_CANVAS_WIDTH / rect.width;
+    const scaleY = PIXEL_CANVAS_HEIGHT / rect.height;
+    
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
+    
+    if (window.controlButtons) {
+        const { left, right } = window.controlButtons;
+        
+        if (x >= left.x && x <= left.x + left.width && y >= left.y && y <= left.y + left.height) {
             keysPressed['KeyA'] = true;
             createTone(300, 50, 'square', 0.1);
-        });
+        }
         
-        leftBtn.addEventListener('mouseup', () => {
-            keysPressed['KeyA'] = false;
-        });
-        
-        leftBtn.addEventListener('mouseleave', () => {
-            keysPressed['KeyA'] = false;
-        });
-        
-        rightBtn.addEventListener('mousedown', () => {
+        if (x >= right.x && x <= right.x + right.width && y >= right.y && y <= right.y + right.height) {
             keysPressed['KeyD'] = true;
             createTone(350, 50, 'square', 0.1);
-        });
-        
-        rightBtn.addEventListener('mouseup', () => {
-            keysPressed['KeyD'] = false;
-        });
-        
-        rightBtn.addEventListener('mouseleave', () => {
-            keysPressed['KeyD'] = false;
-        });
-        
-        // Touch events for mobile
-        leftBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            keysPressed['KeyA'] = true;
-            createTone(300, 50, 'square', 0.1);
-        });
-        
-        leftBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            keysPressed['KeyA'] = false;
-        });
-        
-        rightBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            keysPressed['KeyD'] = true;
-            createTone(350, 50, 'square', 0.1);
-        });
-        
-        rightBtn.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            keysPressed['KeyD'] = false;
-        });
+        }
     }
+}
+
+function handleCanvasTouch(event) {
+    event.preventDefault();
+    const rect = event.target.getBoundingClientRect();
+    const scaleX = PIXEL_CANVAS_WIDTH / rect.width;
+    const scaleY = PIXEL_CANVAS_HEIGHT / rect.height;
+    
+    for (let touch of event.changedTouches) {
+        const x = (touch.clientX - rect.left) * scaleX;
+        const y = (touch.clientY - rect.top) * scaleY;
+        
+        if (window.controlButtons) {
+            const { left, right } = window.controlButtons;
+            
+            if (x >= left.x && x <= left.x + left.width && y >= left.y && y <= left.y + left.height) {
+                keysPressed['KeyA'] = true;
+                createTone(300, 50, 'square', 0.1);
+            }
+            
+            if (x >= right.x && x <= right.x + right.width && y >= right.y && y <= right.y + right.height) {
+                keysPressed['KeyD'] = true;
+                createTone(350, 50, 'square', 0.1);
+            }
+        }
+    }
+}
+
+function handleCanvasRelease() {
+    keysPressed['KeyA'] = false;
+    keysPressed['KeyD'] = false;
 }
 
 // --- Particle System ---
