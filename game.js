@@ -377,12 +377,12 @@ function setup() {
     updateScoreDisplay();
     updateTimerDisplay();
     showGameMessage("Game Started! Controls: A/D Move");
-    
+
     // Play game start sound
     createTone(440, 100, 'sine', 0.15);
     setTimeout(() => createTone(554, 100, 'sine', 0.15), 100);
     setTimeout(() => createTone(659, 200, 'sine', 0.15), 200);
-    
+
     console.log("SETUP: Game started immediately!");
     console.log("Players:", players.length);
     console.log("Ball:", ball ? "Created" : "Missing");
@@ -531,6 +531,7 @@ function updatePlayerAnimations() {
 }
 
 function updateGame() {
+
     if (gameState === 'gameOver') {
         // Game over state - restart game
         if (keysPressed['KeyW']) {
@@ -540,12 +541,11 @@ function updateGame() {
         }
         return;
     }
-    
+
     if (!isGameStarted || isGameOver) return;
 
     gameTime++;
-    updateClouds();
-    updatePlayerStates();
+
     handleHumanPlayerControls();
     updateAIPlayers();
     updateParticles();
@@ -1103,13 +1103,13 @@ function showGameMessage(message) {
 function gameRenderLoop() {
     // Always render the game
     customRenderAll();
-    
+
     // Render to main canvas
     const mainCtx = canvas.getContext('2d');
     mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     mainCtx.imageSmoothingEnabled = false;
     mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
+
     gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
 }
 
@@ -1732,7 +1732,7 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 
 
 function customRenderAll() {
-    // Simple white background
+
     pixelCtx.fillStyle = '#FFFFFF';
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     
