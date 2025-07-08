@@ -84,7 +84,7 @@ const PLAYER_DENSITY = 0.003;
 const HEAD_RADIUS = 15;
 const BODY_WIDTH = 25;
 const BODY_HEIGHT = 40;
-const LEG_WIDTH = 12;
+const LEG_WIDTH = 16; // Increased from 12 for better stability
 const LEG_HEIGHT = 38;
 
 // --- Control Constants ---
