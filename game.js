@@ -114,10 +114,28 @@ const LANDING_DAMPING_FACTOR = 0.9;
 const keysPressed = {};
 
 // --- Sound Function ---
+const soundCache = new Map();
+const soundEnabled = false; // Set to true when you add sound files
+
 function playSound(soundFileName) {
+    if (!soundEnabled) return; // Skip sound playing if disabled
+    
     try {
-        const audio = new Audio('sounds/' + soundFileName);
-        audio.play().catch(e => console.warn("Sound play failed for "+soundFileName+":", e));
+        if (soundCache.has(soundFileName)) {
+            const audio = soundCache.get(soundFileName);
+            audio.currentTime = 0; // Reset to beginning
+            audio.play().catch(e => console.warn("Sound play failed for "+soundFileName+":", e));
+        } else {
+            const audio = new Audio('sounds/' + soundFileName);
+            audio.preload = 'auto';
+            audio.addEventListener('canplaythrough', () => {
+                soundCache.set(soundFileName, audio);
+                audio.play().catch(e => console.warn("Sound play failed for "+soundFileName+":", e));
+            });
+            audio.addEventListener('error', () => {
+                console.warn(`Audio file not found: ${soundFileName}`);
+            });
+        }
     } catch (e) {
         console.warn(`Could not create Audio for: ${soundFileName}`, e);
     }
@@ -1207,7 +1225,7 @@ function customRenderAll() {
         pixelCtx.stroke();
 
         const tBack = i / 6;
-        const xBackLine = netBackLeftX + (netBackRightX - rgNetBackLeftX) * tBack;
+        const xBackLine = netBackLeftX + (netBackRightX - netBackLeftX) * tBack;
         pixelCtx.beginPath();
         pixelCtx.moveTo(xBackLine, netTopBackY);
         pixelCtx.lineTo(xBackLine, netBottomBackY);
