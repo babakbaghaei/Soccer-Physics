@@ -7,7 +7,7 @@ const Bodies = Matter.Bodies;
 const Body = Matter.Body;
 const Events = Matter.Events;
 const Composite = Matter.Composite;
-const Constraint = Matter.Constraint;
+// Constraint removed as it's not used for simple square players initially
 
 // --- DOM Element References ---
 const canvas = document.getElementById('gameCanvas');
@@ -78,44 +78,38 @@ const BALL_PANEL_COLOR_SECONDARY = '#333333';
 
 
 // --- Player Constants ---
-const PLAYER_PART_FRICTION = 0.7;
-const PLAYER_PART_RESTITUTION = 0.1;
-const PLAYER_DENSITY = 0.003;
-const HEAD_RADIUS = 15;
-const BODY_WIDTH = 25;
-const BODY_HEIGHT = 40;
-const LEG_WIDTH = 16; // Increased from 12 for better stability
-const LEG_HEIGHT = 38;
+const PLAYER_FRICTION = 0.7;
+const PLAYER_RESTITUTION = 0.1;
+const PLAYER_DENSITY = 0.0035;
+const PLAYER_RECT_SIZE = 50;
 
 // --- Control Constants ---
 const PLAYER_JUMP_COOLDOWN_FRAMES = 35;
-const PLAYER_MOVE_FORCE = 0.005; // Slightly increased
-// const PLAYER_JUMP_FORCE = 0.13; // Unified jump force for main body - Replaced by variable jump
-const PLAYER_VARIABLE_JUMP_INITIAL_FORCE = 0.06; // Initial force on key press
-const PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE = 0.007; // Force per frame while holding W
-const PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES = 10;  // Max frames to apply sustained force
-const PLAYER_MAX_JUMP_IMPULSE = 0.13; // Cap total jump impulse to something similar to old fixed jump
-const COYOTE_TIME_FRAMES = 7; // Frames for coyote time
+const PLAYER_MOVE_FORCE = 0.008; // Will be adapted for square's rolling motion (torque)
+const PLAYER_ROLL_ANGULAR_VELOCITY_TARGET = 0.20;
+const PLAYER_ROLL_TRANSLATE_SPEED = 1.0;
 
-const KICK_RANGE = 60;
-const KICK_FORCE_MAGNITUDE = 0.060; // Slightly stronger base kick
+const PLAYER_VARIABLE_JUMP_INITIAL_FORCE = 0.06;
+const PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE = 0.007;
+const PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES = 10;
+const PLAYER_MAX_JUMP_IMPULSE = 0.135;
+const COYOTE_TIME_FRAMES = 7;
+
+const KICK_RANGE = PLAYER_RECT_SIZE / 2 + BALL_RADIUS + 10;
+const KICK_FORCE_MAGNITUDE = 0.065;
 const TIMED_JUMP_SHOT_BONUS_FACTOR = 1.6;
-const CROUCH_SHOT_REDUCTION_FACTOR = 0.1;
 const JUMP_SHOT_LOFT_FACTOR = 1.6;
-const PLAYER_AIR_CONTROL_FACTOR = 0.25; // Reduced further
+const PLAYER_AIR_CONTROL_FACTOR = 0.35;
 
-const AI_ACTION_RANGE = 100;
-const AI_MOVE_FORCE = 0.0028;
-const AI_KICK_ATTEMPT_STRENGTH = 0.07;
-const AI_KICK_BALL_RANGE = KICK_RANGE + 10;
-const AI_CROUCH_CHANCE = 0.05;
+const AI_ACTION_RANGE = PLAYER_RECT_SIZE * 2.5;
+const AI_MOVE_FORCE = 0.0035;
+const AI_KICK_ATTEMPT_STRENGTH = 0.075;
+const AI_KICK_BALL_RANGE = KICK_RANGE + 5;
 const AI_TIMED_JUMP_ANTICIPATION_FRAMES = 10;
-const AI_BICYCLE_KICK_CHANCE = 0.03;
-const PLAYER_ACTION_COOLDOWN_FRAMES = 20; // For AI actions like crouch, bicycle kick recovery
+const PLAYER_ACTION_COOLDOWN_FRAMES = 20;
 
 
 const LANDING_DAMPING_FACTOR = 0.9;
-// UPRIGHT_TORQUE_STRENGTH_FACTOR is no longer used due to compound body stability
 
 const keysPressed = {};
 
@@ -140,7 +134,6 @@ function setup() {
     gameTimeRemaining = ROUND_DURATION_SECONDS;
     actualGoalOpeningHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
     particles = [];
-
 
     if (roundTimerId) {
         clearInterval(roundTimerId);
@@ -168,7 +161,7 @@ function setup() {
 
     engine = Engine.create();
     world = engine.world;
-    engine.world.gravity.y = 1.1; // Slightly adjusted gravity
+    engine.world.gravity.y = 1.1;
     console.log("SETUP: New engine and world created.");
 
     render = Render.create({
@@ -194,8 +187,9 @@ function setup() {
     createBall();
 
     players = [];
-    players.push(createPlayer(CANVAS_WIDTH / 4, CANVAS_HEIGHT - GROUND_THICKNESS - LEG_HEIGHT - BODY_HEIGHT/2 , activeTeam1Color, true, false));
-    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, CANVAS_HEIGHT - GROUND_THICKNESS - LEG_HEIGHT- BODY_HEIGHT/2, activeTeam2Color, false, true));
+    const playerSpawnY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 5;
+    players.push(createPlayer(CANVAS_WIDTH / 4, playerSpawnY, activeTeam1Color, true, false));
+    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, playerSpawnY, activeTeam2Color, false, true));
     
     setupInputListeners();
 
@@ -213,7 +207,7 @@ function setup() {
 
     updateScoreDisplay();
     updateTimerDisplay();
-    showGameMessage("Controls: A/D Move, W Jump, S Crouch. Press W to Start!");
+    showGameMessage("Controls: A/D Move, W Jump. Press W to Start!");
     console.log("SETUP: Complete.");
 }
 
@@ -281,101 +275,38 @@ function createBall() {
 
 function createPlayer(x, y, teamColor, isTeam1, isAI) {
     const playerLabelPrefix = isTeam1 ? 'player-t1' : 'player-t2';
-    const commonOptions = {
+    const options = {
         density: PLAYER_DENSITY,
-        friction: PLAYER_PART_FRICTION,
-        restitution: PLAYER_PART_RESTITUTION,
+        friction: PLAYER_FRICTION,
+        restitution: PLAYER_RESTITUTION,
         render: { fillStyle: teamColor },
-        collisionFilter: { group: Body.nextGroup(true) } // Ensure player parts don't collide with each other initially
+        label: `${playerLabelPrefix}-square`,
+        chamfer: { radius: 2 },
+        inertia: Infinity,
     };
 
-    // Define parts relative to (0,0) for compound body creation later
-    const head = Bodies.circle(0, -(BODY_HEIGHT / 2 + HEAD_RADIUS - 5), HEAD_RADIUS, { ...commonOptions, label: `${playerLabelPrefix}-head`});
-    const torso = Bodies.rectangle(0, 0, BODY_WIDTH, BODY_HEIGHT, { ...commonOptions, label: `${playerLabelPrefix}-torso` });
-
-    // Create both leg bodies. Their roles (support/kicking) will be dynamic.
-    const leftLegBody = Bodies.rectangle(-BODY_WIDTH / 3, BODY_HEIGHT / 2 + LEG_HEIGHT / 2 -5 , LEG_WIDTH, LEG_HEIGHT, { ...commonOptions, label: `${playerLabelPrefix}-leg-left`, angle: -0.05 });
-    const rightLegBody = Bodies.rectangle(BODY_WIDTH / 3, BODY_HEIGHT / 2 + LEG_HEIGHT / 2 -5, LEG_WIDTH, LEG_HEIGHT, { ...commonOptions, label: `${playerLabelPrefix}-leg-right`, angle: 0.05 });
-
-    let supportLeg, kickingLeg;
-    let kickingLegSide;
-
-    // Initial leg role assignment (e.g., P1 right kick, P2 left kick)
-    if (isTeam1) { // Human player
-        supportLeg = leftLegBody;
-        kickingLeg = rightLegBody;
-        kickingLegSide = 'right';
-    } else { // AI player
-        supportLeg = rightLegBody; // AI starts with right as support
-        kickingLeg = leftLegBody;
-        kickingLegSide = 'left';
-    }
-
-    // Position the support leg to be part of the main rigid structure, centered under the torso
-    // The positions of parts for Body.create are relative to the center of mass of the *final* compound body.
-    // It's often easier to position them at (0,0) and then translate the final compound body.
-    // For now, we'll adjust supportLeg's position slightly to be centered for the compound body creation.
-    Body.setPosition(supportLeg, { x: torso.position.x, y: torso.position.y + BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 5});
-    Body.setAngle(supportLeg, 0); // Support leg straight
-
-    const mainBodyParts = [torso, head, supportLeg];
-    const mainBody = Body.create({
-        parts: mainBodyParts,
-        label: `${playerLabelPrefix}-main`,
-        friction: PLAYER_PART_FRICTION,
-        restitution: PLAYER_PART_RESTITUTION,
-        density: PLAYER_DENSITY
-    });
-    // Set the mainBody's position to the spawn point
-    Body.setPosition(mainBody, { x: x, y: y });
-    Body.setAngle(mainBody, 0); // Ensure main body starts upright
-
-    // Position the kicking leg relative to the main body's final position
-    const hipOffsetX = (kickingLegSide === 'right' ? BODY_WIDTH / 2.8 : -BODY_WIDTH / 2.8);
-    Body.setPosition(kickingLeg, {
-        x: mainBody.position.x + hipOffsetX,
-        y: mainBody.position.y + BODY_HEIGHT / 2
-    });
-
-    const hipConstraint = Constraint.create({
-        bodyA: mainBody, // Constraint to the main compound body
-        pointA: { x: hipOffsetX, y: BODY_HEIGHT / 2 * 0.8 }, // Hip point on torso part of mainBody
-        bodyB: kickingLeg,
-        pointB: { x: 0, y: -LEG_HEIGHT / 2 * 0.9 },
-        length: LEG_HEIGHT * 0.2,
-        stiffness: 0.5,
-        damping: 0.1, // Increased damping for better stability
-        render: { visible: false }
-    });
-
-    World.add(world, [mainBody, kickingLeg, hipConstraint]);
+    const playerBody = Bodies.rectangle(x, y, PLAYER_RECT_SIZE, PLAYER_RECT_SIZE, options);
+    World.add(world, playerBody);
 
     return {
-        mainBody: mainBody,
-        head: head, // Reference to original head part
-        torso: torso, // Reference to original torso part
-        leftLeg_Instance: leftLegBody,
-        rightLeg_Instance: rightLegBody,
-        kickingLeg: kickingLeg,
-        supportLeg: supportLeg,
-        hipConstraint: hipConstraint,
-        allParts: [head, torso, leftLegBody, rightLegBody], // For rendering logic to find original parts
-        playerTeam: isTeam1 ? 1: 2, // Simplified team reference
+        playerBody: playerBody,
+        playerTeam: isTeam1 ? 1 : 2,
         color: teamColor,
-        actionCooldown: 0, jumpCooldown: 0,
+        actionCooldown: 0,
+        jumpCooldown: 0,
         isAI: isAI,
-        isGrounded: false, isCrouching: false, jumpCount: 0,
-        animationState: 'idle', animationFrame: 0, animationDuration: 0,
-        kickingLegSide: kickingLegSide,
+        isGrounded: false,
         lastJumpTime: 0,
-        // For variable jump
         isAttemptingVariableJump: false,
         variableJumpForceAppliedDuration: 0,
-        // For coyote time & jump buffering
+        totalJumpImpulseThisJump: 0,
         coyoteTimeFramesRemaining: 0,
         jumpInputBuffered: false,
-        totalJumpImpulseThisJump: 0,
-        wasGrounded: false // For coyote time detection
+        wasGrounded: false,
+        targetAngle: 0,
+        isRotating: false,
+        currentFace: 0,
+        rollDirection: 0
     };
 }
 
@@ -386,12 +317,11 @@ function setupInputListeners() {
         }
         keysPressed[event.code] = true;
 
-        // Handle jump buffering on keydown
         const humanPlayer = players.find(p => !p.isAI);
-        if (humanPlayer && event.code === 'KeyW' && !humanPlayer.isGrounded && humanPlayer.jumpCooldown === 0 && !humanPlayer.isCrouching) {
-            if (humanPlayer.coyoteTimeFramesRemaining <= 0) { // Only buffer if not in coyote time (coyote jump handled in update)
+        if (humanPlayer && event.code === 'KeyW' && !humanPlayer.isGrounded && humanPlayer.jumpCooldown === 0) {
+            if (humanPlayer.coyoteTimeFramesRemaining <= 0) {
                  humanPlayer.jumpInputBuffered = true;
-                 setTimeout(() => { humanPlayer.jumpInputBuffered = false; }, 200); // Buffer for 200ms
+                 setTimeout(() => { humanPlayer.jumpInputBuffered = false; }, 200);
             }
         }
     });
@@ -399,61 +329,31 @@ function setupInputListeners() {
         keysPressed[event.code] = false;
         const humanPlayer = players.find(p => !p.isAI);
         if (humanPlayer) {
-            if (event.code === 'KeyS') {
-                humanPlayer.isCrouching = false;
-                if (humanPlayer.animationState === 'crouching') {
-                    humanPlayer.animationState = 'idle';
-                }
-            }
             if (event.code === 'KeyW') {
-                humanPlayer.isAttemptingVariableJump = false; // Stop applying sustained jump force
+                humanPlayer.isAttemptingVariableJump = false;
             }
         }
     });
 }
 
 function updatePlayerAnimations() {
-    players.forEach(player => {
-        if (player.animationDuration > 0) {
-            player.animationFrame++;
-            if (player.animationFrame >= player.animationDuration) {
-                if (player.animationState === 'kicking_execute' || player.animationState === 'bicycle_kick_attempt') {
-                    // Kicking leg reference is already direct, no side string here.
-                }
-                if (player.animationState !== 'crouching' || !player.isCrouching) {
-                    player.animationState = 'idle';
-                }
-                player.animationFrame = 0;
-                player.animationDuration = 0;
-            }
-        }
-        if (player.isGrounded && player.animationState === 'jumping' && player.animationDuration === 0) {
-            player.animationState = 'idle';
-        }
-         if (player.isCrouching && player.animationState !== 'crouching' && player.animationState !== 'kicking_execute'  && player.animationState !== 'bicycle_kick_attempt') {
-            setPlayerAnimation(player, 'crouching', 2);
-        }
-    });
+    // Visual feedback for square rotation/state can be added here later if needed.
 }
 
 function updateGame() {
     if (!isGameStarted || isGameOver) return;
 
-    updatePlayerStates(); // Handle coyote time, wasGrounded, etc.
+    updatePlayerStates();
     handleHumanPlayerControls();
     updateAIPlayers();
     updatePlayerAnimations();
     updateParticles();
-    // updatePlayerLegRoles(); // TODO: Implement this crucial function
-
-    // players.forEach(player => { // Specific uprighting logic removed for compound body
-    // });
 }
 
 function updatePlayerStates() {
     players.forEach(player => {
         if (!player.isAI) {
-            if (player.wasGrounded && !player.isGrounded && !player.isAttemptingVariableJump && player.mainBody.velocity.y > -0.5) {
+            if (player.wasGrounded && !player.isGrounded && !player.isAttemptingVariableJump && player.playerBody.velocity.y > -0.5) {
                 player.coyoteTimeFramesRemaining = COYOTE_TIME_FRAMES;
             }
 
@@ -466,14 +366,58 @@ function updatePlayerStates() {
         if (player.isGrounded && !player.isAttemptingVariableJump) {
             player.totalJumpImpulseThisJump = 0;
         }
+
+        // --- Square Rolling Logic ---
+        if (player.isRotating) {
+            const currentAngle = player.playerBody.angle;
+            const targetAngle = player.targetAngle;
+            const angularSpeed = player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET;
+
+            Body.setAngularVelocity(player.playerBody, angularSpeed);
+
+            if (player.isGrounded) {
+                Body.translate(player.playerBody, { x: player.rollDirection * PLAYER_ROLL_TRANSLATE_SPEED, y: 0 });
+            }
+
+            let overShot = false;
+            if (player.rollDirection === 1 && currentAngle >= targetAngle - (PLAYER_ROLL_ANGULAR_VELOCITY_TARGET * 0.1)) {
+                overShot = true;
+            } else if (player.rollDirection === -1 && currentAngle <= targetAngle + (PLAYER_ROLL_ANGULAR_VELOCITY_TARGET * 0.1)) {
+                overShot = true;
+            }
+
+            if (overShot) {
+                Body.setAngle(player.playerBody, targetAngle);
+                Body.setAngularVelocity(player.playerBody, 0);
+                // Snap position more accurately if needed, e.g. based on number of rolls
+                // For now, the continuous translate should be okay.
+                player.isRotating = false;
+                player.rollDirection = 0;
+                player.currentFace = (Math.round(targetAngle / (Math.PI / 2)) % 4 + 4) % 4;
+            }
+        } else {
+            if (player.isGrounded && !keysPressed['KeyA'] && !keysPressed['KeyD']) {
+                if (Math.abs(player.playerBody.angularVelocity) > 0.01) {
+                    Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.80); // Stronger damping
+                } else if (Math.abs(player.playerBody.angularVelocity) > 0) {
+                    Body.setAngularVelocity(player.playerBody, 0);
+                }
+                // Snap to the nearest 90-degree angle if not actively controlled and velocity is low
+                if (Math.abs(player.playerBody.angularVelocity) < 0.01) {
+                    const currentAngle = player.playerBody.angle;
+                    const nearestTargetFace = Math.round(currentAngle / (Math.PI / 2));
+                    const nearestTargetAngle = nearestTargetFace * (Math.PI / 2);
+                    if(Math.abs(currentAngle - nearestTargetAngle) > 0.001) { // Only snap if not already very close
+                        Body.setAngle(player.playerBody, nearestTargetAngle);
+                    }
+                    player.targetAngle = nearestTargetAngle;
+                    player.currentFace = (nearestTargetFace % 4 + 4) % 4;
+                }
+            }
+        }
     });
 }
 
-function setPlayerAnimation(player, state, duration, _kickingLegBodyIgnored = null) { // kickingLegBody no longer set here
-    player.animationState = state;
-    player.animationFrame = 0;
-    player.animationDuration = duration;
-}
 
 function handleHumanPlayerControls() {
     const player = players[0];
@@ -481,51 +425,44 @@ function handleHumanPlayerControls() {
 
     if (player.jumpCooldown > 0) player.jumpCooldown--;
 
-    // Crouching
-    if (keysPressed['KeyS']) {
-        player.isCrouching = true;
-        if (player.isGrounded && player.animationState !== 'kicking_execute' && player.animationState !== 'bicycle_kick_attempt') {
-            setPlayerAnimation(player, 'crouching', 2);
-        }
-    }
-    // Note: KeyS up (isCrouching = false) is handled in setupInputListenerskeyup
-
-    // Movement
-    const airControl = player.isGrounded ? 1 : PLAYER_AIR_CONTROL_FACTOR;
-    if (player.animationState !== 'kicking_execute' && player.animationState !== 'bicycle_kick_attempt') {
+    if (!player.isRotating && player.isGrounded) {
+        let roll = 0;
         if (keysPressed['KeyA']) {
-            if (!player.isCrouching || !player.isGrounded) {
-                 Body.applyForce(player.mainBody, player.mainBody.position, { x: -PLAYER_MOVE_FORCE * airControl, y: 0 });
-            }
+            roll = -1;
+        } else if (keysPressed['KeyD']) {
+            roll = 1;
         }
-        if (keysPressed['KeyD']) {
-             if (!player.isCrouching || !player.isGrounded) {
-                Body.applyForce(player.mainBody, player.mainBody.position, { x: PLAYER_MOVE_FORCE * airControl, y: 0 });
-            }
+
+        if (roll !== 0) {
+            player.isRotating = true;
+            player.rollDirection = roll;
+            // Ensure targetAngle is based on the *current* snapped face to avoid accumulation errors
+            const snappedCurrentAngle = Math.round(player.playerBody.angle / (Math.PI / 2)) * (Math.PI / 2);
+            player.targetAngle = snappedCurrentAngle + roll * (Math.PI / 2);
+
+            Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
         }
     }
 
-    // Jumping Logic
     const canStartNewJumpAttempt = (player.isGrounded || player.coyoteTimeFramesRemaining > 0);
-    const commonJumpConditionsMet = player.jumpCooldown === 0 && !player.isCrouching;
+    const commonJumpConditionsMet = player.jumpCooldown === 0;
 
     if (keysPressed['KeyW'] && commonJumpConditionsMet) {
-        if (!player.isAttemptingVariableJump && canStartNewJumpAttempt) { // Start of a new jump
+        if (!player.isAttemptingVariableJump && canStartNewJumpAttempt && !player.isRotating) {
             player.isGrounded = false;
             player.coyoteTimeFramesRemaining = 0;
-            player.jumpInputBuffered = false; // Consumed buffer if it was used by canStartNewJumpAttempt indirectly
+            player.jumpInputBuffered = false;
             player.isAttemptingVariableJump = true;
             player.variableJumpForceAppliedDuration = 0;
             player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
 
-            Body.applyForce(player.mainBody, player.mainBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
+            Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
 
             player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
             player.lastJumpTime = Date.now();
-            setPlayerAnimation(player, 'jumping', 15);
             playSound('jump.wav');
 
-        } else if (player.isAttemptingVariableJump) { // Holding jump key during an ongoing jump
+        } else if (player.isAttemptingVariableJump) {
             if (player.variableJumpForceAppliedDuration < PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES &&
                 player.totalJumpImpulseThisJump < PLAYER_MAX_JUMP_IMPULSE) {
 
@@ -535,37 +472,31 @@ function handleHumanPlayerControls() {
                 }
 
                 if (forceToApply > 0) {
-                    Body.applyForce(player.mainBody, player.mainBody.position, { x: 0, y: -forceToApply });
+                    Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -forceToApply });
                     player.totalJumpImpulseThisJump += forceToApply;
                 }
                 player.variableJumpForceAppliedDuration++;
             } else {
-                player.isAttemptingVariableJump = false; // Max hold time or max impulse reached
+                player.isAttemptingVariableJump = false;
             }
         }
     }
-    // KeyW released or not pressed: isAttemptingVariableJump is handled by keyup or if max conditions met.
 
-    // Handle buffered jump if key W is NOT currently pressed (or conditions for new jump weren't met by W press)
-    // but was buffered and now player is grounded.
-    if (player.jumpInputBuffered && player.isGrounded && commonJumpConditionsMet && !player.isAttemptingVariableJump) {
-        // This jump can also become a variable jump if W is pressed again quickly.
+    if (player.jumpInputBuffered && player.isGrounded && commonJumpConditionsMet && !player.isAttemptingVariableJump && !player.isRotating) {
         player.isGrounded = false;
-        player.coyoteTimeFramesRemaining = 0; // Should be 0 if grounded
-        player.jumpInputBuffered = false; // Consume buffer
+        player.coyoteTimeFramesRemaining = 0;
+        player.jumpInputBuffered = false;
         player.isAttemptingVariableJump = true;
         player.variableJumpForceAppliedDuration = 0;
         player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
 
-        Body.applyForce(player.mainBody, player.mainBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
+        Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
 
         player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
         player.lastJumpTime = Date.now();
-        setPlayerAnimation(player, 'jumping', 15);
         playSound('jump.wav');
     }
 
-    // Clear buffer if player is in air and not pressing W (or jump started already)
     if (player.jumpInputBuffered && (!player.isGrounded || player.isAttemptingVariableJump || !commonJumpConditionsMet) ) {
          player.jumpInputBuffered = false;
     }
@@ -578,12 +509,6 @@ function updateAIPlayers() {
             if (player.actionCooldown > 0) player.actionCooldown--;
             if (player.jumpCooldown > 0) player.jumpCooldown--;
 
-            if (player.animationState.includes('kicking') && player.animationDuration > 0) {
-                 return;
-            }
-            if (player.animationState === 'bicycle_kick_attempt' && player.animationDuration > 0) {
-                return;
-            }
             executeAIPlayerLogic(player);
         }
     });
@@ -593,30 +518,17 @@ function executeAIPlayerLogic(player) {
     if (!ball) return;
 
     const ballPos = ball.position;
-    const playerPos = player.mainBody.position;
+    const playerPos = player.playerBody.position;
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
-    let moveForceX = 0;
+    let AImoveDirection = 0; // -1 for left, 1 for right, 0 for no move
     const aiGoalX = CANVAS_WIDTH - WALL_THICKNESS;
     const opponentGoalX = WALL_THICKNESS;
-    const humanPlayer = players.find(p => !p.isAI);
-    const humanPlayerBody = humanPlayer ? humanPlayer.mainBody : null;
     const { actualGoalOpeningHeight } = getFieldDerivedConstants();
-
 
     const isBallInAIHalf = ballPos.x > CANVAS_WIDTH / 2;
     let intent = 'pursue_ball';
 
-    const ballAboveHead = ballPos.y < playerPos.y - HEAD_RADIUS - BODY_HEIGHT / 2;
-    const ballInBicycleRangeX = Math.abs(ballPos.x - playerPos.x) < BODY_WIDTH * 2.5;
-    const ballOptimalHeightForBicycle = ballPos.y > playerPos.y - BODY_HEIGHT && ballPos.y < playerPos.y - HEAD_RADIUS;
-
-    if (ballAboveHead && ballInBicycleRangeX && ballOptimalHeightForBicycle &&
-        !player.isGrounded &&
-        (player.animationState === 'jumping' || player.animationState === 'idle') &&
-        Math.random() < AI_BICYCLE_KICK_CHANCE &&
-        player.actionCooldown === 0 && player.jumpCooldown === 0 ) {
-        intent = 'bicycle_kick';
-    } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE * 1.2 && ballPos.x > CANVAS_WIDTH * 0.65) {
+    if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE * 1.2 && ballPos.x > CANVAS_WIDTH * 0.65) {
         intent = 'defend_goal_line';
     } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE) {
         intent = 'defensive_positioning';
@@ -624,93 +536,64 @@ function executeAIPlayerLogic(player) {
         intent = 'advance_to_attack';
     }
 
-    if (intent === 'bicycle_kick') {
-        setPlayerAnimation(player, 'bicycle_kick_attempt', 25);
-        player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * 2;
-        player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * 2;
-
-        Body.applyForce(player.mainBody, playerPos, { x: 0, y: -PLAYER_MAX_JUMP_IMPULSE * 0.8 });
-
-        const rotForceMag = 0.0025; // Slightly increased
-        const bodyAngle = player.mainBody.angle;
-
-        const forceApplyPointRelY = -BODY_HEIGHT/2 * 0.7; // Apply force higher on body
-        const forceApplyPoint = Matter.Vector.add(player.mainBody.position, Matter.Vector.rotate({x:0, y:forceApplyPointRelY}, bodyAngle));
-
-        Matter.Body.applyForce(player.mainBody, forceApplyPoint, {
-            x: rotForceMag * (player.team === 2 ? -1: 1) * Math.sin(bodyAngle), // Force perpendicular to body's tilt
-            y: rotForceMag * (player.team === 2 ? 1: -1) * Math.cos(bodyAngle) * 0.5 // Less Y component
-        });
-
-
-    } else {
-        switch (intent) {
-            case 'defend_goal_line':
-                const defensiveTargetXGoalLine = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 0.75;
-                const directionToTargetXGoalLine = defensiveTargetXGoalLine - playerPos.x;
-                if (Math.abs(directionToTargetXGoalLine) > BODY_WIDTH / 2) {
-                    moveForceX = Math.sign(directionToTargetXGoalLine) * AI_MOVE_FORCE * 1.1;
-                }
-                break;
-            case 'defensive_positioning':
-                const idealDefensiveX = ballPos.x + Math.sign(aiGoalX - ballPos.x) * (BODY_WIDTH + BALL_RADIUS + 20); // Increased follow distance
-                const finalDefensiveTargetX = Math.max(CANVAS_WIDTH / 2 + WALL_THICKNESS, Math.min(aiGoalX - WALL_THICKNESS - BODY_WIDTH, idealDefensiveX));
-                const dirToDefTarget = finalDefensiveTargetX - playerPos.x;
-                if (Math.abs(dirToDefTarget) > BODY_WIDTH / 2) {
-                    moveForceX = Math.sign(dirToDefTarget) * AI_MOVE_FORCE * 0.9;
-                }
-                break;
-            case 'advance_to_attack':
-                const offensiveMidfieldTargetX = CANVAS_WIDTH / 2 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.1);
-                const dirToAdvanceTarget = offensiveMidfieldTargetX - playerPos.x;
-                if (Math.abs(dirToAdvanceTarget) > BODY_WIDTH) {
-                    moveForceX = Math.sign(dirToAdvanceTarget) * AI_MOVE_FORCE;
-                }
-                break;
-            case 'pursue_ball':
-            default:
-                const dirToBallX = ballPos.x - playerPos.x;
-                const idealOffset = (player.kickingLegSide === 'right' ? -BODY_WIDTH * 0.2 : BODY_WIDTH * 0.2); // Try to position kicking leg towards ball
-                if (Math.abs(dirToBallX - idealOffset) > BALL_RADIUS + LEG_WIDTH * 0.5 ) {
-                    moveForceX = Math.sign(dirToBallX - idealOffset) * AI_MOVE_FORCE;
-                }
-                break;
-        }
-
-        if (moveForceX !== 0) {
-            const currentMoveForce = player.isGrounded ? AI_MOVE_FORCE : AI_MOVE_FORCE * PLAYER_AIR_CONTROL_FACTOR;
-            Body.applyForce(player.mainBody, playerPos, { x: moveForceX * (currentMoveForce/AI_MOVE_FORCE) , y: (Math.random() - 0.6) * currentMoveForce * 0.1 });
-        }
-
-        // AI Action: Jump or Crouch
-        if (player.jumpCooldown === 0 && distanceToBall < AI_ACTION_RANGE * 1.2) {
-            const ballIsHigh = ballPos.y < playerPos.y - HEAD_RADIUS * 0.3;
-            const ballIsVeryLowAndFast = ballPos.y > playerPos.y + BODY_HEIGHT * 0.25 && Math.abs(ball.velocity.x) > 2.5;
-
-            if (player.isGrounded && Math.random() < AI_CROUCH_CHANCE && distanceToBall < AI_ACTION_RANGE * 0.8 && !ballIsHigh) {
-                player.isCrouching = true;
-                setPlayerAnimation(player, 'crouching', 10);
-                player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * 0.4;
-            } else if ( (ballIsHigh || distanceToBall < AI_KICK_BALL_RANGE * 0.7 || intent === 'defend_goal_line') && player.isGrounded ) {
-                player.isGrounded = false;
-                player.isCrouching = false;
-                player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * (1.1 + Math.random()*0.4);
-                player.lastJumpTime = Date.now();
-                setPlayerAnimation(player, 'jumping', 15);
-                playSound('jump.wav');
-
-                let horizontalActionForceDirection = (playerPos.x < ballPos.x) ? 0.001 : -0.001;
-                if (intent === 'defend_goal_line' || intent === 'defensive_positioning') {
-                    horizontalActionForceDirection = (playerPos.x < opponentGoalX + 100) ? 0.0002 : -0.0002;
-                }
-                const jumpStrengthFactor = (intent === 'defend_goal_line') ? 1.25 : 0.95;
-                const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.75 + Math.random() * 0.4) ;
-                Body.applyForce(player.mainBody, playerPos, { x: horizontalActionForceDirection, y: verticalJumpForce });
+    switch (intent) {
+        case 'defend_goal_line':
+            const defensiveTargetXGoalLine = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 0.75;
+            const directionToTargetXGoalLine = defensiveTargetXGoalLine - playerPos.x;
+            if (Math.abs(directionToTargetXGoalLine) > PLAYER_RECT_SIZE / 2) {
+                AImoveDirection = Math.sign(directionToTargetXGoalLine);
             }
-        }
-        if (player.isCrouching && (!player.isGrounded || (!ballIsVeryLowAndFast && distanceToBall > KICK_RANGE))) {
-            player.isCrouching = false;
-            if(player.animationState === 'crouching') player.animationState = 'idle';
+            break;
+        case 'defensive_positioning':
+            const idealDefensiveX = ballPos.x + Math.sign(aiGoalX - ballPos.x) * (PLAYER_RECT_SIZE + BALL_RADIUS + 20);
+            const finalDefensiveTargetX = Math.max(CANVAS_WIDTH / 2 + WALL_THICKNESS, Math.min(aiGoalX - WALL_THICKNESS - PLAYER_RECT_SIZE, idealDefensiveX));
+            const dirToDefTarget = finalDefensiveTargetX - playerPos.x;
+            if (Math.abs(dirToDefTarget) > PLAYER_RECT_SIZE / 2) {
+                AImoveDirection = Math.sign(dirToDefTarget);
+            }
+            break;
+        case 'advance_to_attack':
+            const offensiveMidfieldTargetX = CANVAS_WIDTH / 2 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.1);
+            const dirToAdvanceTarget = offensiveMidfieldTargetX - playerPos.x;
+            if (Math.abs(dirToAdvanceTarget) > PLAYER_RECT_SIZE) {
+                AImoveDirection = Math.sign(dirToAdvanceTarget);
+            }
+            break;
+        case 'pursue_ball':
+        default:
+            const dirToBallX = ballPos.x - playerPos.x;
+            if (Math.abs(dirToBallX) > BALL_RADIUS + PLAYER_RECT_SIZE / 2 * 0.5 ) {
+                AImoveDirection = Math.sign(dirToBallX);
+            }
+            break;
+    }
+
+    if (AImoveDirection !== 0 && !player.isRotating && player.isGrounded) {
+        player.isRotating = true;
+        player.rollDirection = AImoveDirection;
+        const currentAngle = player.playerBody.angle;
+        const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
+        player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
+        Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
+    }
+
+
+    if (player.jumpCooldown === 0 && distanceToBall < AI_ACTION_RANGE * 1.2 && !player.isRotating) {
+        const ballIsHigh = ballPos.y < playerPos.y - PLAYER_RECT_SIZE / 2 * 0.7;
+
+        if ( (ballIsHigh || distanceToBall < AI_KICK_BALL_RANGE * 0.7 || intent === 'defend_goal_line') && player.isGrounded ) {
+            player.isGrounded = false;
+            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * (1.1 + Math.random()*0.4);
+            player.lastJumpTime = Date.now();
+            playSound('jump.wav');
+
+            let horizontalActionForceDirection = (playerPos.x < ballPos.x) ? 0.001 : -0.001;
+            if (intent === 'defend_goal_line' || intent === 'defensive_positioning') {
+                horizontalActionForceDirection = (playerPos.x < opponentGoalX + 100) ? 0.0002 : -0.0002;
+            }
+            const jumpStrengthFactor = (intent === 'defend_goal_line') ? 1.25 : 0.95;
+            const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.75 + Math.random() * 0.4) ;
+            Body.applyForce(player.playerBody, playerPos, { x: horizontalActionForceDirection, y: verticalJumpForce });
         }
     }
 }
@@ -802,45 +685,52 @@ function resetPositions() {
         Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 3 });
         Body.setVelocity(ball, { x: 0, y: 0 }); Body.setAngularVelocity(ball, 0);
     }
+    const playerSpawnY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 5;
     const player1StartX = CANVAS_WIDTH / 4;
-    const playerBodyY = CANVAS_HEIGHT - GROUND_THICKNESS - LEG_HEIGHT - BODY_HEIGHT / 2;
     const player2StartX = CANVAS_WIDTH * 3 / 4;
 
     players.forEach((player, index) => {
         const startX = (index === 0) ? player1StartX : player2StartX;
-        const startY = playerBodyY;
+        const startY = playerSpawnY;
 
-        // Remove old player bodies and constraints from the world before recreating
-        if(player.mainBody) World.remove(world, player.mainBody);
-        if(player.kickingLeg) World.remove(world, player.kickingLeg);
-        if(player.hipConstraint) World.remove(world, player.hipConstraint);
+        if(player.playerBody) {
+             World.remove(world, player.playerBody);
+        }
+        delete player.mainBody;
+        delete player.kickingLeg;
+        delete player.hipConstraint;
+        delete player.head;
+        delete player.torso;
+        delete player.leftLeg_Instance;
+        delete player.rightLeg_Instance;
+        delete player.supportLeg;
+        delete player.allParts;
+        delete player.kickingLegSide;
+        delete player.animationState;
+        delete player.animationFrame;
+        delete player.animationDuration;
 
-        // Re-create the player object (this will handle initial leg setup)
+
         const newPlayerProps = createPlayer(startX, startY, player.color, player.playerTeam === 1, player.isAI);
-        Object.assign(player, newPlayerProps); // Overwrite existing player properties
+        for (const key in player) {
+            if (Object.hasOwnProperty.call(player, key) && !Object.hasOwnProperty.call(newPlayerProps,key) ) {
+                delete player[key];
+            }
+        }
+        Object.assign(player, newPlayerProps);
 
-        // Explicitly set positions and velocities to zero for all parts again after recreation.
-        // This ensures the parts within the compound body (mainBody) are also reset.
-        Body.setPosition(player.mainBody, {x: startX, y: startY});
-        Body.setVelocity(player.mainBody, {x:0, y:0});
-        Body.setAngle(player.mainBody, 0);
-        Body.setAngularVelocity(player.mainBody, 0);
-
-        // Determine kicking leg side for correct offset
-        const kickingLegXOffset = player.kickingLegSide === 'right' ? BODY_WIDTH / 3 : -BODY_WIDTH / 3;
-        Body.setPosition(player.kickingLeg, {
-            x: startX + kickingLegXOffset,
-            y: startY + BODY_HEIGHT / 2 + LEG_HEIGHT / 2 - 5
-        });
-        Body.setVelocity(player.kickingLeg, {x:0,y:0});
-        Body.setAngle(player.kickingLeg, player.kickingLegSide === 'right' ? 0.05 : -0.05);
-        Body.setAngularVelocity(player.kickingLeg, 0);
+        Body.setPosition(player.playerBody, {x: startX, y: startY});
+        Body.setVelocity(player.playerBody, {x:0, y:0});
+        Body.setAngle(player.playerBody, 0);
+        Body.setAngularVelocity(player.playerBody, 0);
 
         player.actionCooldown = 0;
         player.jumpCooldown = 0;
         player.isGrounded = true;
-        player.isCrouching = false;
-        player.animationState = 'idle';
+        player.targetAngle = 0;
+        player.isRotating = false;
+        player.currentFace = 0;
+        player.rollDirection = 0;
     });
 }
 
@@ -858,8 +748,8 @@ function handleCollisions(event) {
 
         let ballBody = null;
         let otherBody = null;
-        let playerCollided = null;
-        let playerPartCollided = null;
+        let playerCollidedObject = null;
+        let playerPhysicsBodyCollided = null;
 
         if (bodyA.label === 'ball') {
             ballBody = bodyA;
@@ -871,97 +761,47 @@ function handleCollisions(event) {
 
         if (ballBody) {
             for (const p of players) {
-                // Check collision with the kicking leg OR the main compound body
-                if (otherBody === p.kickingLeg || otherBody === p.mainBody || p.mainBody.parts.includes(otherBody)) {
-                    playerCollided = p;
-                    playerPartCollided = otherBody; // This could be mainBody or kickingLeg, or a part of mainBody
+                if (otherBody === p.playerBody) {
+                    playerCollidedObject = p;
+                    playerPhysicsBodyCollided = otherBody;
                     break;
                 }
             }
 
-            if (playerCollided) {
-                if (playerCollided.isAI && playerCollided.animationState === 'bicycle_kick_attempt') {
-                    // Specific logic for bicycle kick collision (might be redundant if kick applied in AI logic)
-                    if (playerPartCollided === playerCollided.kickingLeg || playerPartCollided === playerCollided.torso ) {
-                        const opponentGoalX = (playerCollided.playerTeam === 1) ? CANVAS_WIDTH - WALL_THICKNESS : WALL_THICKNESS;
-                        const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
-                        const kickTargetPos = { x: opponentGoalX, y: goalCenterY };
-                        let kickVector = Matter.Vector.sub(kickTargetPos, ballBody.position);
-                        kickVector = Matter.Vector.normalise(kickVector);
-                        kickVector.y = Math.min(kickVector.y, -0.5);
-                        kickVector.x *= 1.2;
-                        kickVector = Matter.Vector.normalise(kickVector);
-                        const kickStrength = KICK_FORCE_MAGNITUDE * 2.5;
-                        Body.applyForce(ballBody, ballBody.position, { x: kickVector.x * kickStrength, y: kickVector.y * kickStrength });
-                        playSound('kick.wav');
-                        setPlayerAnimation(playerCollided, 'idle', 1);
-                    }
-                } else {
-                    let kickForce = KICK_FORCE_MAGNITUDE;
-                    let kickAngleFactorY = -0.7;
-                    let isTimedShot = false;
-                    const TIMED_JUMP_WINDOW_MS = 200;
+            if (playerCollidedObject) {
+                let kickForce = KICK_FORCE_MAGNITUDE;
+                let kickAngleFactorY = -0.7;
+                let isTimedShot = false;
+                const TIMED_JUMP_WINDOW_MS = 200;
 
-                    // Only the kicking leg or non-crouching body/head can initiate a proper kick
-                    let canKickEffectively = (playerPartCollided === playerCollided.kickingLeg) ||
-                                             (!playerCollided.isCrouching && (playerPartCollided === playerCollided.mainBody || playerCollided.mainBody.parts.includes(playerPartCollided) && !playerPartCollided.label.includes("leg")));
-
-
-                    if (playerCollided.isCrouching) {
-                        if(canKickEffectively) kickForce *= CROUCH_SHOT_REDUCTION_FACTOR; else kickForce = 0; // No force if not effective part
-                        kickAngleFactorY = -0.05;
-                        if (kickForce > 0) playSound('kick.wav');
-
-                        const nudgeDirectionX = (ballBody.position.x > playerCollided.mainBody.position.x ? 1 : -1);
-                        Body.applyForce(ballBody, ballBody.position, {
-                            x: nudgeDirectionX * kickForce,
-                            y: kickAngleFactorY * kickForce
-                        });
-
-                    } else {
-                        if (!canKickEffectively) { // e.g. ball hits support leg
-                           // Potentially a very weak, uncontrolled deflection or nothing
-                            Body.applyForce(ballBody, ballBody.position, {
-                                x: (Math.random() - 0.5) * 0.002,
-                                y: (Math.random() - 0.5) * 0.001
-                            });
-                        } else {
-                            if (playerCollided.animationState === 'jumping' && (Date.now() - playerCollided.lastJumpTime) < TIMED_JUMP_WINDOW_MS) {
-                                kickForce *= TIMED_JUMP_SHOT_BONUS_FACTOR;
-                                isTimedShot = true;
-                            }
-
-                            if (playerCollided.animationState === 'jumping') {
-                                kickAngleFactorY *= JUMP_SHOT_LOFT_FACTOR;
-                            }
-
-                            const opponentGoalX = (playerCollided.playerTeam === 1) ? CANVAS_WIDTH - WALL_THICKNESS : WALL_THICKNESS;
-                            const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
-
-                            let kickTargetPos = { x: opponentGoalX, y: goalCenterY };
-                            if(isTimedShot){
-                                 kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.05) + (Math.random() * actualGoalOpeningHeight * 0.1);
-                            } else {
-                                 kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5);
-                            }
-
-                            const kickOrigin = playerPartCollided.position;
-                            let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
-                            kickVector = Matter.Vector.normalise(kickVector);
-
-                            const baseKickXSign = Math.sign(kickVector.x);
-                            kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
-                            kickVector.x = baseKickXSign * (isTimedShot ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4) );
-                            kickVector = Matter.Vector.normalise(kickVector);
-
-                            if (!playerCollided.isAI && playerCollided.animationState !== 'kicking_execute') {
-                                 setPlayerAnimation(playerCollided, 'kicking_execute', 10);
-                            }
-                            playSound('kick.wav');
-                            Body.applyForce(ballBody, ballBody.position, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
-                        }
-                    }
+                if ((Date.now() - playerCollidedObject.lastJumpTime) < TIMED_JUMP_WINDOW_MS && playerCollidedObject.lastJumpTime !== 0) {
+                    kickForce *= TIMED_JUMP_SHOT_BONUS_FACTOR;
+                    isTimedShot = true;
+                     kickAngleFactorY *= JUMP_SHOT_LOFT_FACTOR;
                 }
+
+                const opponentGoalX = (playerCollidedObject.playerTeam === 1) ? CANVAS_WIDTH - WALL_THICKNESS : WALL_THICKNESS;
+                const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
+
+                let kickTargetPos = { x: opponentGoalX, y: goalCenterY };
+                if(isTimedShot){
+                     kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.05) + (Math.random() * actualGoalOpeningHeight * 0.1);
+                } else {
+                     kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5);
+                }
+
+                const kickOrigin = playerPhysicsBodyCollided.position;
+                let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
+                kickVector = Matter.Vector.normalise(kickVector);
+
+                const baseKickXSign = Math.sign(kickVector.x);
+                kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
+                kickVector.x = baseKickXSign * (isTimedShot ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4) );
+                kickVector = Matter.Vector.normalise(kickVector);
+
+                playSound('kick.wav');
+                Body.applyForce(ballBody, ballBody.position, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
+
             } else if (otherBody) {
                 if (isGameStarted && !isGameOver) {
                     if (otherBody.label === 'goal-left') handleGoalScored(2);
@@ -984,18 +824,8 @@ function handleCollisions(event) {
 
         if (isGameStarted) {
             players.forEach(player => {
-                const playerPartsForGroundCheck = [player.mainBody, player.kickingLeg];
-                for (const playerBodyPart of playerPartsForGroundCheck) {
-                    if ((bodyA === playerBodyPart && bodyB.label === 'ground') || (bodyB === playerBodyPart && bodyA.label === 'ground')) {
-                        if (!player.isGrounded && player.animationState === 'jumping') {
-                            player.animationState = 'idle';
-                            player.animationFrame = 0;
-                            player.animationDuration = 0;
-                        }
-                        player.isGrounded = true;
-                        player.jumpCount = 0;
-                        break;
-                    }
+                if ((bodyA === player.playerBody && bodyB.label === 'ground') || (bodyB === player.playerBody && bodyA.label === 'ground')) {
+                    player.isGrounded = true;
                 }
             });
         }
@@ -1032,7 +862,7 @@ function gameRenderLoop() {
         mainCtx.fillStyle = activeTheme.background;
         mainCtx.fillRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT);
     } else if (isGameOver) {
-        const restartKey = 'KeyW';
+        const restartKey = 'W';
         if (keysPressed[restartKey]) {
             if (!restartDebounce) {
                 console.log("RENDER_LOOP: Key pressed, restarting game.");
@@ -1062,36 +892,22 @@ function drawPixelIsoRectangle(pCtx, body, colorOverride = null) {
     let pWidth, pHeight;
     const label = body.label || '';
 
-    let playerObject = null;
-    if (body.isPlayerPart) { // Check for a custom flag we'll set on player parts
-        playerObject = players.find(p => p.allParts.includes(body));
+    if (label.includes('player-t')) {
+        pWidth = PLAYER_RECT_SIZE / PIXEL_SCALE;
+        pHeight = PLAYER_RECT_SIZE / PIXEL_SCALE;
     }
-
-    let actualHeight = BODY_HEIGHT; // Default for torso
-    if (body.label.includes('torso') && playerObject && playerObject.isCrouching) {
-        actualHeight = BODY_HEIGHT * 0.6;
-    } else if (body.label.includes('leg') && playerObject && playerObject.isCrouching) {
-        actualHeight = LEG_HEIGHT * 0.7;
-    } else if (body.label.includes('leg')) {
-        actualHeight = LEG_HEIGHT;
-    }
-
-
-    if (label.includes('torso') || label.includes('body')) { pWidth = BODY_WIDTH / PIXEL_SCALE; pHeight = actualHeight / PIXEL_SCALE; }
-    else if (label.includes('leg')) { pWidth = LEG_WIDTH / PIXEL_SCALE; pHeight = actualHeight / PIXEL_SCALE; }
     else if (label === 'ground') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = GROUND_THICKNESS / PIXEL_SCALE; }
     else if (label.includes('wall-left')) { pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE; }
     else if (label.includes('wall-right')) { pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE; }
     else if (label === 'ceiling') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = WALL_THICKNESS / PIXEL_SCALE; }
     else if (label.includes('crossbar')) { pWidth = GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE; pHeight = CROSSBAR_THICKNESS / PIXEL_SCALE; }
-    else { // Fallback for non-player, non-specific static bodies
+    else {
         const boundsWidth = (body.bounds.max.x - body.bounds.min.x) / PIXEL_SCALE;
         const boundsHeight = (body.bounds.max.y - body.bounds.min.y) / PIXEL_SCALE;
         pWidth = Math.max(1, Math.round(boundsWidth));
         pHeight = Math.max(1, Math.round(boundsHeight));
     }
 
-    // Allow animation system to override dimensions for player parts
     if (typeof body.currentPixelWidth !== 'undefined') {
         pWidth = body.currentPixelWidth;
     }
@@ -1207,8 +1023,7 @@ function shadeColor(color, percent) {
 function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
     const x = body.position.x / PIXEL_SCALE;
     const y = body.position.y / PIXEL_SCALE;
-    // Prioritize currentPixelRadius if passed (e.g., for animated player parts), fallback to body.circleRadius, then default.
-    const radius = (typeof body.currentPixelRadius !== 'undefined' ? body.currentPixelRadius : (body.circleRadius || HEAD_RADIUS)) / PIXEL_SCALE;
+    const radius = (typeof body.currentPixelRadius !== 'undefined' ? body.currentPixelRadius : (body.circleRadius || BALL_RADIUS)) / PIXEL_SCALE;
     let baseColor = colorOverride || (body.render && body.render.fillStyle) || '#333';
 
     if (body.label === 'ball') {
@@ -1271,8 +1086,7 @@ function customRenderAll() {
 
     const bodiesToRender = [];
     players.forEach(p => {
-        bodiesToRender.push(p.mainBody); // Add the compound body
-        bodiesToRender.push(p.kickingLeg); // Add the separate kicking leg
+        bodiesToRender.push(p.playerBody);
     });
     if(ball) bodiesToRender.push(ball);
 
@@ -1291,118 +1105,13 @@ function customRenderAll() {
     });
 
 
-    function renderPlayerPart(partBody, playerObject, mainBodyAngle, mainBodyPosition) {
-        let renderAngle = mainBodyAngle + partBody.angle; // Part's angle is relative to compound body's angle
-
-        // Reverted to a logic similar to the original, assuming partBody.position might be global or needs to be treated as such
-        // and then made relative, rotated, and added back. This addresses the "only legs visible" issue.
-        // It also implies the ReferenceError was the primary bug in the original problematic line.
-        let localPartVector = Matter.Vector.sub(partBody.position, mainBodyPosition);
-        let rotatedPartVector = Matter.Vector.rotate(localPartVector, mainBodyAngle);
-        let partPosition = Matter.Vector.add(mainBodyPosition, rotatedPartVector);
-        // If partBody.position was already local (as per my previous understanding of Body.create parts),
-        // then mainBodyPosition should not be subtracted. However, the bug "only legs visible" suggests
-        // that the simpler Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle))
-        // was not positioning head and torso correctly. This version is more robust if partBody.position interpretation is tricky.
-        // The most robust is: part.render.worldTransform * part.position (but that's for internal rendering)
-        // Let's assume partBody.position are global-like coordinates of the parts *before* being assembled into a compound body's local frame.
-        // No, Matter.js docs state: "part.position will be the parts position relative to the parent body.position"
-        // This means partBody.position IS local. My previous fix:
-        // let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle));
-        // MUST be correct.
-        // The "only legs" bug must stem from something else if that formula is right.
-        // Let's stick to the documented correct way and investigate further if head/torso are still missing.
-        // The error log was "Can't find variable: mainBody", not an issue with the formula itself if mainBody was defined.
-        // The previous fix for ReferenceError was:
-        // Original line that caused ReferenceError:
-        // let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(Matter.Vector.sub(partBody.position, mainBody.position), mainBodyAngle));
-        // My fix that resulted in "only legs":
-        // let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle));
-        //
-        // If the "only legs" means supportLeg IS rendering, then the formula above IS working for supportLeg.
-        // Why not for head and torso? Are their partBody.position values zeroed out or corrupted?
-
-        // Reverting to the logic that assumes partBody.position are global-like coordinates
-        // that first need to be made relative to mainBodyPosition, then rotated, then added back.
-        // This is to test if the "only legs visible" bug is due to misinterpretation of partBody.position's frame of reference.
-        let localPartVec = Matter.Vector.sub(partBody.position, mainBodyPosition);
-        let rotatedLocalPartVec = Matter.Vector.rotate(localPartVec, mainBodyAngle);
-        partPosition = Matter.Vector.add(mainBodyPosition, rotatedLocalPartVec);
-
-        let yRenderOffset = 0;
-        let currentPartHeight = partBody.label.includes('leg') ? LEG_HEIGHT : BODY_HEIGHT; // Default to original
-        let currentPartWidth = partBody.label.includes('leg') ? LEG_WIDTH : BODY_WIDTH;
-         if (partBody.label.includes('head')) {
-            currentPartHeight = HEAD_RADIUS * 2; currentPartWidth = HEAD_RADIUS * 2;
-        }
-
-
-        if (playerObject.isCrouching) {
-            if (partBody.label.includes('torso')) { // Torso is part of mainBody
-                currentPartHeight = BODY_HEIGHT * 0.6;
-            } else if (partBody.label.includes('leg')) { // This will be the supportLeg
-                 currentPartHeight = LEG_HEIGHT * 0.7;
-                 yRenderOffset = (LEG_HEIGHT * 0.1) / PIXEL_SCALE;
-                 renderAngle = mainBodyAngle;
-            } else if (partBody.label.includes('head')) {
-                // Head height doesn't change, but it moves due to torso shrinking.
-                // currentPartHeight for head remains HEAD_RADIUS * 2.
-            }
-        }
-         // Apply yRenderOffset to the part's world position for rendering
-        partPosition.y += yRenderOffset * PIXEL_SCALE;
-
-        const tempRenderPart = {
-            ...partBody,
-            position: partPosition,
-            angle: renderAngle,
-        };
-
-        if (partBody.label.includes('head')) {
-            // For head (circle), pass currentPixelRadius. currentPartHeight for head is its diameter.
-            tempRenderPart.currentPixelRadius = (currentPartHeight / 2) / PIXEL_SCALE;
-            drawPixelIsoCircle(pixelCtx, tempRenderPart, playerObject.color);
-        } else { // For torso and supportLeg (rectangles)
-            tempRenderPart.currentPixelHeight = currentPartHeight / PIXEL_SCALE;
-            tempRenderPart.currentPixelWidth = currentPartWidth / PIXEL_SCALE;
-            drawPixelIsoRectangle(pixelCtx, tempRenderPart, playerObject.color);
-        }
-    }
-
     bodiesToRender.forEach(body => {
         if (body.label === 'ball') {
             drawPixelIsoCircle(pixelCtx, body, BALL_PANEL_COLOR_PRIMARY);
-        } else if (body.label && (body.label.includes('player-t1-main') || body.label.includes('player-t2-main'))) {
-            const playerObject = players.find(p => p.mainBody === body);
+        } else if (body.label && body.label.includes('player-t')) {
+            const playerObject = players.find(p => p.playerBody === body);
             if (playerObject) {
-                // Render parts of the mainBody (head, torso, supportLeg)
-                // These parts' positions are relative to mainBody.position and angle
-                playerObject.mainBody.parts.slice(1).forEach(part => { // .slice(1) to skip the compound body itself
-                     // For parts within a compound body, their angle is relative to the compound body's angle.
-                     // Their position is also relative. We need to transform to world coords for rendering.
-                    renderPlayerPart(part, playerObject, playerObject.mainBody.angle, playerObject.mainBody.position);
-                });
-            }
-        } else if (body.label && (body.label.includes('player-t1-leg') || body.label.includes('player-t2-leg'))){
-            const playerObject = players.find(p => p.kickingLeg === body);
-            if (playerObject) {
-                let kickingLegRenderAngle = playerObject.kickingLeg.angle;
-                if (playerObject.animationState === 'kicking_execute') {
-                     const kickExtensionAngle = 0.8 * (playerObject.animationFrame / playerObject.animationDuration);
-                     kickingLegRenderAngle += (playerObject.mainBody.position.x < CANVAS_WIDTH / 2 ? kickExtensionAngle : -kickExtensionAngle);
-                } else if (playerObject.animationState === 'bicycle_kick_attempt'){
-                    kickingLegRenderAngle -= 1.5 * (playerObject.animationFrame / playerObject.animationDuration) * (playerObject.kickingLegSide === 'left' ? 1 : -1); // Kick up/back
-                } else if (playerObject.isCrouching) {
-                    kickingLegRenderAngle = playerObject.mainBody.angle + (playerObject.kickingLegSide === 'left' ? 0.2 : -0.2); // Tucked while crouching
-                }
-                 // Render the kicking leg directly as it's a separate body
-                const tempKickingLeg = {
-                    ...playerObject.kickingLeg,
-                    angle: kickingLegRenderAngle,
-                    currentPixelHeight: (playerObject.isCrouching ? LEG_HEIGHT * 0.7 : LEG_HEIGHT) / PIXEL_SCALE,
-                    currentPixelWidth: LEG_WIDTH / PIXEL_SCALE
-                };
-                drawPixelIsoRectangle(pixelCtx, tempKickingLeg, playerObject.color);
+                 drawPixelIsoRectangle(pixelCtx, playerObject.playerBody, playerObject.color);
             }
         }
          else if (body.isStatic) {
@@ -1498,7 +1207,7 @@ function customRenderAll() {
         pixelCtx.stroke();
 
         const tBack = i / 6;
-        const xBackLine = netBackLeftX + (netBackRightX - netBackLeftX) * tBack;
+        const xBackLine = netBackLeftX + (netBackRightX - rgNetBackLeftX) * tBack;
         pixelCtx.beginPath();
         pixelCtx.moveTo(xBackLine, netTopBackY);
         pixelCtx.lineTo(xBackLine, netBottomBackY);
@@ -1641,7 +1350,3 @@ function updateParticles() {
         }
     }
 }
-
-// [end of game.js] // This line was the culprit from the previous read
-// Removing the actual problematic line if it was the very last one.
-// The content provided to overwrite_file_with_block should NOT include this.
