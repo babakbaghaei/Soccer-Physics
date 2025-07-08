@@ -19,9 +19,8 @@ const gameMessageDisplay = document.getElementById('gameMessage');
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const SCORE_TO_WIN = 3;
-const ROUND_DURATION_SECONDS = 60; // New: Round duration
+const ROUND_DURATION_SECONDS = 60;
 const BALL_RADIUS = 15;
-const BALL_COLOR = '#FFDE00';
 
 const PIXEL_SCALE = 4;
 const PIXEL_CANVAS_WIDTH = CANVAS_WIDTH / PIXEL_SCALE;
@@ -44,8 +43,10 @@ let team2Score = 0;
 let ball;
 let players = [];
 
-let gameTimeRemaining = ROUND_DURATION_SECONDS; // New: Timer variable
-let roundTimerId = null; // New: Interval ID for timer
+let gameTimeRemaining = ROUND_DURATION_SECONDS;
+let roundTimerId = null;
+let gameRenderLoopId;
+
 
 // --- Field Constants ---
 const GROUND_THICKNESS = 40;
@@ -55,10 +56,26 @@ const GOAL_SENSOR_DEPTH = 30;
 const GOAL_MOUTH_VISUAL_WIDTH = 60;
 const CROSSBAR_THICKNESS = 10;
 
+// --- Color Palettes ---
+const colorPalettes = [
+    { name: "Classic", team1: '#D9534F', team2: '#428BCA' },
+    { name: "Nature", team1: '#5CB85C', team2: '#F0AD4E' },
+    { name: "Royal", team1: '#6A0DAD', team2: '#FFA500' },
+    { name: "Mono", team1: '#666666', team2: '#CCCCCC' }
+];
+let currentColorPaletteIndex = -1;
+
+// --- Themes ---
+const themes = [
+    { name: "Grass Day", background: '#ACE1AF', ground: '#B8860B', walls: '#808080', ball: '#FFDE00', net: 'rgba(220, 220, 220, 0.6)' },
+    { name: "Night Sky", background: '#000033', ground: '#4A3B00', walls: '#555555', ball: '#FFFFE0', net: 'rgba(180, 180, 200, 0.5)' },
+    { name: "Desert", background: '#FFDAB9', ground: '#D2B48C', walls: '#A0522D', ball: '#2F4F4F', net: 'rgba(100, 100, 100, 0.5)' }
+];
+let currentThemeIndex = -1;
+let activeTheme = themes[0];
+
 
 // --- Player Constants ---
-const PLAYER_TEAM1_COLOR = '#D9534F';
-const PLAYER_TEAM2_COLOR = '#428BCA';
 const PLAYER_PART_FRICTION = 0.6;
 const PLAYER_PART_RESTITUTION = 0.25;
 const PLAYER_DENSITY = 0.0025;
@@ -96,45 +113,51 @@ function playSound(soundFileName) {
     }
 }
 
-
 // --- Initialization Function ---
 function setup() {
+    console.log("SETUP: Initializing game state..."); // DEBUG
     isGameStarted = false;
     isGameOver = false;
-    restartDebounce = false;
+    restartDebounce = false; // Crucial reset for restart logic
     team1Score = 0;
     team2Score = 0;
-    gameTimeRemaining = ROUND_DURATION_SECONDS; // Reset timer
+    gameTimeRemaining = ROUND_DURATION_SECONDS;
 
-    if (roundTimerId) { // Clear previous timer if exists
+    if (roundTimerId) {
         clearInterval(roundTimerId);
         roundTimerId = null;
     }
 
+    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+    activeTheme = themes[currentThemeIndex];
+
+    currentColorPaletteIndex = (currentColorPaletteIndex + 1) % colorPalettes.length;
+    const currentPalette = colorPalettes[currentColorPaletteIndex];
+    const activeTeam1Color = currentPalette.team1;
+    const activeTeam2Color = currentPalette.team2;
+
     if (engine) {
+        console.log("SETUP: Clearing previous engine and world."); // DEBUG
         World.clear(world);
         Engine.clear(engine);
-        Events.off(engine, 'beforeUpdate', updateGame);
-        Events.off(engine, 'collisionStart', handleCollisions);
+        // It's good practice to remove specific listeners if they might be duplicated
+        // However, Matter.js Events.off might need specific handler references which can be tricky.
+        // For now, creating a new engine instance is cleaner.
         if (runner) {
             Runner.stop(runner);
+            console.log("SETUP: Stopped previous runner."); // DEBUG
         }
     }
 
     engine = Engine.create();
     world = engine.world;
     engine.world.gravity.y = 1;
+    console.log("SETUP: New engine and world created."); // DEBUG
 
     render = Render.create({
         canvas: canvas,
         engine: engine,
-        options: {
-            width: CANVAS_WIDTH,
-            height: CANVAS_HEIGHT,
-            wireframes: false,
-            background: '#ACE1AF',
-            enabled: false
-        }
+        options: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT, wireframes: false, background: activeTheme.background, enabled: false }
     });
 
     canvas.width = CANVAS_WIDTH;
@@ -147,57 +170,64 @@ function setup() {
         pixelCanvas.width = PIXEL_CANVAS_WIDTH;
         pixelCanvas.height = PIXEL_CANVAS_HEIGHT;
         pixelCtx = pixelCanvas.getContext('2d');
-        pixelCtx.imageSmoothingEnabled = false;
     }
+    pixelCtx.imageSmoothingEnabled = false;
 
     createField();
     createBall();
 
     players = [];
-    players.push(createPlayer(CANVAS_WIDTH / 4, CANVAS_HEIGHT - GROUND_THICKNESS - BODY_HEIGHT, PLAYER_TEAM1_COLOR, true, 'KeyW', false));
-    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, CANVAS_HEIGHT - GROUND_THICKNESS - BODY_HEIGHT, PLAYER_TEAM2_COLOR, false, null, true));
+    players.push(createPlayer(CANVAS_WIDTH / 4, CANVAS_HEIGHT - GROUND_THICKNESS - BODY_HEIGHT, activeTeam1Color, true, 'KeyW', false));
+    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, CANVAS_HEIGHT - GROUND_THICKNESS - BODY_HEIGHT, activeTeam2Color, false, null, true));
     
     setupInputListeners();
 
-    if (!runner) {
-        runner = Runner.create();
-    }
-    // Runner is started in updateGame when isGameStarted becomes true
+    runner = Runner.create(); // Always create a fresh runner
+    console.log("SETUP: New runner created."); // DEBUG
+    // Runner is NOT started here. It's started in gameRenderLoop on first input.
 
     Events.on(engine, 'beforeUpdate', updateGame);
     Events.on(engine, 'collisionStart', handleCollisions);
 
-    if (typeof gameRenderLoopId !== 'undefined') cancelAnimationFrame(gameRenderLoopId);
-    gameRenderLoop();
+    if (typeof gameRenderLoopId !== 'undefined') {
+        cancelAnimationFrame(gameRenderLoopId);
+        console.log("SETUP: Cancelled previous gameRenderLoopId:", gameRenderLoopId); // DEBUG
+    }
+    gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
+    console.log("SETUP: Started new gameRenderLoopId:", gameRenderLoopId); // DEBUG
+
 
     updateScoreDisplay();
-    timerDisplay.textContent = `Time: ${gameTimeRemaining}`; // Initial timer display
+    updateTimerDisplay(); // Update timer display with initial time
     showGameMessage("Press 'W' to Start");
+    console.log("SETUP: Complete."); // DEBUG
 }
 
 // --- Timer Functions ---
 function startGameTimer() {
-    if (roundTimerId) clearInterval(roundTimerId); // Clear any existing timer
+    if (roundTimerId) clearInterval(roundTimerId);
     gameTimeRemaining = ROUND_DURATION_SECONDS;
-    updateTimerDisplay(); // Show initial time
+    updateTimerDisplay();
     roundTimerId = setInterval(updateRoundTimer, 1000);
+    console.log("TIMER: Started. ID:", roundTimerId); // DEBUG
 }
 
 function updateRoundTimer() {
-    if (!isGameStarted || isGameOver) { // Stop timer if game not active or over
+    if (!isGameStarted || isGameOver) {
         if (roundTimerId) clearInterval(roundTimerId);
         roundTimerId = null;
+        // console.log("TIMER: Stopped (game not active or over)."); // DEBUG
         return;
     }
-
     gameTimeRemaining--;
     updateTimerDisplay();
-
-    if (gameTimeRemaining <= 0) {
+    if (gameTimeRemaining < 0) { // Use < 0 to ensure 0 is displayed
+        gameTimeRemaining = 0; // Clamp to 0
+        updateTimerDisplay(); // Show 0
         if (roundTimerId) clearInterval(roundTimerId);
         roundTimerId = null;
-        // Time's up, check for winner based on score
-        checkWinCondition(); // This will set isGameOver if conditions met
+        console.log("TIMER: Time's up!"); //DEBUG
+        checkWinCondition();
     }
 }
 
@@ -207,10 +237,10 @@ function updateTimerDisplay() {
 
 
 function createField() {
-    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: '#B8860B' } });
-    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { fillStyle: '#808080' } });
-    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: '#808080' } });
-    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: '#808080' } });
+    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: activeTheme.ground } });
+    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { fillStyle: activeTheme.walls } });
+    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: activeTheme.walls } });
+    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: activeTheme.walls } });
     const goalY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT / 2;
     const goalSensorRenderInvisible = { visible: false };
     const leftGoalSensor = Bodies.rectangle(WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2, goalY, GOAL_SENSOR_DEPTH, GOAL_HEIGHT, { isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderInvisible });
@@ -226,7 +256,7 @@ function createBall() {
     ball = Bodies.circle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 3, BALL_RADIUS, {
         label: 'ball',
         density: 0.001, friction: 0.01, frictionAir: 0.008, restitution: 0.7,
-        render: { fillStyle: BALL_COLOR, strokeStyle: '#333', lineWidth: 2 }
+        render: { fillStyle: activeTheme.ball, strokeStyle: '#333', lineWidth: 2 }
     });
     World.add(world, ball);
 }
@@ -286,33 +316,12 @@ function setupInputListeners() {
     document.addEventListener('keyup', (event) => { keysPressed[event.code] = false; });
 }
 
+// This function is called by the Matter.js engine's 'beforeUpdate' event (IF RUNNER IS ACTIVE)
 function updateGame() {
-    if (!isGameStarted && !isGameOver) {
-        const humanPlayer = players.find(p => !p.isAI);
-        if (humanPlayer && keysPressed[humanPlayer.inputKey]) {
-            isGameStarted = true;
-            showGameMessage('');
-            if (runner && !runner.enabled) { Runner.run(runner, engine); }
-            startGameTimer();
-        }
-        return;
-    }
-
-    if (isGameOver) {
-        const humanPlayer = players.find(p => !p.isAI);
-        if (humanPlayer && keysPressed[humanPlayer.inputKey]) {
-            if (!restartDebounce) {
-                restartDebounce = true;
-                setTimeout(() => { restartDebounce = false; }, 500); // Debounce before allowing setup
-                setup();
-            }
-        }
-        return;
-    }
+    if (!isGameStarted || isGameOver) return; // Main guard for game logic
 
     handleHumanPlayerControls();
     updateAIPlayers();
-    // updateRoundTimer(); // Called by setInterval now
 
     players.forEach(player => {
         if (player.isGrounded) {
@@ -331,16 +340,21 @@ function updateGame() {
 }
 
 function handleHumanPlayerControls() {
+    // Assumes isGameStarted is true and isGameOver is false (checked in updateGame)
     players.forEach(player => {
         if (player.isAI) return;
+
         if (player.actionCooldown > 0) player.actionCooldown--;
+
         if (keysPressed[player.inputKey] && player.actionCooldown === 0) {
             player.isGrounded = false;
             player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES;
             playSound('jump.wav');
+
             Body.applyForce(player.leftLeg, player.leftLeg.position, { x: (Math.random()-0.5)*0.005, y: -PLAYER_JUMP_FORCE_LEGS * 0.5 });
             Body.applyForce(player.rightLeg, player.rightLeg.position, { x: (Math.random()-0.5)*0.005, y: -PLAYER_JUMP_FORCE_LEGS * 0.5 });
             Body.applyForce(player.body, player.body.position, { x: 0, y: -PLAYER_JUMP_FORCE_BODY });
+
             let horizontalForceToApply = 0;
             const baseHorizontalFlailStrength = PLAYER_FLAIL_HORIZONTAL_FORCE * 0.7;
             if (ball) {
@@ -358,6 +372,7 @@ function handleHumanPlayerControls() {
             const randomXComponent = (Math.random() - 0.5) * 0.005;
             Body.applyForce(player.body, player.body.position, { x: horizontalForceToApply + randomXComponent, y: 0 });
             Body.applyForce(player.body, { x: player.body.position.x + (Math.random() - 0.5) * 5, y: player.body.position.y }, { x: 0, y: -0.003 });
+
             if (ball) {
                 const opponentGoalX = (player.team === 1) ? CANVAS_WIDTH - WALL_THICKNESS : WALL_THICKNESS;
                 const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT / 2;
@@ -381,6 +396,7 @@ function handleHumanPlayerControls() {
 }
 
 function updateAIPlayers() {
+    // Assumes isGameStarted is true and isGameOver is false (checked in updateGame)
     players.forEach((player) => {
         if (player.isAI) {
             if (player.actionCooldown > 0) player.actionCooldown--;
@@ -390,7 +406,7 @@ function updateAIPlayers() {
 }
 
 function executeAIPlayerLogic(player) {
-    if (!ball) return;
+    if (!ball ) return;
     const ballPos = ball.position;
     const playerPos = player.body.position;
     const directionToBallX = ballPos.x - playerPos.x;
@@ -447,15 +463,16 @@ function checkWinCondition() {
     let reason = "";
     if (team1Score >= SCORE_TO_WIN) { winner = 1; reason = `Team 1 Wins!`; }
     else if (team2Score >= SCORE_TO_WIN) { winner = 2; reason = `Team 2 Wins!`; }
-    else if (gameTimeRemaining <= 0) { // Time up condition
+    else if (gameTimeRemaining <= 0) {
         if (team1Score > team2Score) { winner = 1; reason = `Time's Up! Team 1 Wins!`; }
         else if (team2Score > team1Score) { winner = 2; reason = `Time's Up! Team 2 Wins!`; }
-        else { winner = 0; reason = `Time's Up! It's a Draw!`; } // 0 for draw
+        else { winner = 0; reason = `Time's Up! It's a Draw!`; }
     }
 
     if (winner !== null) {
         isGameOver = true;
-        const humanPlayerKey = players.find(p => !p.isAI)?.inputKey || 'W'; // Default to W
+        const humanPlayer = players.find(p => !p.isAI);
+        const humanPlayerKey = humanPlayer ? humanPlayer.inputKey : 'W'; // Fallback key
         showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${humanPlayerKey}' to Play Again.`);
         if (runner) Runner.stop(runner);
         if (roundTimerId) clearInterval(roundTimerId); roundTimerId = null;
@@ -497,7 +514,9 @@ function resetPositions() {
 }
 
 function handleCollisions(event) {
+    if (!isGameStarted && !isGameOver) return;
     if (isGameOver && !goalScoredRecently) return;
+
     const pairs = event.pairs;
     for (let i = 0; i < pairs.length; i++) {
         const pair = pairs[i];
@@ -506,21 +525,25 @@ function handleCollisions(event) {
         if (bodyA.label === 'ball' || bodyB.label === 'ball') {
             const ballBody = bodyA.label === 'ball' ? bodyA : bodyB;
             const otherBody = ballBody === bodyA ? bodyB : bodyA;
-            if (otherBody.label === 'goal-left') handleGoalScored(2);
-            else if (otherBody.label === 'goal-right') handleGoalScored(1);
-            else if (otherBody.label.includes('wall') || otherBody.label.includes('ceiling') || otherBody.label.includes('crossbar')) {
+            if (isGameStarted && !isGameOver) {
+                if (otherBody.label === 'goal-left') handleGoalScored(2);
+                else if (otherBody.label === 'goal-right') handleGoalScored(1);
+            }
+            if (otherBody.label.includes('wall') || otherBody.label.includes('ceiling') || otherBody.label.includes('crossbar')) {
                 if (Matter.Vector.magnitude(ballBody.velocity) > 1.0) { playSound('ball_hit_wall.wav'); }
             }
         }
-        players.forEach(player => {
-            player.parts.forEach(part => {
-                if (part.label.includes('-leg')) {
-                    if ((bodyA === part && bodyB.label === 'ground') || (bodyB === part && bodyA.label === 'ground')) {
-                        if (!player.isGrounded) {} player.isGrounded = true; player.jumpCount = 0;
+        if (isGameStarted) {
+            players.forEach(player => {
+                player.parts.forEach(part => {
+                    if (part.label.includes('-leg')) {
+                        if ((bodyA === part && bodyB.label === 'ground') || (bodyB === part && bodyA.label === 'ground')) {
+                            player.isGrounded = true; player.jumpCount = 0;
+                        }
                     }
-                }
+                });
             });
-        });
+        }
     }
 }
 
@@ -533,11 +556,48 @@ function showGameMessage(message) {
     gameMessageDisplay.textContent = message;
 }
 
-let gameRenderLoopId;
+// --- Custom Pixel Art Rendering ---
 function gameRenderLoop() {
-    customRenderAll();
+    if (!isGameStarted && !isGameOver) { // Handle pre-game start input and rendering
+        const humanPlayer = players.length > 0 ? players.find(p => !p.isAI && p.inputKey) : null;
+        if (humanPlayer && keysPressed[humanPlayer.inputKey]) {
+            console.log("RENDER_LOOP: Key pressed, starting game."); // DEBUG
+            isGameStarted = true;
+            showGameMessage('');
+            if (runner) {
+                Runner.run(runner, engine);
+                console.log("RENDER_LOOP: Matter.js Runner started."); // DEBUG
+            } else {
+                console.error("RENDER_LOOP: Runner not initialized when trying to start game!");
+            }
+            startGameTimer();
+            keysPressed[humanPlayer.inputKey] = false;
+        }
+        // Render a static "Press to Start" screen
+        const mainCtx = canvas.getContext('2d');
+        mainCtx.fillStyle = activeTheme.background;
+        mainCtx.fillRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT);
+        // The HTML #gameMessage is already showing "Press W to Start" via setup()
+    } else if (isGameOver) { // Handle post-game restart input and rendering
+        const humanPlayer = players.length > 0 ? players.find(p => !p.isAI && p.inputKey) : null;
+        if (humanPlayer && keysPressed[humanPlayer.inputKey]) {
+            if (!restartDebounce) {
+                console.log("RENDER_LOOP: Key pressed, restarting game."); // DEBUG
+                restartDebounce = true;
+                keysPressed[humanPlayer.inputKey] = false;
+                if (gameRenderLoopId) cancelAnimationFrame(gameRenderLoopId);
+                if (roundTimerId) clearInterval(roundTimerId); roundTimerId = null;
+                setup();
+                return; // Exit this loop instance, setup will start a new one
+            }
+        }
+        customRenderAll(); // Render final game over screen
+    } else { // Game is active (isGameStarted === true && !isGameOver)
+        customRenderAll();
+    }
     gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
 }
+
 
 function drawPixelRectangle(pCtx, body, colorOverride = null) {
     const x = body.position.x / PIXEL_SCALE;
@@ -575,11 +635,11 @@ function drawPixelCircle(pCtx, body, colorOverride = null) {
 }
 
 function customRenderAll() {
-    pixelCtx.fillStyle = '#ACE1AF';
+    pixelCtx.fillStyle = activeTheme.background;
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     const bodiesToRender = Composite.allBodies(world).filter(body => !body.isSensor);
     bodiesToRender.forEach(body => {
-        if (body.label === 'ball') { drawPixelCircle(pixelCtx, body, BALL_COLOR); }
+        if (body.label === 'ball') { drawPixelCircle(pixelCtx, body, activeTheme.ball); }
         else if (body.label.includes('player-t1') || body.label.includes('player-t2')) {
             let playerColor = '#CCC';
             for(const p of players) { if (p.parts.includes(body)) { playerColor = p.color; break; } }
@@ -588,7 +648,7 @@ function customRenderAll() {
         } else if (body.isStatic) { drawPixelRectangle(pixelCtx, body, body.render.fillStyle); }
     });
     const goalPostColor = '#FFFFFF';
-    const netColor = 'rgba(220, 220, 220, 0.6)';
+    const netColor = activeTheme.net;
     const postPixelThickness = Math.max(1, Math.round(8 / PIXEL_SCALE));
     const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
     const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
