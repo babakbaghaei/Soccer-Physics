@@ -443,22 +443,25 @@ function getFieldDerivedConstants() {
 }
 
 function createField() {
-    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: activeTheme.ground } });
-    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { fillStyle: activeTheme.walls } });
-    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: activeTheme.walls } });
-    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: activeTheme.walls } });
+    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: '#228B22' } });
+    
+    // Create invisible walls for ball physics only
+    const leftWall = Bodies.rectangle(-WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { visible: false } });
+    const rightWall = Bodies.rectangle(CANVAS_WIDTH + WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { visible: false } });
+    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, -WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { visible: false } });
 
     const { actualGoalOpeningHeight: localActualGoalOpeningHeight } = getFieldDerivedConstants();
     const goalSensorY = CANVAS_HEIGHT - GROUND_THICKNESS - localActualGoalOpeningHeight / 2;
 
     const goalSensorRenderInvisible = { visible: false };
-    const leftGoalSensor = Bodies.rectangle(WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderInvisible });
-    const rightGoalSensor = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-right', render: goalSensorRenderInvisible });
+    const leftGoalSensor = Bodies.rectangle(30, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderInvisible });
+    const rightGoalSensor = Bodies.rectangle(CANVAS_WIDTH - 30, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-right', render: goalSensorRenderInvisible });
 
     const goalPostRenderStyle = { fillStyle: '#FFFFFF' };
     const crossbarY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT + CROSSBAR_THICKNESS / 2;
-    const leftCrossbar = Bodies.rectangle(WALL_THICKNESS + GOAL_MOUTH_VISUAL_WIDTH / 2, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-left', render: goalPostRenderStyle });
-    const rightCrossbar = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH / 2, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-right', render: goalPostRenderStyle });
+    const leftCrossbar = Bodies.rectangle(50, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-left', render: goalPostRenderStyle });
+    const rightCrossbar = Bodies.rectangle(CANVAS_WIDTH - 50, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-right', render: goalPostRenderStyle });
+    
     World.add(world, [ ground, leftWall, rightWall, ceiling, leftGoalSensor, rightGoalSensor, leftCrossbar, rightCrossbar ]);
 }
 
@@ -885,22 +888,26 @@ function checkWinCondition() {
         gameState = 'gameOver';
         const restartKey = 'W';
 
-        showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${restartKey}' to return to menu.`);
+        // Play game end sound
+        if (winner === 0) {
+            // Draw sound
+            createTone(330, 200, 'sine', 0.2);
+            setTimeout(() => createTone(294, 200, 'sine', 0.2), 200);
+            setTimeout(() => createTone(262, 400, 'sine', 0.2), 400);
+        } else {
+            // Win sound
+            createTone(523, 150, 'square', 0.2);
+            setTimeout(() => createTone(659, 150, 'square', 0.2), 150);
+            setTimeout(() => createTone(784, 150, 'square', 0.2), 300);
+            setTimeout(() => createTone(1047, 300, 'square', 0.2), 450);
+        }
+
+        showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${restartKey}' to restart.`);
         if (runner) Runner.stop(runner);
         if (roundTimerId) {
             clearInterval(roundTimerId);
             roundTimerId = null;
         }
-        
-        // Auto return to menu after 5 seconds
-        setTimeout(() => {
-            if (gameState === 'gameOver') {
-                gameState = 'menu';
-                isGameOver = false;
-                isGameStarted = false;
-                showGameMessage('');
-            }
-        }, 5000);
         
         return true;
     }
@@ -1054,24 +1061,43 @@ function handleCollisions(event) {
                 kickVector.x = baseKickXSign * (isTimedShot ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4) );
                 kickVector = Matter.Vector.normalise(kickVector);
 
-                playSound('kick.wav');
+                // Play kick sound based on force
+                const kickPitch = 150 + (kickForce * 50);
+                createTone(kickPitch, 100, 'sawtooth', 0.2);
+                setTimeout(() => createTone(kickPitch * 0.7, 50, 'square', 0.1), 50);
+                
                 Body.applyForce(ballBody, ballBody.position, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
 
             } else if (otherBody) {
                 if (isGameStarted && !isGameOver) {
-                    if (otherBody.label === 'goal-left') handleGoalScored(2);
-                    else if (otherBody.label === 'goal-right') handleGoalScored(1);
+                    // Check goal scoring with better detection
+                    if (otherBody.label === 'goal-left') {
+                        console.log("Ball hit left goal sensor - Team 2 scores!");
+                        handleGoalScored(2);
+                    } else if (otherBody.label === 'goal-right') {
+                        console.log("Ball hit right goal sensor - Team 1 scores!");
+                        handleGoalScored(1);
+                    }
                 }
                 if (otherBody.label.includes('wall') || otherBody.label.includes('ceiling') || otherBody.label.includes('crossbar')) {
-                    if (Matter.Vector.magnitude(ballBody.velocity) > 1.5) {
-                        playSound('ball_hit_wall.wav');
+                    const ballSpeed = Matter.Vector.magnitude(ballBody.velocity);
+                    if (ballSpeed > 1.5) {
+                        // Play wall hit sound based on speed
+                        const hitPitch = 250 + (ballSpeed * 30);
+                        createTone(hitPitch, 80, 'square', 0.15);
+                        
                         let particleColor = '#DDDDDD';
-                        if (otherBody.label.includes('crossbar')) particleColor = '#EEEEEE';
+                        if (otherBody.label.includes('crossbar')) {
+                            particleColor = '#FFFF88';
+                            // Special crossbar sound
+                            createTone(800, 100, 'sine', 0.1);
+                        }
+                        
                         const collisionPoint = pair.collision.supports && pair.collision.supports.length > 0 ? pair.collision.supports[0] : ballBody.position;
                         const collisionNormal = pair.collision.normal;
                         const particleBaseVelX = collisionNormal.x * 0.5;
                         const particleBaseVelY = collisionNormal.y * 0.5;
-                        spawnParticles(collisionPoint.x, collisionPoint.y, 4, particleColor, particleBaseVelX, particleBaseVelY, 1.5, 15, 1);
+                        spawnParticles(collisionPoint.x, collisionPoint.y, 6, particleColor, particleBaseVelX, particleBaseVelY, 2, 20, 1);
                     }
                 }
             }
@@ -1083,6 +1109,47 @@ function handleCollisions(event) {
                     player.isGrounded = true;
                 }
             });
+            
+            // Player vs Player collisions
+            let player1 = null, player2 = null;
+            if (bodyA.label && bodyA.label.includes('player-t') && bodyB.label && bodyB.label.includes('player-t')) {
+                player1 = players.find(p => p.playerBody === bodyA);
+                player2 = players.find(p => p.playerBody === bodyB);
+            }
+            
+            if (player1 && player2) {
+                // Calculate collision force
+                const velocityA = Matter.Vector.magnitude(bodyA.velocity);
+                const velocityB = Matter.Vector.magnitude(bodyB.velocity);
+                const totalVelocity = velocityA + velocityB;
+                
+                if (totalVelocity > 2) {
+                    // Play collision sound
+                    createTone(200 + Math.random() * 100, 150, 'sawtooth', 0.15);
+                    
+                    // Add collision particles
+                    const collisionPoint = {
+                        x: (bodyA.position.x + bodyB.position.x) / 2,
+                        y: (bodyA.position.y + bodyB.position.y) / 2
+                    };
+                    spawnParticles(collisionPoint.x, collisionPoint.y, 8, '#FFFF00', 0, -1, 3, 15, 2);
+                    
+                    // Apply bounce effect
+                    const forceMultiplier = Math.min(totalVelocity * 0.3, 0.8);
+                    const direction1 = Matter.Vector.normalise(Matter.Vector.sub(bodyA.position, bodyB.position));
+                    const direction2 = Matter.Vector.normalise(Matter.Vector.sub(bodyB.position, bodyA.position));
+                    
+                    Body.applyForce(bodyA, bodyA.position, {
+                        x: direction1.x * forceMultiplier,
+                        y: direction1.y * forceMultiplier * 0.5
+                    });
+                    
+                    Body.applyForce(bodyB, bodyB.position, {
+                        x: direction2.x * forceMultiplier,
+                        y: direction2.y * forceMultiplier * 0.5
+                    });
+                }
+            }
         }
     }
 }
@@ -1218,39 +1285,11 @@ function drawPixelIsoRectangle(pCtx, body, colorOverride = null) {
     const depthY = pHeight * ISOMETRIC_DEPTH_FACTOR * Math.sin(ISOMETRIC_ANGLE) * 0.5;
 
     if (label === 'ground') {
-        // Create grass pattern
-        const grassSecondary = activeTheme.groundSecondary || shadeColor(color, 0.2);
-        const stripeHeight = Math.max(1, Math.round(3 / PIXEL_SCALE));
-        const grassBlade = Math.max(1, Math.round(1 / PIXEL_SCALE));
-        
-        // Draw grass base
-        pCtx.fillStyle = color;
-        pCtx.fillRect(-pWidth / 2, -pHeight / 2, pWidth, pHeight);
-        
-        // Draw grass stripes for field pattern
-        for (let i = -pHeight / 2; i < pHeight / 2; i += stripeHeight * 3) {
-            pCtx.fillStyle = grassSecondary;
-            pCtx.fillRect(-pWidth / 2, i, pWidth, stripeHeight);
-        }
-        
-        // Add grass blade texture
-        pCtx.fillStyle = shadeColor(color, 0.1);
-        for (let x = -pWidth / 2; x < pWidth / 2; x += grassBlade * 2) {
-            for (let y = -pHeight / 2; y < pHeight / 2; y += grassBlade * 3) {
-                if (Math.random() > 0.7) {
-                    pCtx.fillRect(x, y, grassBlade, grassBlade);
-                }
-            }
-        }
+        // Skip rendering - grass is drawn in stadium background
+        return;
     } else if (label.includes('wall-left') || label.includes('wall-right')) {
-        const darkerWall = shadeColor(color, -0.15);
-        const stripeWidth = Math.max(1, Math.round(5 / PIXEL_SCALE));
-        for (let i = -pWidth / 2; i < pWidth / 2; i += stripeWidth * 2) {
-            pCtx.fillStyle = color;
-            pCtx.fillRect(i, -pHeight / 2, stripeWidth, pHeight);
-            pCtx.fillStyle = darkerWall;
-            pCtx.fillRect(i + stripeWidth, -pHeight / 2, stripeWidth, pHeight);
-        }
+        // Skip rendering walls - they're invisible
+        return;
     }
      else {
         pCtx.beginPath();
@@ -1325,6 +1364,156 @@ function shadeColor(color, percent) {
     const BB = ((B.toString(16).length === 1) ? "0" + B.toString(16) : B.toString(16));
 
     return "#" + RR + GG + BB;
+}
+
+function drawStadiumBackground() {
+    // Sky background
+    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT * 0.4);
+    gradient.addColorStop(0, '#87CEEB');
+    gradient.addColorStop(1, '#E0F6FF');
+    pixelCtx.fillStyle = gradient;
+    pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT * 0.4);
+    
+    // Draw clouds
+    drawBackgroundClouds();
+    
+    // Draw stadium stands/seating
+    const standHeight = PIXEL_CANVAS_HEIGHT * 0.4;
+    const standDepth = 35;
+    
+    // Stadium structure
+    pixelCtx.fillStyle = '#A0A0A0';
+    pixelCtx.fillRect(0, 0, standDepth, standHeight);
+    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - standDepth, 0, standDepth, standHeight);
+    pixelCtx.fillRect(standDepth, 0, PIXEL_CANVAS_WIDTH - standDepth * 2, standDepth);
+    
+    // Stadium seats with better pattern
+    for (let tier = 0; tier < 3; tier++) {
+        const tierY = tier * (standHeight / 3) + 10;
+        const tierHeight = standHeight / 3 - 5;
+        
+        // Left stand seats
+        for (let x = 3; x < standDepth - 3; x += 2) {
+            for (let y = tierY; y < tierY + tierHeight - 5; y += 3) {
+                const seatColor = Math.random() > 0.6 ? 
+                    (Math.random() > 0.5 ? '#FF4444' : '#4444FF') : 
+                    (Math.random() > 0.5 ? '#44FF44' : '#FFFF44');
+                pixelCtx.fillStyle = seatColor;
+                pixelCtx.fillRect(x, y, 1, 2);
+            }
+        }
+        
+        // Right stand seats
+        for (let x = PIXEL_CANVAS_WIDTH - standDepth + 3; x < PIXEL_CANVAS_WIDTH - 3; x += 2) {
+            for (let y = tierY; y < tierY + tierHeight - 5; y += 3) {
+                const seatColor = Math.random() > 0.6 ? 
+                    (Math.random() > 0.5 ? '#FF4444' : '#4444FF') : 
+                    (Math.random() > 0.5 ? '#44FF44' : '#FFFF44');
+                pixelCtx.fillStyle = seatColor;
+                pixelCtx.fillRect(x, y, 1, 2);
+            }
+        }
+    }
+    
+    // Top stand seats
+    for (let x = standDepth + 5; x < PIXEL_CANVAS_WIDTH - standDepth - 5; x += 3) {
+        for (let y = 5; y < standDepth - 5; y += 2) {
+            const seatColor = Math.random() > 0.7 ? '#00FF00' : '#FFFF00';
+            pixelCtx.fillStyle = seatColor;
+            pixelCtx.fillRect(x, y, 2, 1);
+        }
+    }
+    
+    // Floodlights
+    drawFloodlights();
+    
+    // Draw soccer field with proper grass pattern
+    drawSoccerField();
+}
+
+function drawBackgroundClouds() {
+    // Static clouds for background
+    const cloudPositions = [
+        {x: 30, y: 15, size: 8},
+        {x: 80, y: 10, size: 6},
+        {x: 140, y: 20, size: 10},
+        {x: 200, y: 12, size: 7},
+        {x: 260, y: 18, size: 9}
+    ];
+    
+    pixelCtx.fillStyle = '#FFFFFF';
+    cloudPositions.forEach(cloud => {
+        // Simple cloud shape
+        for (let i = 0; i < 5; i++) {
+            const offsetX = (i - 2) * 3;
+            const offsetY = Math.sin(i) * 2;
+            pixelCtx.fillRect(cloud.x + offsetX, cloud.y + offsetY, cloud.size, cloud.size * 0.6);
+        }
+    });
+}
+
+function drawFloodlights() {
+    // Stadium floodlight towers
+    const lightPositions = [
+        {x: 15, y: 5},
+        {x: PIXEL_CANVAS_WIDTH - 25, y: 5},
+        {x: PIXEL_CANVAS_WIDTH / 2 - 15, y: 2},
+        {x: PIXEL_CANVAS_WIDTH / 2 + 15, y: 2}
+    ];
+    
+    lightPositions.forEach(light => {
+        // Tower
+        pixelCtx.fillStyle = '#666666';
+        pixelCtx.fillRect(light.x, light.y, 2, 15);
+        
+        // Light fixture
+        pixelCtx.fillStyle = '#FFFF88';
+        pixelCtx.fillRect(light.x - 1, light.y, 4, 3);
+        
+        // Light beam (subtle)
+        pixelCtx.fillStyle = 'rgba(255, 255, 200, 0.1)';
+        pixelCtx.fillRect(light.x - 5, light.y + 3, 12, 25);
+    });
+}
+
+function drawSoccerField() {
+    const fieldStartY = PIXEL_CANVAS_HEIGHT * 0.4;
+    const fieldHeight = PIXEL_CANVAS_HEIGHT - fieldStartY;
+    
+    // Base grass color
+    pixelCtx.fillStyle = '#228B22';
+    pixelCtx.fillRect(0, fieldStartY, PIXEL_CANVAS_WIDTH, fieldHeight);
+    
+    // Grass stripes (static pattern)
+    const stripeWidth = 8;
+    pixelCtx.fillStyle = '#32CD32';
+    for (let x = 0; x < PIXEL_CANVAS_WIDTH; x += stripeWidth * 2) {
+        pixelCtx.fillRect(x, fieldStartY, stripeWidth, fieldHeight);
+    }
+    
+    // Center circle
+    pixelCtx.strokeStyle = '#FFFFFF';
+    pixelCtx.lineWidth = 2;
+    pixelCtx.beginPath();
+    pixelCtx.arc(PIXEL_CANVAS_WIDTH / 2, fieldStartY + fieldHeight / 2, 20, 0, Math.PI * 2);
+    pixelCtx.stroke();
+    
+    // Center line
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(PIXEL_CANVAS_WIDTH / 2, fieldStartY);
+    pixelCtx.lineTo(PIXEL_CANVAS_WIDTH / 2, PIXEL_CANVAS_HEIGHT);
+    pixelCtx.stroke();
+    
+    // Goal areas
+    const goalAreaWidth = 40;
+    const goalAreaHeight = 25;
+    const goalY = PIXEL_CANVAS_HEIGHT - 30;
+    
+    // Left goal area
+    pixelCtx.strokeRect(0, goalY - goalAreaHeight, goalAreaWidth, goalAreaHeight);
+    
+    // Right goal area  
+    pixelCtx.strokeRect(PIXEL_CANVAS_WIDTH - goalAreaWidth, goalY - goalAreaHeight, goalAreaWidth, goalAreaHeight);
 }
 
 
@@ -1426,34 +1615,60 @@ function drawStadiumLight(light) {
 function drawInGameScoreboard() {
     if (gameState !== 'playing') return;
     
-    const scoreboardX = PIXEL_CANVAS_WIDTH / 2 - 25;
-    const scoreboardY = 8;
-    const scoreboardWidth = 50;
-    const scoreboardHeight = 20;
-    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    const scoreboardX = 5;
+    const scoreboardY = 5;
+    const scoreboardWidth = 80;
+    const scoreboardHeight = 25;
     
-    // Scoreboard background
-    pixelCtx.fillStyle = '#000000';
+    // TV-style scoreboard background with gradient
+    const gradient = pixelCtx.createLinearGradient(scoreboardX, scoreboardY, scoreboardX, scoreboardY + scoreboardHeight);
+    gradient.addColorStop(0, '#2C3E50');
+    gradient.addColorStop(0.5, '#34495E');
+    gradient.addColorStop(1, '#2C3E50');
+    pixelCtx.fillStyle = gradient;
     pixelCtx.fillRect(scoreboardX, scoreboardY, scoreboardWidth, scoreboardHeight);
     
     // Border
-    pixelCtx.fillStyle = '#00FF00';
-    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY - pixelSize, scoreboardWidth + pixelSize * 2, pixelSize);
-    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY + scoreboardHeight, scoreboardWidth + pixelSize * 2, pixelSize);
-    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY, pixelSize, scoreboardHeight);
-    pixelCtx.fillRect(scoreboardX + scoreboardWidth, scoreboardY, pixelSize, scoreboardHeight);
+    pixelCtx.strokeStyle = '#ECF0F1';
+    pixelCtx.lineWidth = 1;
+    pixelCtx.strokeRect(scoreboardX, scoreboardY, scoreboardWidth, scoreboardHeight);
     
-    // Team scores
-    pixelCtx.fillStyle = '#FF6B6B';
-    drawPixelText(scoreboardX + 3, scoreboardY + 3, team1Score.toString(), pixelSize);
+    // Team 1 section (Red)
+    pixelCtx.fillStyle = '#E74C3C';
+    pixelCtx.fillRect(scoreboardX + 2, scoreboardY + 2, 25, 21);
     
-    pixelCtx.fillStyle = '#6B9BD2';
-    drawPixelText(scoreboardX + scoreboardWidth - 8, scoreboardY + 3, team2Score.toString(), pixelSize);
+    // Team 2 section (Blue)  
+    pixelCtx.fillStyle = '#3498DB';
+    pixelCtx.fillRect(scoreboardX + scoreboardWidth - 27, scoreboardY + 2, 25, 21);
     
-    // Timer
+    // Team labels
     pixelCtx.fillStyle = '#FFFFFF';
-    const timeText = gameTimeRemaining.toString().padStart(2, '0');
-    drawPixelText(scoreboardX + scoreboardWidth/2 - 4, scoreboardY + 12, timeText, pixelSize);
+    drawPixelText(scoreboardX + 4, scoreboardY + 4, 'RED', 1);
+    drawPixelText(scoreboardX + scoreboardWidth - 25, scoreboardY + 4, 'BLU', 1);
+    
+    // Team scores (larger)
+    pixelCtx.fillStyle = '#FFFFFF';
+    drawPixelText(scoreboardX + 12, scoreboardY + 13, team1Score.toString(), 2);
+    drawPixelText(scoreboardX + scoreboardWidth - 17, scoreboardY + 13, team2Score.toString(), 2);
+    
+    // Separator
+    pixelCtx.fillStyle = '#BDC3C7';
+    pixelCtx.fillRect(scoreboardX + 30, scoreboardY + 2, 20, 21);
+    
+    // Timer section
+    pixelCtx.fillStyle = '#000000';
+    const minutes = Math.floor(gameTimeRemaining / 60);
+    const seconds = gameTimeRemaining % 60;
+    const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    drawPixelText(scoreboardX + 32, scoreboardY + 8, timeText, 1);
+    
+    // Live indicator
+    if (gameTimeRemaining % 2 === 0) {
+        pixelCtx.fillStyle = '#E74C3C';
+        pixelCtx.fillRect(scoreboardX + 32, scoreboardY + 17, 3, 3);
+        pixelCtx.fillStyle = '#FFFFFF';
+        drawPixelText(scoreboardX + 37, scoreboardY + 17, 'LIVE', 1);
+    }
 }
 
 function drawPixelText(x, y, text, pixelSize) {
@@ -1576,31 +1791,12 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 function customRenderAll() {
     // Always render the game without menu checks
     
-    // Draw sky gradient background
-    const currentSunColor = getCurrentSunColor();
-    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
-    
-    // Dynamic sky colors based on sun
-    let skyTop, skyMid, skyBottom;
-    if (currentSunColor === SUN_COLORS.dawn || currentSunColor === SUN_COLORS.evening) {
-        skyTop = '#FF6B6B';
-        skyMid = '#FFD93D'; 
-        skyBottom = '#87CEEB';
-    } else if (currentSunColor === SUN_COLORS.night) {
-        skyTop = '#191970';
-        skyMid = '#000033';
-        skyBottom = '#191970';
-    } else {
-        skyTop = shadeColor(activeTheme.skyColor, 0.2);
-        skyMid = activeTheme.skyColor;
-        skyBottom = shadeColor(activeTheme.skyColor, -0.3);
-    }
-    
-    gradient.addColorStop(0, skyTop);
-    gradient.addColorStop(0.6, skyMid);
-    gradient.addColorStop(1, skyBottom);
-    pixelCtx.fillStyle = gradient;
+    // Draw white background
+    pixelCtx.fillStyle = '#FFFFFF';
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
+    
+    // Draw stadium background elements
+    drawStadiumBackground();
     
     // Draw stadium lights first (background lighting)
     stadiumLights.forEach(light => drawStadiumLight(light));
@@ -1691,15 +1887,16 @@ function customRenderAll() {
 
     pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
 
-    // Left Goal
-    const leftGoalMouthX = Math.round(WALL_THICKNESS / PIXEL_SCALE);
+    // Left Goal (3D isometric)
+    const leftGoalMouthX = 10;
 
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.15);
+    // Goal post depth/shadow
+    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.3);
     pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, goalMouthPixelWidth, postPixelThickness);
 
-
+    // Main goal posts
     pixelCtx.fillStyle = goalPostColor;
     pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
@@ -1785,13 +1982,16 @@ function customRenderAll() {
     }
 
 
-    const rightGoalMouthX = PIXEL_CANVAS_WIDTH - Math.round(WALL_THICKNESS / PIXEL_SCALE) - goalMouthPixelWidth;
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.15);
+    // Right Goal (3D isometric)
+    const rightGoalMouthX = PIXEL_CANVAS_WIDTH - goalMouthPixelWidth - 10;
+    
+    // Goal post depth/shadow
+    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.3);
     pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, goalMouthPixelWidth, postPixelThickness);
 
-
+    // Main goal posts
     pixelCtx.fillStyle = goalPostColor;
     pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
     pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
@@ -1871,7 +2071,67 @@ function customRenderAll() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', setup);
+document.addEventListener('DOMContentLoaded', () => {
+    setup();
+    setupControlButtons();
+});
+
+function setupControlButtons() {
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
+    
+    if (leftBtn && rightBtn) {
+        // Touch/click events for buttons
+        leftBtn.addEventListener('mousedown', () => {
+            keysPressed['KeyA'] = true;
+            createTone(300, 50, 'square', 0.1);
+        });
+        
+        leftBtn.addEventListener('mouseup', () => {
+            keysPressed['KeyA'] = false;
+        });
+        
+        leftBtn.addEventListener('mouseleave', () => {
+            keysPressed['KeyA'] = false;
+        });
+        
+        rightBtn.addEventListener('mousedown', () => {
+            keysPressed['KeyD'] = true;
+            createTone(350, 50, 'square', 0.1);
+        });
+        
+        rightBtn.addEventListener('mouseup', () => {
+            keysPressed['KeyD'] = false;
+        });
+        
+        rightBtn.addEventListener('mouseleave', () => {
+            keysPressed['KeyD'] = false;
+        });
+        
+        // Touch events for mobile
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keysPressed['KeyA'] = true;
+            createTone(300, 50, 'square', 0.1);
+        });
+        
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keysPressed['KeyA'] = false;
+        });
+        
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keysPressed['KeyD'] = true;
+            createTone(350, 50, 'square', 0.1);
+        });
+        
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keysPressed['KeyD'] = false;
+        });
+    }
+}
 
 // --- Particle System ---
 function spawnParticles(x, y, count, color, baseVelocityX = 0, baseVelocityY = 0, spread = 2, life = 20, size = 1) {
