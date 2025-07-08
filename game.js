@@ -22,8 +22,9 @@ const ROUND_DURATION_SECONDS = 90;
 const BALL_RADIUS = 15;
 
 const PIXEL_SCALE = 6;
-const PIXEL_CANVAS_WIDTH = CANVAS_WIDTH / PIXEL_SCALE;
-const PIXEL_CANVAS_HEIGHT = CANVAS_HEIGHT / PIXEL_SCALE;
+// Ensure integer dimensions for the pixelCanvas by flooring the result
+const PIXEL_CANVAS_WIDTH = Math.floor(CANVAS_WIDTH / PIXEL_SCALE);
+const PIXEL_CANVAS_HEIGHT = Math.floor(CANVAS_HEIGHT / PIXEL_SCALE);
 
 // --- Collision Categories ---
 const playerCategory = 0x0001;
