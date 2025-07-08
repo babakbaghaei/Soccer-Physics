@@ -553,11 +553,10 @@ function updatePlayerAnimations() {
 }
 
 function updateGame() {
-    try {
-        // Always update visual elements
-        updateClouds();
-        updateSun();
-    
+    // Always update visual elements
+    updateClouds();
+    updateSun();
+
     if (gameState === 'gameOver') {
         // Game over state - restart game
         if (keysPressed['KeyW']) {
@@ -567,7 +566,7 @@ function updateGame() {
         }
         return;
     }
-    
+
     if (!isGameStarted || isGameOver) return;
 
     // gameTime++; // Logic below still commented
@@ -576,12 +575,6 @@ function updateGame() {
     // updateAIPlayers();
     // updatePlayerAnimations();
     // updateParticles();
-} catch (error) {
-    console.error("Error in updateGame:", error);
-    // Optionally, stop the game or runner if critical
-    // if (runner) Runner.stop(runner);
-    // isGameOver = true;
-    // showGameMessage("Critical game update error. Check console.");
 }
 
 // Update cloud positions
@@ -1245,26 +1238,18 @@ function showGameMessage(message) {
 
 // --- Custom Pixel Art Rendering ---
 function gameRenderLoop() {
-    try {
-        // Always render the game
-        customRenderAll();
+    // Always render the game
+    customRenderAll();
 
-        // Render to main canvas
-        const mainCtx = canvas.getContext('2d');
-        mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        mainCtx.imageSmoothingEnabled = false;
-        mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // Render to main canvas
+    const mainCtx = canvas.getContext('2d');
+    mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    mainCtx.imageSmoothingEnabled = false;
+    mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    } catch (error) {
-        console.error("Error in gameRenderLoop:", error);
-        // Optionally, stop the loop to prevent further errors if it's critical
-        // if (gameRenderLoopId) cancelAnimationFrame(gameRenderLoopId);
-        // showGameMessage("Critical render error. Please check console.");
-    } finally {
-        // Ensure the loop continues unless a critical error decision is made to stop it
-        if (!isGameOver) { // Only continue if game is not over
-             gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
-        }
+    // Ensure the loop continues unless a critical error decision is made to stop it
+    if (!isGameOver) { // Only continue if game is not over
+            gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
     }
 }
 
@@ -1887,10 +1872,9 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 
 
 function customRenderAll() {
-    try {
-        // Always render the game without menu checks
+    // Always render the game without menu checks
 
-        // Draw white background
+    // Draw white background
     pixelCtx.fillStyle = '#FFFFFF';
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     
@@ -2177,9 +2161,6 @@ function customRenderAll() {
 } catch (error) {
     console.error("Error in customRenderAll:", error);
     // showGameMessage("Critical render error in customRenderAll. Check console.");
-    // Consider if you need to stop the game or take other actions
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     setup();
     setupControlButtons();
