@@ -55,11 +55,11 @@ let particles = [];
 // --- Field Constants ---
 const GROUND_THICKNESS = 40;
 const WALL_THICKNESS = 20;
-const GOAL_HEIGHT = 120; // Height of the goal opening itself
-const GOAL_SENSOR_DEPTH = 30; // Depth of the sensor inside the goal
-const GOAL_MOUTH_VISUAL_WIDTH = 60; // Visual width of the goal mouth
-const CROSSBAR_THICKNESS = 10; // Thickness of the horizontal crossbar
-let actualGoalOpeningHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS; // Recalculated in setup if needed, but used for sensor height
+const GOAL_HEIGHT = 120;
+const GOAL_SENSOR_DEPTH = 30;
+const GOAL_MOUTH_VISUAL_WIDTH = 60;
+const CROSSBAR_THICKNESS = 10;
+let actualGoalOpeningHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
 
 // --- Color Palettes ---
 const colorPalettes = [
@@ -74,56 +74,12 @@ let currentColorPaletteIndex = -1;
 
 // --- Themes ---
 const themes = [
-    {
-        name: "White Out",
-        background: '#FFFFFF',
-        ground: '#E0E0E0',
-        groundSecondary: '#D0D0D0',
-        walls: '#C0C0C0',
-        ballThemeColor: '#333333',
-        net: 'rgba(100, 100, 100, 0.5)',
-        skyColor: '#FFFFFF',
-        cloudColor: '#E8E8E8',
-        sunColor: '#F0F0F0'
-    },
-    { 
-        name: "Grass Day", 
-        background: '#87CEEB',
-        ground: '#228B22',
-        groundSecondary: '#32CD32',
-        walls: '#8B4513',
-        ballThemeColor: '#FFFFFF', 
-        net: 'rgba(220, 220, 220, 0.8)',
-        skyColor: '#87CEEB',
-        cloudColor: '#FFFFFF',
-        sunColor: '#FFD700'
-    },
-    { 
-        name: "Night Sky", 
-        background: '#191970',
-        ground: '#006400',
-        groundSecondary: '#228B22',
-        walls: '#2F4F4F',
-        ballThemeColor: '#E0E0E0', 
-        net: 'rgba(180, 180, 200, 0.5)',
-        skyColor: '#191970',
-        cloudColor: '#696969',
-        sunColor: '#F0F8FF'
-    },
-    { 
-        name: "Desert", 
-        background: '#F4A460',
-        ground: '#DEB887',
-        groundSecondary: '#D2B48C',
-        walls: '#A0522D', 
-        ballThemeColor: '#FAFAFA', 
-        net: 'rgba(100, 100, 100, 0.5)',
-        skyColor: '#F4A460',
-        cloudColor: '#F5DEB3',
-        sunColor: '#FF4500'
-    }
+    { name: "White Out", background: '#FFFFFF', ground: '#E0E0E0', groundSecondary: '#D0D0D0', walls: '#C0C0C0', ballThemeColor: '#333333', net: 'rgba(100, 100, 100, 0.5)', skyColor: '#FFFFFF', cloudColor: '#E8E8E8', sunColor: '#F0F0F0' },
+    { name: "Grass Day", background: '#87CEEB', ground: '#228B22', groundSecondary: '#32CD32', walls: '#8B4513', ballThemeColor: '#FFFFFF', net: 'rgba(220, 220, 220, 0.8)', skyColor: '#87CEEB', cloudColor: '#FFFFFF', sunColor: '#FFD700' },
+    { name: "Night Sky", background: '#191970', ground: '#006400', groundSecondary: '#228B22', walls: '#2F4F4F', ballThemeColor: '#E0E0E0', net: 'rgba(180, 180, 200, 0.5)', skyColor: '#191970', cloudColor: '#696969', sunColor: '#F0F8FF' },
+    { name: "Desert", background: '#F4A460', ground: '#DEB887', groundSecondary: '#D2B48C', walls: '#A0522D', ballThemeColor: '#FAFAFA', net: 'rgba(100, 100, 100, 0.5)', skyColor: '#F4A460', cloudColor: '#F5DEB3', sunColor: '#FF4500' }
 ];
-let currentThemeIndex = 0; // Start with White Out or Grass Day for testing
+let currentThemeIndex = 0;
 let activeTheme = themes[currentThemeIndex];
 
 // --- Animated Elements ---
@@ -131,7 +87,6 @@ let clouds = [];
 let sunPosition = { x: 0, y: 0 };
 let gameTime = 0;
 let gameStartTime = 0;
-// spectators array is still here but initSpectators is commented out
 let spectators = [];
 let stadiumLights = [];
 
@@ -139,10 +94,7 @@ let stadiumLights = [];
 let gameState = 'playing';
 
 // --- Dynamic Sun System ---
-const SUN_COLORS = {
-    dawn: '#FF6B6B', morning: '#FFD93D', noon: '#FFD700',
-    afternoon: '#FFA500', evening: '#FF4500', night: '#F0F8FF'
-};
+const SUN_COLORS = { dawn: '#FF6B6B', morning: '#FFD93D', noon: '#FFD700', afternoon: '#FFA500', evening: '#FF4500', night: '#F0F8FF' };
 const BALL_PANEL_COLOR_PRIMARY = '#FFFFFF';
 const BALL_PANEL_COLOR_SECONDARY = '#333333';
 
@@ -157,41 +109,39 @@ const PLAYER_JUMP_COOLDOWN_FRAMES = 35;
 const PLAYER_MOVE_FORCE = 0.008;
 const PLAYER_ROLL_ANGULAR_VELOCITY_TARGET = 0.20;
 const PLAYER_ROLL_TRANSLATE_SPEED = 1.0;
-
 const PLAYER_VARIABLE_JUMP_INITIAL_FORCE = 0.07;
 const PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE = 0.007;
 const PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES = 10;
 const PLAYER_MAX_JUMP_IMPULSE = 0.18;
 const COYOTE_TIME_FRAMES = 7;
-
 const KICK_RANGE = PLAYER_RECT_SIZE / 2 + BALL_RADIUS + 10;
 const KICK_FORCE_MAGNITUDE = 0.065;
 const TIMED_JUMP_SHOT_BONUS_FACTOR = 1.6;
 const JUMP_SHOT_LOFT_FACTOR = 1.6;
 const PLAYER_AIR_CONTROL_FACTOR = 1.0;
-
 const AI_ACTION_RANGE = PLAYER_RECT_SIZE * 2.5;
 const AI_MOVE_FORCE = 0.0035;
 const AI_KICK_ATTEMPT_STRENGTH = 0.075;
 const AI_KICK_BALL_RANGE = KICK_RANGE + 5;
 const AI_TIMED_JUMP_ANTICIPATION_FRAMES = 10;
 const PLAYER_ACTION_COOLDOWN_FRAMES = 20;
-
 const LANDING_DAMPING_FACTOR = 0.9;
 const keysPressed = {};
 
-// --- Sound Functions ---
+// --- Sound State ---
 const soundEnabled = true;
 let audioContext;
 
-function initAudioContext() { /* ... (no changes) ... */
-    try {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {
-        console.warn('Web Audio API not supported:', e);
-    }
+// =========================================================================
+//  FUNCTION DEFINITIONS
+// =========================================================================
+
+function initAudioContext() {
+    try { audioContext = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch (e) { console.warn('Web Audio API not supported:', e); }
 }
-function createTone(frequency, duration, type = 'sine', volume = 0.1) { /* ... (no changes) ... */
+
+function createTone(frequency, duration, type = 'sine', volume = 0.1) {
     if (!audioContext) return;
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -205,698 +155,127 @@ function createTone(frequency, duration, type = 'sine', volume = 0.1) { /* ... (
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + duration);
 }
-function playSound(soundFileName) { /* ... (no changes, ensure post_hit.wav case is added later) ... */
+
+function playSound(soundFileName) {
     if (!soundEnabled || !audioContext) return;
     try {
         switch(soundFileName) {
-            case 'jump.wav':
-                createTone(440, 0.15, 'square', 0.08);
-                setTimeout(() => createTone(660, 0.1, 'sine', 0.06), 50);
-                break;
-            case 'kick.wav':
-                createTone(200, 0.1, 'square', 0.12);
-                setTimeout(() => createTone(150, 0.05, 'triangle', 0.08), 30);
-                break;
-            case 'goal.wav':
-                createTone(523, 0.2, 'sine', 0.1);
-                setTimeout(() => createTone(659, 0.2, 'sine', 0.1), 100);
-                setTimeout(() => createTone(784, 0.3, 'sine', 0.12), 200);
-                break;
-            case 'ball_hit_wall.wav': // For walls and ceiling
-                createTone(300, 0.08, 'square', 0.06);
-                break;
-            case 'post_hit.wav': // New sound for hitting posts
-                createTone(350, 0.15, 'triangle', 0.09);
-                setTimeout(() => createTone(280, 0.1, 'square', 0.07), 40);
-                break;
-            default:
-                console.warn(`Unknown sound: ${soundFileName}`);
+            case 'jump.wav': createTone(440, 0.15, 'square', 0.08); setTimeout(() => createTone(660, 0.1, 'sine', 0.06), 50); break;
+            case 'kick.wav': createTone(200, 0.1, 'square', 0.12); setTimeout(() => createTone(150, 0.05, 'triangle', 0.08), 30); break;
+            case 'goal.wav': createTone(523, 0.2, 'sine', 0.1); setTimeout(() => createTone(659, 0.2, 'sine', 0.1), 100); setTimeout(() => createTone(784, 0.3, 'sine', 0.12), 200); break;
+            case 'ball_hit_wall.wav': createTone(300, 0.08, 'square', 0.06); break;
+            case 'post_hit.wav': createTone(350, 0.15, 'triangle', 0.09); setTimeout(() => createTone(280, 0.1, 'square', 0.07), 40); break;
+            default: console.warn(`Unknown sound: ${soundFileName}`);
         }
-    } catch (e) {
-        console.warn(`Sound generation failed for ${soundFileName}:`, e);
-    }
+    } catch (e) { console.warn(`Sound generation failed for ${soundFileName}:`, e); }
 }
 
-// Initialize clouds
-function initClouds() { /* ... (no changes from previous version using fluffyPatterns) ... */
-    clouds = [];
-    const numClouds = 6;
+function initClouds() {
+    clouds = []; const numClouds = 6;
     for (let i = 0; i < numClouds; i++) {
-        clouds.push({
-            x: Math.random() * (PIXEL_CANVAS_WIDTH + 60) - 30,
-            y: Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5,
-            size: Math.random() * 15 + 10, // Adjusted size for fluffy clouds
-            speed: Math.random() * 0.4 + 0.05,
-            opacity: Math.random() * 0.4 + 0.3, // Slightly less transparent
-            type: Math.floor(Math.random() * 3)
-        });
+        clouds.push({ x: Math.random() * (PIXEL_CANVAS_WIDTH + 60) - 30, y: Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5, size: Math.random() * 15 + 10, speed: Math.random() * 0.4 + 0.05, opacity: Math.random() * 0.4 + 0.3, type: Math.floor(Math.random() * 3) });
     }
-    sunPosition.x = PIXEL_CANVAS_WIDTH * 0.1;
-    sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.3;
-}
-// initSpectators is not called, but function can remain
-function initSpectators() { /* ... (no changes, but not called) ... */ }
-function initStadiumLights() { /* ... (no changes) ... */
-    stadiumLights = [
-        { x: PIXEL_CANVAS_WIDTH * 0.2, y: PIXEL_CANVAS_HEIGHT * 0.1, intensity: 0.8 },
-        { x: PIXEL_CANVAS_WIDTH * 0.5, y: PIXEL_CANVAS_HEIGHT * 0.05, intensity: 1.0 },
-        { x: PIXEL_CANVAS_WIDTH * 0.8, y: PIXEL_CANVAS_HEIGHT * 0.1, intensity: 0.8 }
-    ];
+    sunPosition.x = PIXEL_CANVAS_WIDTH * 0.1; sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.3;
 }
 
-// --- Initialization Function ---
-function setup() {
-    console.log("SETUP: Initializing game state...");
-    isGameStarted = false; isGameOver = false; restartDebounce = false;
-    team1Score = 0; team2Score = 0;
-    gameTimeRemaining = ROUND_DURATION_SECONDS;
-    actualGoalOpeningHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
-    particles = []; gameTime = 0; gameStartTime = Date.now();
-    gameState = 'playing';
-    Object.keys(keysPressed).forEach(key => { keysPressed[key] = false; });
-
-    if (!audioContext) initAudioContext();
-    initClouds();
-    // initSpectators(); // Spectators removed
-    initStadiumLights();
-
-    if (roundTimerId) { clearInterval(roundTimerId); roundTimerId = null; }
-
-    currentThemeIndex = (currentThemeIndex + 1) % themes.length; // Cycle themes or set to specific one
-    // For white background testing:
-    // currentThemeIndex = 0; // Assuming "White Out" is the first theme
-    activeTheme = themes[currentThemeIndex];
-
-    currentColorPaletteIndex = (currentColorPaletteIndex + 1) % colorPalettes.length;
-    const currentPalette = colorPalettes[currentColorPaletteIndex];
-    activeTeam1Color = currentPalette.team1;
-    activeTeam2Color = currentPalette.team2;
-
-    if (engine) {
-        World.clear(world, false); Engine.clear(engine); Events.off(engine);
-        if (runner) Runner.stop(runner);
-    }
-
-    engine = Engine.create({ enableSleeping: false });
-    world = engine.world;
-    engine.world.gravity.y = 1.1;
-    world.slop = 0.08;
-    engine.positionIterations = 8;
-    engine.velocityIterations = 6;
-    console.log("SETUP: New engine/world created with custom collision settings.");
-
-    render = Render.create({
-        canvas: canvas, engine: engine,
-        options: {
-            width: CANVAS_WIDTH, height: CANVAS_HEIGHT,
-            wireframes: false, // Set to true for debugging physical bodies
-            background: activeTheme.background,
-            enabled: false
-        }
-    });
-    canvas.width = CANVAS_WIDTH; canvas.height = CANVAS_HEIGHT;
-    const mainCtx = canvas.getContext('2d');
-    mainCtx.imageSmoothingEnabled = false;
-    if (!pixelCanvas) {
-        pixelCanvas = document.createElement('canvas');
-        pixelCanvas.width = PIXEL_CANVAS_WIDTH; pixelCanvas.height = PIXEL_CANVAS_HEIGHT;
-        pixelCtx = pixelCanvas.getContext('2d');
-    }
-    pixelCtx.imageSmoothingEnabled = false;
-
-    createField(); // This will now create new posts and sensors
-    createBall();
-    players = [];
-    const playerSpawnY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 5;
-    players.push(createPlayer(CANVAS_WIDTH / 4, playerSpawnY, activeTeam1Color, true, false));
-    players.push(createPlayer(CANVAS_WIDTH * 3 / 4, playerSpawnY, activeTeam2Color, false, true));
-    
-    setupInputListeners();
-    runner = Runner.create();
-    Events.on(engine, 'beforeUpdate', updateGame);
-    Events.on(engine, 'collisionStart', handleCollisions);
-
-    isGameStarted = true; isGameOver = false;
-    Runner.run(runner, engine);
-    console.log("SETUP: Matter.js Runner started.");
-    startGameTimer();
-    if (typeof gameRenderLoopId !== 'undefined') cancelAnimationFrame(gameRenderLoopId);
-    gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
-    updateScoreDisplay(); updateTimerDisplay();
-    showGameMessage("Game Started! Controls: A/D Move, W Jump");
-    console.log("SETUP: Game started!");
+function initSpectators() {
+    spectators = []; // Ensure it's empty even if called
+}
+function initStadiumLights() {
+    stadiumLights = [ { x: PIXEL_CANVAS_WIDTH * 0.2, y: PIXEL_CANVAS_HEIGHT * 0.1, intensity: 0.8 }, { x: PIXEL_CANVAS_WIDTH * 0.5, y: PIXEL_CANVAS_HEIGHT * 0.05, intensity: 1.0 }, { x: PIXEL_CANVAS_WIDTH * 0.8, y: PIXEL_CANVAS_HEIGHT * 0.1, intensity: 0.8 } ];
 }
 
-// --- Timer Functions --- (no changes)
-function startGameTimer() { /* ... */ }
-function updateRoundTimer() { /* ... */ }
-function updateTimerDisplay() { /* ... */ }
+function updateScoreDisplay() {
+    team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
+    team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
+}
+
+function updateTimerDisplay() {
+    timerDisplay.textContent = `Time: ${gameTimeRemaining}`;
+}
+
+function showGameMessage(message) {
+    gameMessageDisplay.textContent = message;
+}
+
 function getFieldDerivedConstants() {
     return { actualGoalOpeningHeight: GOAL_HEIGHT - CROSSBAR_THICKNESS };
 }
 
-// --- createField (NEW VERSION with physical posts and new sensors) ---
 function createField() {
     const chamferOptions = { chamfer: { radius: 5 } };
     const postChamfer = { chamfer: { radius: 2 } };
-
-    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, {
-        isStatic: true, label: 'ground', render: { fillStyle: activeTheme.ground }, ...chamferOptions,
-        collisionFilter: { category: worldCategory }
-    });
-    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, {
-        isStatic: true, label: 'wall-left', render: { fillStyle: activeTheme.walls }, ...chamferOptions,
-        collisionFilter: { category: worldCategory }
-    });
-    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, {
-        isStatic: true, label: 'wall-right', render: { fillStyle: activeTheme.walls }, ...chamferOptions,
-        collisionFilter: { category: worldCategory }
-    });
-    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, {
-        isStatic: true, label: 'ceiling', render: { fillStyle: activeTheme.walls }, ...chamferOptions,
-        collisionFilter: { category: worldCategory }
-    });
-
+    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: activeTheme.ground }, ...chamferOptions, collisionFilter: { category: worldCategory } });
+    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { fillStyle: activeTheme.walls }, ...chamferOptions, collisionFilter: { category: worldCategory } });
+    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: activeTheme.walls }, ...chamferOptions, collisionFilter: { category: worldCategory } });
+    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: activeTheme.walls }, ...chamferOptions, collisionFilter: { category: worldCategory } });
     const goalPostRenderStyle = { fillStyle: '#E0E0E0', strokeStyle: '#777777', lineWidth: 1 };
     const physicalPostThickness = 8;
-
-    // --- Left Goal Posts ---
     const goalMouthStartX_L = WALL_THICKNESS;
     const goalTopY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT;
     const goalOpeningActualHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
-
-    const postLV_L = Bodies.rectangle(
-        goalMouthStartX_L + physicalPostThickness / 2,
-        goalTopY + goalOpeningActualHeight / 2,
-        physicalPostThickness, goalOpeningActualHeight,
-        { isStatic: true, label: 'post-vl-L', render: goalPostRenderStyle, ...postChamfer,
-          collisionFilter: { category: goalPostCategory, mask: ballCategory } }
-    );
-    const postRV_L = Bodies.rectangle(
-        goalMouthStartX_L + GOAL_MOUTH_VISUAL_WIDTH - physicalPostThickness / 2,
-        goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight,
-        { isStatic: true, label: 'post-vr-L', render: goalPostRenderStyle, ...postChamfer,
-          collisionFilter: { category: goalPostCategory, mask: ballCategory } }
-    );
-    const postH_L = Bodies.rectangle(
-        goalMouthStartX_L + GOAL_MOUTH_VISUAL_WIDTH / 2,
-        goalTopY + CROSSBAR_THICKNESS / 2, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS,
-        { isStatic: true, label: 'post-h-L', render: goalPostRenderStyle, ...postChamfer,
-          collisionFilter: { category: goalPostCategory, mask: ballCategory } }
-    );
-
-    // --- Right Goal Posts ---
+    const postLV_L = Bodies.rectangle( goalMouthStartX_L + physicalPostThickness / 2, goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight, { isStatic: true, label: 'post-vl-L', render: goalPostRenderStyle, ...postChamfer, collisionFilter: { category: goalPostCategory, mask: ballCategory } });
+    const postRV_L = Bodies.rectangle( goalMouthStartX_L + GOAL_MOUTH_VISUAL_WIDTH - physicalPostThickness / 2, goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight, { isStatic: true, label: 'post-vr-L', render: goalPostRenderStyle, ...postChamfer, collisionFilter: { category: goalPostCategory, mask: ballCategory } });
+    const postH_L = Bodies.rectangle( goalMouthStartX_L + GOAL_MOUTH_VISUAL_WIDTH / 2, goalTopY + CROSSBAR_THICKNESS / 2, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'post-h-L', render: goalPostRenderStyle, ...postChamfer, collisionFilter: { category: goalPostCategory, mask: ballCategory } });
     const goalMouthStartX_R = CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH;
-    const postLV_R = Bodies.rectangle(
-        goalMouthStartX_R + physicalPostThickness / 2,
-        goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight,
-        { isStatic: true, label: 'post-vl-R', render: goalPostRenderStyle, ...postChamfer,
-          collisionFilter: { category: goalPostCategory, mask: ballCategory } }
-    );
-    const postRV_R = Bodies.rectangle(
-        goalMouthStartX_R + GOAL_MOUTH_VISUAL_WIDTH - physicalPostThickness / 2,
-        goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight,
-        { isStatic: true, label: 'post-vr-R', render: goalPostRenderStyle, ...postChamfer,
-          collisionFilter: { category: goalPostCategory, mask: ballCategory } }
-    );
-    const postH_R = Bodies.rectangle(
-        goalMouthStartX_R + GOAL_MOUTH_VISUAL_WIDTH / 2,
-        goalTopY + CROSSBAR_THICKNESS / 2, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS,
-        { isStatic: true, label: 'post-h-R', render: goalPostRenderStyle, ...postChamfer,
-          collisionFilter: { category: goalPostCategory, mask: ballCategory } }
-    );
-
-    // Goal Sensors ( Adjusted to be behind the posts )
+    const postLV_R = Bodies.rectangle( goalMouthStartX_R + physicalPostThickness / 2, goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight, { isStatic: true, label: 'post-vl-R', render: goalPostRenderStyle, ...postChamfer, collisionFilter: { category: goalPostCategory, mask: ballCategory } });
+    const postRV_R = Bodies.rectangle( goalMouthStartX_R + GOAL_MOUTH_VISUAL_WIDTH - physicalPostThickness / 2, goalTopY + goalOpeningActualHeight / 2, physicalPostThickness, goalOpeningActualHeight, { isStatic: true, label: 'post-vr-R', render: goalPostRenderStyle, ...postChamfer, collisionFilter: { category: goalPostCategory, mask: ballCategory } });
+    const postH_R = Bodies.rectangle( goalMouthStartX_R + GOAL_MOUTH_VISUAL_WIDTH / 2, goalTopY + CROSSBAR_THICKNESS / 2, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'post-h-R', render: goalPostRenderStyle, ...postChamfer, collisionFilter: { category: goalPostCategory, mask: ballCategory } });
     const sensorActualHeight = goalOpeningActualHeight;
     const sensorCenterY = goalTopY + sensorActualHeight / 2;
     const sensorWidth = GOAL_MOUTH_VISUAL_WIDTH - 2 * physicalPostThickness;
-    const sensorRenderStyle = { visible: true, fillStyle: 'rgba(0, 255, 0, 0.15)' }; // Slightly more transparent
-
-    const mainLeftGoalSensor = Bodies.rectangle(
-        goalMouthStartX_L + physicalPostThickness + sensorWidth / 2,
-        sensorCenterY, sensorWidth, sensorActualHeight,
-        { isStatic: true, isSensor: true, label: 'goal-left-sensor', render: sensorRenderStyle }
-    );
-    const mainRightGoalSensor = Bodies.rectangle(
-        goalMouthStartX_R + physicalPostThickness + sensorWidth / 2,
-        sensorCenterY, sensorWidth, sensorActualHeight,
-        { isStatic: true, isSensor: true, label: 'goal-right-sensor', render: sensorRenderStyle }
-    );
-
-    World.add(world, [
-        ground, leftWall, rightWall, ceiling,
-        postLV_L, postRV_L, postH_L,
-        postLV_R, postRV_R, postH_R,
-        mainLeftGoalSensor, mainRightGoalSensor
-    ]);
+    const sensorRenderStyle = { visible: true, fillStyle: 'rgba(0, 255, 0, 0.15)' };
+    const mainLeftGoalSensor = Bodies.rectangle( goalMouthStartX_L + physicalPostThickness + sensorWidth / 2, sensorCenterY, sensorWidth, sensorActualHeight, { isStatic: true, isSensor: true, label: 'goal-left-sensor', render: sensorRenderStyle });
+    const mainRightGoalSensor = Bodies.rectangle( goalMouthStartX_R + physicalPostThickness + sensorWidth / 2, sensorCenterY, sensorWidth, sensorActualHeight, { isStatic: true, isSensor: true, label: 'goal-right-sensor', render: sensorRenderStyle });
+    World.add(world, [ ground, leftWall, rightWall, ceiling, postLV_L, postRV_L, postH_L, postLV_R, postRV_R, postH_R, mainLeftGoalSensor, mainRightGoalSensor ]);
 }
 
-// --- createBall (NEW VERSION with collisionFilter) ---
 function createBall() {
-    ball = Bodies.circle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 3, BALL_RADIUS, {
-        label: 'ball',
-        density: 0.001, friction: 0.01, frictionAir: 0.008, restitution: 0.7,
-        render: { strokeStyle: BALL_PANEL_COLOR_SECONDARY, lineWidth: 1 },
-        collisionFilter: {
-            category: ballCategory,
-            mask: worldCategory | playerCategory | goalPostCategory | ballCategory
-        }
-    });
+    ball = Bodies.circle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 3, BALL_RADIUS, { label: 'ball', density: 0.001, friction: 0.01, frictionAir: 0.008, restitution: 0.7, render: { strokeStyle: BALL_PANEL_COLOR_SECONDARY, lineWidth: 1 }, collisionFilter: { category: ballCategory, mask: worldCategory | playerCategory | goalPostCategory | ballCategory } });
     World.add(world, ball);
 }
 
-// --- createPlayer (NEW VERSION with collisionFilter) ---
 function createPlayer(x, y, teamColor, isTeam1, isAI) {
     const playerLabelPrefix = isTeam1 ? 'player-t1' : 'player-t2';
-    const options = {
-        density: PLAYER_DENSITY,
-        friction: PLAYER_FRICTION,
-        restitution: PLAYER_RESTITUTION,
-        render: { fillStyle: teamColor },
-        label: `${playerLabelPrefix}-square`,
-        chamfer: { radius: 2 },
-        inertia: Infinity,
-        collisionFilter: {
-            category: playerCategory,
-            mask: worldCategory | ballCategory | playerCategory | goalPostCategory /* Players DO collide with posts now, for realism, but post_hit logic handles it. If players should pass through, remove goalPostCategory from player's mask AND posts' mask */
-        }
-    };
+    const options = { density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, render: { fillStyle: teamColor }, label: `${playerLabelPrefix}-square`, chamfer: { radius: 2 }, inertia: Infinity, collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | playerCategory | goalPostCategory } };
     const playerBody = Bodies.rectangle(x, y, PLAYER_RECT_SIZE, PLAYER_RECT_SIZE, options);
     World.add(world, playerBody);
-    return {
-        playerBody: playerBody, playerTeam: isTeam1 ? 1 : 2, color: teamColor, actionCooldown: 0,
-        jumpCooldown: 0, isAI: isAI, isGrounded: false, lastJumpTime: 0, isAttemptingVariableJump: false,
-        variableJumpForceAppliedDuration: 0, totalJumpImpulseThisJump: 0, coyoteTimeFramesRemaining: 0,
-        jumpInputBuffered: false, wasGrounded: false, targetAngle: 0, isRotating: false, currentFace: 0,
-        rollDirection: 0
-    };
+    return { playerBody: playerBody, playerTeam: isTeam1 ? 1 : 2, color: teamColor, actionCooldown: 0, jumpCooldown: 0, isAI: isAI, isGrounded: false, lastJumpTime: 0, isAttemptingVariableJump: false, variableJumpForceAppliedDuration: 0, totalJumpImpulseThisJump: 0, coyoteTimeFramesRemaining: 0, jumpInputBuffered: false, wasGrounded: false, targetAngle: 0, isRotating: false, currentFace: 0, rollDirection: 0 };
 }
 
-// --- setupInputListeners, handleKeyDown, handleKeyUp (no changes) ---
-function setupInputListeners() { /* ... */ }
-function handleKeyDown(event) { /* ... */ }
-function handleKeyUp(event) { /* ... */ }
-function updatePlayerAnimations() { /* ... */ }
-
-// --- updateGame, updateClouds, updateSun, updateSpectators (no changes) ---
-function updateGame() { /* ... */ }
-function updateClouds() { /* ... */ }
-function updateSun() { /* ... */ }
-function getCurrentSunColor() { /* ... */ }
-function updateSpectators() { /* ... */ }
-
-// --- updatePlayerStates (no changes from previous version with enhanced roll/stability) ---
-function updatePlayerStates() { /* ... */ }
-// --- handleHumanPlayerControls (no changes from previous version with air control) ---
-function handleHumanPlayerControls() { /* ... */ }
-// --- updateAIPlayers, executeAIPlayerLogic (no changes from previous version with enhanced AI shooting) ---
-function updateAIPlayers() { /* ... */ }
-function executeAIPlayerLogic(player) { /* ... */ }
-
-// --- perpDistToLine (ensure this helper function exists) ---
-function perpDistToLine(p1, p2, p3) {
-    const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-    if (dx === 0 && dy === 0) return Matter.Vector.magnitude(Matter.Vector.sub(p3,p1));
-    const t = ((p3.x - p1.x) * dx + (p3.y - p1.y) * dy) / (dx * dx + dy * dy);
-    let cp;
-    if (t < 0) cp = p1;
-    else if (t > 1) cp = p2;
-    else cp = { x: p1.x + t * dx, y: p1.y + t * dy };
-    return Matter.Vector.magnitude(Matter.Vector.sub(p3, cp));
-}
-
-// --- handleGoalScored, checkWinCondition, resetPositions (no changes) ---
+function setupInputListeners() { document.removeEventListener('keydown', handleKeyDown); document.removeEventListener('keyup', handleKeyUp); document.addEventListener('keydown', handleKeyDown); document.addEventListener('keyup', handleKeyUp); }
+function handleKeyDown(event) { if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyH', 'Space', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'Escape'].includes(event.code)) { event.preventDefault(); } keysPressed[event.code] = true; const humanPlayer = players.find(p => !p.isAI); if (humanPlayer && event.code === 'KeyW' && !humanPlayer.isGrounded && humanPlayer.jumpCooldown === 0) { if (humanPlayer.coyoteTimeFramesRemaining <= 0) { humanPlayer.jumpInputBuffered = true; setTimeout(() => { humanPlayer.jumpInputBuffered = false; }, 200); } } }
+function handleKeyUp(event) { keysPressed[event.code] = false; const humanPlayer = players.find(p => !p.isAI); if (humanPlayer) { if (event.code === 'KeyW') { humanPlayer.isAttemptingVariableJump = false; } } }
+function updatePlayerAnimations() { }
+function updateGame() { updateClouds(); updateSun(); updateSpectators(); if (gameState === 'gameOver') { if (keysPressed['KeyW']) { setup(); keysPressed['KeyW'] = false; } return; } if (!isGameStarted || isGameOver) return; gameTime++; updatePlayerStates(); handleHumanPlayerControls(); updateAIPlayers(); updatePlayerAnimations(); updateParticles(); }
+function updateClouds() { clouds.forEach(cloud => { cloud.x += cloud.speed; if (cloud.x > PIXEL_CANVAS_WIDTH + 30) { cloud.x = -30; cloud.y = Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5; } }); }
+function updateSun() { const elapsedTime = (Date.now() - gameStartTime) / 1000; const dayDuration = 180; const progress = (elapsedTime % dayDuration) / dayDuration; const angle = progress * Math.PI; sunPosition.x = PIXEL_CANVAS_WIDTH * 0.1 + Math.cos(Math.PI - angle) * PIXEL_CANVAS_WIDTH * 0.8; sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.05 + Math.sin(angle) * PIXEL_CANVAS_HEIGHT * 0.3; }
+function getCurrentSunColor() { const elapsedTime = (Date.now() - gameStartTime) / 1000; const dayDuration = 180; const progress = (elapsedTime % dayDuration) / dayDuration; if (progress < 0.15) return SUN_COLORS.dawn; if (progress < 0.3) return SUN_COLORS.morning; if (progress < 0.5) return SUN_COLORS.noon; if (progress < 0.7) return SUN_COLORS.afternoon; if (progress < 0.85) return SUN_COLORS.evening; return SUN_COLORS.night; }
+function updateSpectators() { spectators.forEach(spectator => { spectator.animation += 0.1; if (Math.random() < 0.001) { spectator.animation = 0; } }); }
+function updatePlayerStates() { players.forEach(player => { if (!player.isAI) { if (player.wasGrounded && !player.isGrounded && !player.isAttemptingVariableJump && player.playerBody.velocity.y > -0.5) { player.coyoteTimeFramesRemaining = COYOTE_TIME_FRAMES; } if (player.coyoteTimeFramesRemaining > 0) { player.coyoteTimeFramesRemaining--; } player.wasGrounded = player.isGrounded; } if (player.isGrounded && !player.isAttemptingVariableJump) { player.totalJumpImpulseThisJump = 0; } const MAX_ROTATION_ANGLE = Math.PI / 6; const SNAP_TO_ANGLE_THRESHOLD = 0.02; const RESTORING_TORQUE_FACTOR = 0.005; if (player.isRotating) { const currentAngle = player.playerBody.angle; const targetAngleDuringRoll = player.targetAngle; const angularSpeed = player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET; Body.setAngularVelocity(player.playerBody, angularSpeed); if (player.isGrounded) { const testTranslateSpeed = player.rollDirection * PLAYER_ROLL_TRANSLATE_SPEED * 2; Body.translate(player.playerBody, { x: testTranslateSpeed, y: 0 }); console.log(`UPS: Translating player ${player.playerTeam} by x: ${testTranslateSpeed}`); } let overShot = false; if (player.rollDirection === 1 && currentAngle >= targetAngleDuringRoll - SNAP_TO_ANGLE_THRESHOLD) { overShot = true; } else if (player.rollDirection === -1 && currentAngle <= targetAngleDuringRoll + SNAP_TO_ANGLE_THRESHOLD) { overShot = true; } if (overShot) { console.log(`UPS: Player ${player.playerTeam} overShot. Setting angle to ${targetAngleDuringRoll}`); Body.setAngle(player.playerBody, targetAngleDuringRoll); Body.setAngularVelocity(player.playerBody, 0); player.isRotating = false; player.rollDirection = 0; player.currentFace = (Math.round(targetAngleDuringRoll / (Math.PI / 2)) % 4 + 4) % 4; player.targetAngle = 0; } } else { const currentAngle = player.playerBody.angle; const desiredAngle = 0; let shouldSnapToVertical = false; if (!player.isAI && player.isGrounded && !keysPressed['KeyA'] && !keysPressed['KeyD'] && player.rollDirection === 0) { shouldSnapToVertical = true; } else if (player.isAI && player.isGrounded && player.rollDirection === 0 && !player.isRotating) { shouldSnapToVertical = true; } if (shouldSnapToVertical) { const angleDifference = desiredAngle - currentAngle; if (Math.abs(angleDifference) > SNAP_TO_ANGLE_THRESHOLD) { Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.80); if (Math.abs(player.playerBody.angularVelocity) < 0.05) { Body.setAngle(player.playerBody, currentAngle + angleDifference * 0.1); } } else { Body.setAngle(player.playerBody, desiredAngle); Body.setAngularVelocity(player.playerBody, 0); } player.targetAngle = desiredAngle; if (Math.abs(currentAngle - desiredAngle) < SNAP_TO_ANGLE_THRESHOLD) { player.currentFace = 0; } } if (player.playerBody.angle > MAX_ROTATION_ANGLE && player.playerBody.angularVelocity > 0) { Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.5); } else if (player.playerBody.angle < -MAX_ROTATION_ANGLE && player.playerBody.angularVelocity < 0) { Body.setAngularVelocity(player.playerBody, player.playerBody.angularVelocity * 0.5); } } }); }
+function handleHumanPlayerControls() { const player = players[0]; if (!player || player.isAI) return; console.log(`HPC: Keys A: ${keysPressed['KeyA']}, D: ${keysPressed['KeyD']}, Grounded: ${player.isGrounded}, Rotating: ${player.isRotating}`); if (player.jumpCooldown > 0) player.jumpCooldown--; if (!player.isRotating && player.isGrounded) { let roll = 0; if (keysPressed['KeyA']) { roll = -1; } else if (keysPressed['KeyD']) { roll = 1; } console.log(`HPC: Calculated roll: ${roll}`); if (roll !== 0) { player.isRotating = true; player.rollDirection = roll; const snappedCurrentAngle = Math.round(player.playerBody.angle / (Math.PI / 2)) * (Math.PI / 2); player.targetAngle = snappedCurrentAngle + roll * (Math.PI / 2); Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET); console.log(`HPC: Initiating roll. Direction: ${player.rollDirection}, TargetAngle: ${player.targetAngle}, AngularVel: ${player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET}`); } } const canStartNewJumpAttempt = (player.isGrounded || player.coyoteTimeFramesRemaining > 0); const commonJumpConditionsMet = player.jumpCooldown === 0; if (keysPressed['KeyW'] && commonJumpConditionsMet) { if (!player.isAttemptingVariableJump && canStartNewJumpAttempt && !player.isRotating) { player.isGrounded = false; player.coyoteTimeFramesRemaining = 0; player.jumpInputBuffered = false; player.isAttemptingVariableJump = true; player.variableJumpForceAppliedDuration = 0; player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE; Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE }); player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES; player.lastJumpTime = Date.now(); playSound('jump.wav'); } else if (player.isAttemptingVariableJump) { if (player.variableJumpForceAppliedDuration < PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES && player.totalJumpImpulseThisJump < PLAYER_MAX_JUMP_IMPULSE) { let forceToApply = PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE; if (player.totalJumpImpulseThisJump + forceToApply > PLAYER_MAX_JUMP_IMPULSE) { forceToApply = PLAYER_MAX_JUMP_IMPULSE - player.totalJumpImpulseThisJump; } if (forceToApply > 0) { Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -forceToApply }); player.totalJumpImpulseThisJump += forceToApply; } player.variableJumpForceAppliedDuration++; } else { player.isAttemptingVariableJump = false; } } } if (player.jumpInputBuffered && player.isGrounded && commonJumpConditionsMet && !player.isAttemptingVariableJump && !player.isRotating) { player.isGrounded = false; player.coyoteTimeFramesRemaining = 0; player.jumpInputBuffered = false; player.isAttemptingVariableJump = true; player.variableJumpForceAppliedDuration = 0; player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE; Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE }); player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES; player.lastJumpTime = Date.now(); playSound('jump.wav'); } if (player.jumpInputBuffered && (!player.isGrounded || player.isAttemptingVariableJump || !commonJumpConditionsMet) ) { player.jumpInputBuffered = false; } if (!player.isGrounded && !player.isRotating) { let airMoveDirection = 0; if (keysPressed['KeyA']) { airMoveDirection = -1; } else if (keysPressed['KeyD']) { airMoveDirection = 1; } if (airMoveDirection !== 0) { const airControlForceMagnitude = PLAYER_MOVE_FORCE * PLAYER_AIR_CONTROL_FACTOR * 0.1; Body.applyForce(player.playerBody, player.playerBody.position, { x: airMoveDirection * airControlForceMagnitude, y: 0 }); } } }
+function updateAIPlayers() { players.forEach((player) => { if (player.isAI) { if (player.actionCooldown > 0) player.actionCooldown--; if (player.jumpCooldown > 0) player.jumpCooldown--; executeAIPlayerLogic(player); } }); }
+function executeAIPlayerLogic(player) { if (!ball) return; const ballPos = ball.position; const playerPos = player.playerBody.position; const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos)); let AImoveDirection = 0; const aiGoalX = CANVAS_WIDTH - WALL_THICKNESS; const opponentGoalX = WALL_THICKNESS; const { actualGoalOpeningHeight } = getFieldDerivedConstants(); const ownGoalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2; const isBallInAIHalf = ballPos.x > CANVAS_WIDTH / 2; const isBallNearAIGoal = ballPos.x > CANVAS_WIDTH * 0.75; const isBallMovingTowardsAIGoal = ball.velocity.x > 0.5; const isAIAhead = team2Score > team1Score; const isGameNearEnd = gameTimeRemaining < 30; let intent = 'pursue_ball'; const dangerOfOwnGoal = isBallNearAIGoal && Math.abs(ballPos.y - ownGoalCenterY) < actualGoalOpeningHeight / 1.5 && Math.abs(playerPos.x - ballPos.x) < PLAYER_RECT_SIZE && playerPos.x > ballPos.x; if (dangerOfOwnGoal) { intent = 'clear_ball_safely'; } else if (isBallNearAIGoal && isBallMovingTowardsAIGoal) { intent = 'emergency_defense'; } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE * 1.2 && ballPos.x > CANVAS_WIDTH * 0.65) { intent = 'defend_goal_line'; } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE) { intent = 'defensive_positioning'; } else if (!isBallInAIHalf && playerPos.x > CANVAS_WIDTH * 0.6 && (!isAIAhead || !isGameNearEnd)) { intent = 'advance_to_attack'; } else if (isAIAhead && isGameNearEnd && isBallInAIHalf) { intent = 'hold_position_defensive'; } switch (intent) { case 'clear_ball_safely': if (ballPos.x > playerPos.x) { AImoveDirection = -1; } else { AImoveDirection = 1; } break; case 'emergency_defense': const emergencyDefenseX = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.2; const directionToEmergencyPos = emergencyDefenseX - playerPos.x; if (Math.abs(directionToEmergencyPos) > PLAYER_RECT_SIZE / 3) { AImoveDirection = Math.sign(directionToEmergencyPos); } break; case 'defend_goal_line': const defensiveTargetXGoalLine = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.0; const directionToTargetXGoalLine = defensiveTargetXGoalLine - playerPos.x; if (Math.abs(directionToTargetXGoalLine) > PLAYER_RECT_SIZE / 2) { AImoveDirection = Math.sign(directionToTargetXGoalLine); } break; case 'defensive_positioning': const idealDefensiveX = Math.min(ballPos.x + 60, aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.5); const finalDefensiveTargetX = Math.max(CANVAS_WIDTH / 2 + WALL_THICKNESS, Math.min(aiGoalX - WALL_THICKNESS - PLAYER_RECT_SIZE, idealDefensiveX)); const dirToDefTarget = finalDefensiveTargetX - playerPos.x; if (Math.abs(dirToDefTarget) > PLAYER_RECT_SIZE / 2) { AImoveDirection = Math.sign(dirToDefTarget); } break; case 'advance_to_attack': const offensiveMidfieldTargetX = CANVAS_WIDTH * 0.3 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.1); const dirToAdvanceTarget = offensiveMidfieldTargetX - playerPos.x; if (Math.abs(dirToAdvanceTarget) > PLAYER_RECT_SIZE) { AImoveDirection = Math.sign(dirToAdvanceTarget); } break; case 'hold_position_defensive': const safeDefensiveX = CANVAS_WIDTH * 0.6 + (Math.random() * CANVAS_WIDTH * 0.1); const dirToSafePos = safeDefensiveX - playerPos.x; if (Math.abs(dirToSafePos) > PLAYER_RECT_SIZE) { AImoveDirection = Math.sign(dirToSafePos); } break; case 'pursue_ball': default: const dirToBallX = ballPos.x - playerPos.x; if (Math.abs(dirToBallX) > BALL_RADIUS + PLAYER_RECT_SIZE / 2 * 0.3 ) { AImoveDirection = Math.sign(dirToBallX); } break; } if (AImoveDirection !== 0 && !player.isRotating && player.isGrounded) { player.isRotating = true; player.rollDirection = AImoveDirection; const currentAngle = player.playerBody.angle; const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2); player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2); Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET); } if (player.jumpCooldown === 0 && distanceToBall < AI_ACTION_RANGE * 1.3 && !player.isRotating) { const ballIsHigh = ballPos.y < playerPos.y - PLAYER_RECT_SIZE / 2 * 0.6; let shouldJump = ballIsHigh || (distanceToBall < AI_KICK_BALL_RANGE * 0.7 && Math.abs(ballPos.y - playerPos.y) < PLAYER_RECT_SIZE) || intent === 'emergency_defense' || intent === 'defend_goal_line' || intent === 'clear_ball_safely'; if (!isAIAhead && !isGameNearEnd && distanceToBall < AI_ACTION_RANGE) { shouldJump = shouldJump || Math.random() < 0.1; } if (shouldJump && player.isGrounded) { player.isGrounded = false; player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * (1.0 + Math.random() * 0.3); player.lastJumpTime = Date.now(); playSound('jump.wav'); let horizontalActionForceDirection = 0; if (intent === 'emergency_defense' || intent === 'defend_goal_line' || intent === 'clear_ball_safely') { if (ballPos.x > playerPos.x && playerPos.x < aiGoalX - PLAYER_RECT_SIZE) { horizontalActionForceDirection = 0.002 + Math.random() * 0.002; } else if (ballPos.x < playerPos.x && playerPos.x > opponentGoalX + PLAYER_RECT_SIZE) { horizontalActionForceDirection = -0.002 - Math.random() * 0.002; } } else { if (playerPos.x > opponentGoalX + PLAYER_RECT_SIZE * 2) { horizontalActionForceDirection = -0.0015 - Math.random() * 0.001; } else if (playerPos.x < opponentGoalX + PLAYER_RECT_SIZE) { horizontalActionForceDirection = 0.001 + Math.random() * 0.001; } } const jumpStrengthFactor = (intent === 'emergency_defense' || intent === 'clear_ball_safely') ? 1.25 : 0.9; const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.7 + Math.random() * 0.35); Body.applyForce(player.playerBody, playerPos, { x: horizontalActionForceDirection, y: verticalJumpForce }); } } }
+function perpDistToLine(p1, p2, p3) { const dx = p2.x - p1.x; const dy = p2.y - p1.y; if (dx === 0 && dy === 0) return Matter.Vector.magnitude(Matter.Vector.sub(p3,p1)); const t = ((p3.x - p1.x) * dx + (p3.y - p1.y) * dy) / (dx*dx + dy*dy); let cp; if (t < 0) cp = p1; else if (t > 1) cp = p2; else cp = { x: p1.x + t*dx, y: p1.y + t*dy }; return Matter.Vector.magnitude(Matter.Vector.sub(p3, cp)); }
 let goalScoredRecently = false;
-function handleGoalScored(scoringTeam) { /* ... */ }
-function checkWinCondition() { /* ... */ }
-function resetPositions() { /* ... */ }
-
-
-// --- handleCollisions (NEW VERSION for new posts and sensors) ---
-function handleCollisions(event) {
-    if (!isGameStarted || isGameOver) return;
-    if (isGameOver && goalScoredRecently) return;
-
-    const pairs = event.pairs;
-    const { actualGoalOpeningHeight } = getFieldDerivedConstants();
-    const opponentGoalX_P1 = CANVAS_WIDTH - WALL_THICKNESS; // Player 1 attacks right goal
-    const opponentGoalX_P2 = WALL_THICKNESS; // Player 2 (AI) attacks left goal
-    const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
-
-
-    for (let i = 0; i < pairs.length; i++) {
-        const pair = pairs[i];
-        const bodyA = pair.bodyA;
-        const bodyB = pair.bodyB;
-        let ballBody = null;
-        let otherBody = null;
-        let playerCollidedObject = null; // The player object from our `players` array
-        let playerPhysicsBody = null;   // The actual Matter.js body of the player
-
-        if (bodyA.label === 'ball') {
-            ballBody = bodyA; otherBody = bodyB;
-        } else if (bodyB.label === 'ball') {
-            ballBody = bodyB; otherBody = bodyA;
-        }
-
-        if (ballBody && otherBody) {
-            // Check if ball collided with a player
-            for (const p of players) {
-                if (otherBody === p.playerBody) {
-                    playerCollidedObject = p;
-                    playerPhysicsBody = otherBody;
-                    break;
-                }
-            }
-
-            if (playerCollidedObject) { // Ball hit a player
-                let kickForce = KICK_FORCE_MAGNITUDE;
-                let kickAngleFactorY = -0.7;
-                let isTimedShot = (Date.now() - playerCollidedObject.lastJumpTime) < 200 && playerCollidedObject.lastJumpTime !== 0;
-                if (isTimedShot) {
-                    kickForce *= TIMED_JUMP_SHOT_BONUS_FACTOR;
-                    kickAngleFactorY *= JUMP_SHOT_LOFT_FACTOR;
-                }
-
-                const kickOrigin = playerPhysicsBody.position;
-                const ownGoalX = playerCollidedObject.playerTeam === 1 ? WALL_THICKNESS : CANVAS_WIDTH - WALL_THICKNESS;
-                const opponentGoalX = playerCollidedObject.playerTeam === 1 ? opponentGoalX_P1 : opponentGoalX_P2;
-                let kickTargetPos = { x: opponentGoalX, y: goalCenterY };
-
-                if (playerCollidedObject.isAI) {
-                    // --- ADVANCED AI SHOOTING LOGIC ---
-                    const aiPlayerPos = playerPhysicsBody.position;
-                    const targetGoalPos = { x: opponentGoalX, y: goalCenterY };
-                    const ownGoalPos = { x: ownGoalX, y: goalCenterY };
-                    let humanPlayerObstacle = null;
-                    const humanPlayer = players.find(p => !p.isAI);
-
-                    if (humanPlayer) {
-                        const humanPlayerPos = humanPlayer.playerBody.position;
-                        const vecAiToGoal = Matter.Vector.sub(targetGoalPos, aiPlayerPos);
-                        const vecAiToHuman = Matter.Vector.sub(humanPlayerPos, aiPlayerPos);
-                        if (Matter.Vector.dot(vecAiToGoal, vecAiToHuman) > 0 &&
-                            Matter.Vector.magnitudeSquared(vecAiToHuman) < Matter.Vector.magnitudeSquared(vecAiToGoal)) {
-                            const distToPath = perpDistToLine(aiPlayerPos, targetGoalPos, humanPlayerPos);
-                            if (distToPath < PLAYER_RECT_SIZE * 1.2 && Math.abs(humanPlayerPos.y - aiPlayerPos.y) < PLAYER_RECT_SIZE * 1.5) {
-                                humanPlayerObstacle = humanPlayer;
-                            }
-                        }
-                    }
-
-                    const ballToOwnGoalVector = Matter.Vector.sub(ownGoalPos, ballBody.position);
-                    const playerToBallVector = Matter.Vector.sub(ballBody.position, aiPlayerPos);
-                    const kickTowardsOwnGoalAngleThreshold = Math.PI / 2.5;
-                    const angleToOwnGoal = Matter.Vector.angle(playerToBallVector, ballToOwnGoalVector);
-                    let isOwnGoalRisk = false;
-                    if (aiPlayerPos.x > ballBody.position.x && ownGoalPos.x > aiPlayerPos.x && Math.abs(angleToOwnGoal) > Math.PI - kickTowardsOwnGoalAngleThreshold) {
-                        isOwnGoalRisk = true;
-                    } else if (aiPlayerPos.x < ballBody.position.x && ownGoalPos.x < aiPlayerPos.x && Math.abs(angleToOwnGoal) < kickTowardsOwnGoalAngleThreshold) {
-                        isOwnGoalRisk = true;
-                    }
-
-                    let kickVector;
-                    let shotType = ""; // For logging
-
-                    if (isOwnGoalRisk && Matter.Vector.magnitude(ballToOwnGoalVector) < CANVAS_WIDTH / 2.5) { // Increased range for own goal safety
-                        shotType = "OWN GOAL CLEARANCE";
-                        kickTargetPos = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 4 };
-                        if (aiPlayerPos.x < CANVAS_WIDTH / 2) kickTargetPos.x = CANVAS_WIDTH * 0.75;
-                        else kickTargetPos.x = CANVAS_WIDTH * 0.25;
-                        kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos));
-                        kickVector.y = Math.min(kickVector.y, -0.9); // Very high clearance
-                        kickForce *= 0.85;
-                    } else if (humanPlayerObstacle) {
-                        const distanceToObstacle = Matter.Vector.magnitude(Matter.Vector.sub(humanPlayerObstacle.playerBody.position, aiPlayerPos));
-                        const obstacleIsVeryClose = distanceToObstacle < PLAYER_RECT_SIZE * 1.8; // Adjusted threshold
-                        const canChipOver = humanPlayerObstacle.playerBody.position.y > aiPlayerPos.y - PLAYER_RECT_SIZE * 0.3;
-
-                        if (obstacleIsVeryClose && canChipOver && Math.random() < 0.5) {
-                            shotType = "CHIP SHOT";
-                            kickForce *= 0.75;
-                            kickTargetPos = { x: targetGoalPos.x, y: targetGoalPos.y - actualGoalOpeningHeight * 0.35 };
-                            kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos));
-                            kickVector.y = -0.85 - (Math.random() * 0.15);
-                            kickVector.x *= (0.4 + Math.random() * 0.2);
-                        } else {
-                            shotType = "CURVED SHOT";
-                            kickForce *= 0.9;
-                            const curveDirection = Math.sign(targetGoalPos.x - humanPlayerObstacle.playerBody.position.x) || (Math.random() < 0.5 ? -1 : 1);
-                            const curveMagnitude = actualGoalOpeningHeight * (0.35 + Math.random() * 0.25);
-                            kickTargetPos = {
-                                x: targetGoalPos.x,
-                                y: targetGoalPos.y - actualGoalOpeningHeight * 0.1 + curveDirection * curveMagnitude
-                            };
-                            kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos));
-                            kickVector.y = -0.6 - Math.random() * 0.3;
-                            Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
-
-                            const spinForce = KICK_FORCE_MAGNITUDE * (0.4 + Math.random() * 0.25);
-                            const spinApplicationPoint = {
-                                x: ballBody.position.x + curveDirection * BALL_RADIUS * 0.7, // Apply further to edge
-                                y: ballBody.position.y + BALL_RADIUS * (Math.random() * 0.4 - 0.2) // Add some y variation
-                            };
-                            const spinDirectionVector = {x:0, y: -curveDirection * spinForce}; // Simpler spin vector
-                            Body.applyForce(ballBody, spinApplicationPoint, spinDirectionVector);
-                            playSound('kick.wav');
-                            console.log(`AI Kick: ${shotType} executed.`);
-                            return;
-                        }
-                    } else {
-                        shotType = "POWER SHOT";
-                        kickForce *= 1.2;
-                        const distanceToGoal = Matter.Vector.magnitude(Matter.Vector.sub(targetGoalPos, aiPlayerPos));
-                        let targetYOffset = (Math.random() - 0.5) * actualGoalOpeningHeight * 0.5;
-                        kickTargetPos = { x: targetGoalPos.x, y: targetGoalPos.y + targetYOffset };
-                        kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos));
-                        if (distanceToGoal < CANVAS_WIDTH / 3.5) {
-                            kickVector.y = Math.min(kickVector.y, -0.3 - Math.random() * 0.15);
-                        } else {
-                            kickVector.y = Math.min(kickVector.y, -0.5 - Math.random() * 0.25);
-                        }
-                    }
-                    console.log(`AI Kick: ${shotType} (Target: ${kickTargetPos.x.toFixed(0)},${kickTargetPos.y.toFixed(0)})`);
-                    kickVector = Matter.Vector.normalise(kickVector);
-                    Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
-                    playSound('kick.wav');
-                    return;
-                    // --- END OF ADVANCED AI SHOOTING LOGIC ---
-                } else { // Human player
-                    if (isTimedShot) {
-                        kickAngleFactorY = -0.8 * JUMP_SHOT_LOFT_FACTOR;
-                        kickForce *= 1.1;
-                    } else {
-                        kickAngleFactorY = -0.5 - Math.random() * 0.3;
-                    }
-                    kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5);
-                    let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
-                    kickVector = Matter.Vector.normalise(kickVector);
-                    kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
-                    kickVector = Matter.Vector.normalise(kickVector);
-                    playSound('kick.wav');
-                    Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
-                }
-            } else { // Ball hit something other than a player
-                // Goal scored by hitting the sensor
-                if (otherBody.label === 'goal-left-sensor') {
-                    handleGoalScored(2); // Team 2 scores
-                } else if (otherBody.label === 'goal-right-sensor') {
-                    handleGoalScored(1); // Team 1 scores
-                }
-                // Ball hit a physical post
-                else if (otherBody.label.startsWith('post-')) {
-                    playSound('post_hit.wav');
-                    // --- START: Trigger Post Shake Effect ---
-                    if (!otherBody.isShaking) {
-                        otherBody.isShaking = true;
-                        otherBody.shakeStartTime = engine.timing.timestamp;
-                        otherBody.shakeDuration = 250; // ms
-                        otherBody.shakeIntensity = 1.0 / PIXEL_SCALE; // Intensity in pixelCanvas units
-                        console.log(`Shaking post: ${otherBody.label} at ${otherBody.shakeStartTime}`);
-                    }
-                    // --- END: Trigger Post Shake Effect ---
-                }
-                // Ball hit wall or ceiling
-                else if (otherBody.label.includes('wall') || otherBody.label.includes('ceiling')) {
-                    if (Matter.Vector.magnitude(ballBody.velocity) > 1.5) {
-                        playSound('ball_hit_wall.wav');
-                        spawnParticles(pair.collision.supports[0].x, pair.collision.supports[0].y, 4, '#DDDDDD', pair.collision.normal.x * 0.5, pair.collision.normal.y * 0.5, 1.5, 15, 1);
-                    }
-                }
-            }
-        }
-        // Player grounded check (no changes)
-        players.forEach(player => { /* ... */ });
-    }
-}
-
-// --- Rendering Functions (drawPlayer, drawPixelIsoRectangle, shadeColor, drawCloud, drawSpectator, drawStadiumLight, drawInGameScoreboard, drawPixelText, drawPixelIsoCircle) ---
-// drawCloud was updated previously. Other drawing functions are assumed to be fine unless specified.
-function drawPlayer(pCtx, body, playerColor) { /* ... (no changes) ... */ }
-function drawPixelIsoRectangle(pCtx, body, colorOverride = null) { /* ... (no changes, includes new grass) ... */ }
-function shadeColor(color, percent) { /* ... (no changes) ... */ }
-function drawCloud(cloud) { /* ... (new fluffy clouds) ... */ }
-function drawSpectator(spectator) { /* ... (no changes, but not rendered) ... */ }
-function drawStadiumLight(light) { /* ... (no changes) ... */ }
-function drawInGameScoreboard() { /* ... (new top-left scoreboard) ... */ }
-function drawPixelText(x, y, text, pixelSize) { /* ... (no changes) ... */ }
-function drawPixelIsoCircle(pCtx, body, colorOverride = null) { /* ... (no changes) ... */ }
-
-
-// --- customRenderAll (Goal rendering part needs to be updated if physical posts are used) ---
-function customRenderAll() {
-    // Sky, lights, clouds, sun (no changes)
-    /* ... */
-    const currentSunColor = getCurrentSunColor();
-    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
-    let skyTop, skyMid, skyBottom;
-    if (currentSunColor === SUN_COLORS.dawn || currentSunColor === SUN_COLORS.evening) {
-        skyTop = '#FF6B6B'; skyMid = '#FFD93D'; skyBottom = '#87CEEB';
-    } else if (currentSunColor === SUN_COLORS.night) {
-        skyTop = '#191970'; skyMid = '#000033'; skyBottom = '#191970';
-    } else {
-        skyTop = shadeColor(activeTheme.skyColor, 0.2);
-        skyMid = activeTheme.skyColor;
-        skyBottom = shadeColor(activeTheme.skyColor, -0.3);
-    }
-    gradient.addColorStop(0, skyTop); gradient.addColorStop(0.6, skyMid); gradient.addColorStop(1, skyBottom);
-    pixelCtx.fillStyle = gradient;
-    pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
-    stadiumLights.forEach(light => drawStadiumLight(light));
-    // spectators.forEach(spectator => drawSpectator(spectator)); // Spectators removed
-    clouds.forEach(cloud => drawCloud(cloud));
-    // Sun rendering code... (no changes)
-    /* ... */
-
-    // Render all static bodies (ground, walls, AND posts with potential shake)
-    const allStaticBodies = Composite.allBodies(world).filter(b => b.isStatic && !b.isSensor);
-    allStaticBodies.forEach(body => {
-        if (body.render.visible === false) return; // Skip explicitly invisible bodies
-
-        let renderX = body.position.x;
-        let renderY = body.position.y;
-
-        if (body.label.startsWith('post-') && body.isShaking) {
-            const elapsedTime = engine.timing.timestamp - body.shakeStartTime;
-            if (elapsedTime < body.shakeDuration) {
-                const progress = elapsedTime / body.shakeDuration;
-                const diminishingIntensity = body.shakeIntensity * (1 - Math.pow(progress, 2)); // Intensity decreases more rapidly
-
-                // Apply shake offset
-                renderX += (Math.random() - 0.5) * 2 * diminishingIntensity;
-                renderY += (Math.random() - 0.5) * 2 * diminishingIntensity * 0.5; // Less vertical shake
-            } else {
-                body.isShaking = false; // End shake
-            }
-        }
-
-        // Determine dimensions for rendering (this part might need to be more robust)
-        // For posts, use their specific dimensions. For others, use bounds from drawPixelIsoRectangle if needed.
-        let pWidth, pHeight;
-        if (body.label.startsWith('post-')) {
-            pWidth = (body.label.includes('-h-') ? GOAL_MOUTH_VISUAL_WIDTH : physicalPostThickness) / PIXEL_SCALE;
-            pHeight = (body.label.includes('-h-') ? CROSSBAR_THICKNESS : (GOAL_HEIGHT - CROSSBAR_THICKNESS)) / PIXEL_SCALE;
-        } else if (body.label === 'ground') {
-            pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = GROUND_THICKNESS / PIXEL_SCALE;
-        } else if (body.label.includes('wall')) {
-            pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE;
-        } else if (body.label === 'ceiling') {
-            pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = WALL_THICKNESS / PIXEL_SCALE;
-        } else { // Fallback for other static bodies if any
-            const boundsWidth = (body.bounds.max.x - body.bounds.min.x) / PIXEL_SCALE;
-            const boundsHeight = (body.bounds.max.y - body.bounds.min.y) / PIXEL_SCALE;
-            pWidth = Math.max(1, Math.round(boundsWidth));
-            pHeight = Math.max(1, Math.round(boundsHeight));
-        }
-
-        const pX = renderX / PIXEL_SCALE;
-        const pY = renderY / PIXEL_SCALE;
-
-        pixelCtx.save();
-        pixelCtx.translate(pX, pY);
-        pixelCtx.rotate(body.angle); // Ensure rotation is applied if posts can rotate (though they are static)
-        pixelCtx.fillStyle = body.render.fillStyle || (body.label.startsWith('post-') ? goalPostRenderStyle.fillStyle : '#333');
-
-        // Simplified rectangle fill for all static objects for consistency here
-        // The complex iso-rectangle drawing can be re-integrated if needed
-        pixelCtx.fillRect(-pWidth / 2, -pHeight / 2, pWidth, pHeight);
-
-        if (body.render.strokeStyle && body.label.startsWith('post-')) { // Optional: add stroke to posts
-            pixelCtx.strokeStyle = body.render.strokeStyle;
-            pixelCtx.lineWidth = body.render.lineWidth / PIXEL_SCALE || 1;
-            pixelCtx.strokeRect(-pWidth / 2, -pHeight / 2, pWidth, pHeight);
-        }
-        pixelCtx.restore();
-
-    });
-    
-    // Render dynamic bodies (players, ball)
-    if(ball && ball.render.visible !== false) drawPixelIsoCircle(pixelCtx, ball, BALL_PANEL_COLOR_PRIMARY);
-    players.forEach(p => {
-        if (p.playerBody.render.visible !== false) drawPlayer(pixelCtx, p.playerBody, p.color);
-    });
-
-    particles.forEach(particle => { /* ... (no changes) ... */ });
-
-    // --- Goal Net Rendering (Simplified, to be drawn behind players/ball but in front of far background) ---
-    // This part needs to be carefully placed in the Z-order.
-    // It should visually connect to the physical posts.
-    const netColor = activeTheme.net || 'rgba(200, 200, 200, 0.6)';
-    const postThickness = Math.max(1, Math.round(physicalPostThickness / PIXEL_SCALE / 2)); // Visual thickness based on physical
-    const goalPixelH = Math.round(goalOpeningActualHeight / PIXEL_SCALE);
-    const goalPixelMW = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
-    const goalPixDepth = Math.round((GOAL_MOUTH_VISUAL_WIDTH * 0.5) / PIXEL_SCALE); // Visual depth
-    const gndY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
-    const goalTY = gndY - goalPixelH;
-
-    pixelCtx.strokeStyle = netColor;
-    pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
-
-    [-1, 1].forEach(side => { // -1 for left goal, 1 for right goal
-        const startX = (side === -1) ?
-            Math.round(WALL_THICKNESS / PIXEL_SCALE) + postThickness :
-            Math.round((CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH) / PIXEL_SCALE) + postThickness;
-        const endX = startX + goalPixelMW - 2 * postThickness;
-
-        const backYTop = goalTY + goalPixDepth * 0.3;
-        const backYBottom = gndY - goalPixDepth * 0.1;
-        const backXStart = startX + goalPixDepth * 0.7;
-        const backXEnd = endX - goalPixDepth * 0.7;
-
-        // Top and bottom back net lines
-        pixelCtx.beginPath(); pixelCtx.moveTo(backXStart, backYTop); pixelCtx.lineTo(backXEnd, backYTop); pixelCtx.stroke();
-        pixelCtx.beginPath(); pixelCtx.moveTo(backXStart, backYBottom); pixelCtx.lineTo(backXEnd, backYBottom); pixelCtx.stroke();
-        // Side back net lines
-        pixelCtx.beginPath(); pixelCtx.moveTo(backXStart, backYTop); pixelCtx.lineTo(backXStart, backYBottom); pixelCtx.stroke();
-        pixelCtx.beginPath(); pixelCtx.moveTo(backXEnd, backYTop); pixelCtx.lineTo(backXEnd, backYBottom); pixelCtx.stroke();
-
-        for(let i = 1; i < 5; i++) { // Horizontal net lines
-            const t = i/5;
-            pixelCtx.beginPath();
-            pixelCtx.moveTo(startX, goalTY + t * goalPixelH);
-            pixelCtx.lineTo(backXStart + t * (backXEnd - backXStart) * 0.1 , backYTop + t * (backYBottom - backYTop)); // Angled
-            pixelCtx.lineTo(backXEnd - t * (backXEnd - backXStart) * 0.1, backYTop + t * (backYBottom - backYTop));   // Angled
-            pixelCtx.lineTo(endX, goalTY + t * goalPixelH);
-            pixelCtx.stroke();
-        }
-        for(let i = 1; i < 6; i++) { // Vertical net lines
-            const t = i/6;
-            pixelCtx.beginPath();
-            pixelCtx.moveTo(startX + t * (endX-startX), goalTY);
-            pixelCtx.lineTo(backXStart + t * (backXEnd-backXStart), backYTop);
-            pixelCtx.lineTo(backXStart + t * (backXEnd-backXStart), backYBottom);
-            // pixelCtx.lineTo(startX + t * (endX-startX), gndY); // If net goes to ground straight
-            pixelCtx.stroke();
-        }
-    });
-    // --- End of Goal Net Rendering ---
-
-    drawInGameScoreboard();
-}
-// --- gameRenderLoop (with rounded corners, no changes from before) ---
-function gameRenderLoop() { /* ... */ }
-// --- Particle System (spawnParticles, updateParticles - no changes) ---
-function spawnParticles(x,y,count,color,baseVelocityX,baseVelocityY,spread,life,size) { /* ... */ }
-function updateParticles() { /* ... */ }
+function handleGoalScored(scoringTeam) { if (isGameOver || goalScoredRecently) return; goalScoredRecently = true; playSound('goal.wav'); if (scoringTeam === 1) team1Score++; else if (scoringTeam === 2) team2Score++; updateScoreDisplay(); const { actualGoalOpeningHeight } = getFieldDerivedConstants(); spawnParticles(ball.position.x, ball.position.y, 25, 'gold', 0, -1, 3, 40, 2); gameMessageDisplay.textContent = `GOAL!!! TEAM ${scoringTeam}!`; gameMessageDisplay.style.fontSize = '3em'; gameMessageDisplay.style.color = 'gold'; gameMessageDisplay.style.textShadow = '2px 2px #000'; if (checkWinCondition()) { goalScoredRecently = false; gameMessageDisplay.style.fontSize = ''; gameMessageDisplay.style.color = ''; gameMessageDisplay.style.textShadow = ''; return; } setTimeout(() => { if (gameMessageDisplay.textContent === `GOAL!!! TEAM ${scoringTeam}!`) { showGameMessage(''); } gameMessageDisplay.style.fontSize = ''; gameMessageDisplay.style.color = ''; gameMessageDisplay.style.textShadow = ''; goalScoredRecently = false; }, 2200); resetPositions(); }
+function checkWinCondition() { if (isGameOver) return true; let winner = null; let reason = ""; if (gameTimeRemaining <= 0) { if (team1Score > team2Score) { winner = 1; reason = `Time's Up! Player 1 Wins!`; } else if (team2Score > team1Score) { winner = 2; reason = `Time's Up! Player 2 Wins!`; } else { winner = 0; reason = `Time's Up! It's a Draw!`; } } if (winner !== null) { isGameOver = true; gameState = 'gameOver'; const restartKey = 'W'; showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${restartKey}' to return to menu.`); if (runner) Runner.stop(runner); if (roundTimerId) { clearInterval(roundTimerId); roundTimerId = null; } setTimeout(() => { if (gameState === 'gameOver') { gameState = 'menu'; isGameOver = false; isGameStarted = false; showGameMessage(''); } }, 5000); return true; } return false; }
+function resetPositions() { if (ball) { Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 3 }); Body.setVelocity(ball, { x: 0, y: 0 }); Body.setAngularVelocity(ball, 0); } const playerSpawnY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 5; const player1StartX = CANVAS_WIDTH / 4; const player2StartX = CANVAS_WIDTH * 3 / 4; players.forEach((player, index) => { const startX = (index === 0) ? player1StartX : player2StartX; const startY = playerSpawnY; if(player.playerBody) { World.remove(world, player.playerBody); } delete player.mainBody; delete player.kickingLeg; delete player.hipConstraint; delete player.head; delete player.torso; delete player.leftLeg_Instance; delete player.rightLeg_Instance; delete player.supportLeg; delete player.allParts; delete player.kickingLegSide; delete player.animationState; delete player.animationFrame; delete player.animationDuration; const newPlayerProps = createPlayer(startX, startY, player.color, player.playerTeam === 1, player.isAI); for (const key in player) { if (Object.hasOwnProperty.call(player, key) && !Object.hasOwnProperty.call(newPlayerProps,key) ) { delete player[key]; } } Object.assign(player, newPlayerProps); Body.setPosition(player.playerBody, {x: startX, y: startY}); Body.setVelocity(player.playerBody, {x:0, y:0}); Body.setAngle(player.playerBody, 0); Body.setAngularVelocity(player.playerBody, 0); player.actionCooldown = 0; player.jumpCooldown = 0; player.isGrounded = true; player.targetAngle = 0; player.isRotating = false; player.currentFace = 0; player.rollDirection = 0; }); }
+function handleCollisions(event) { if (!isGameStarted || isGameOver) return; if (isGameOver && goalScoredRecently) return; const pairs = event.pairs; const { actualGoalOpeningHeight } = getFieldDerivedConstants(); const opponentGoalX_P1 = CANVAS_WIDTH - WALL_THICKNESS; const opponentGoalX_P2 = WALL_THICKNESS; const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2; for (let i = 0; i < pairs.length; i++) { const pair = pairs[i]; const bodyA = pair.bodyA; const bodyB = pair.bodyB; let ballBody = null; let otherBody = null; let playerCollidedObject = null; let playerPhysicsBody = null; if (bodyA.label === 'ball') { ballBody = bodyA; otherBody = bodyB; } else if (bodyB.label === 'ball') { ballBody = bodyB; otherBody = bodyA; } if (ballBody && otherBody) { for (const p of players) { if (otherBody === p.playerBody) { playerCollidedObject = p; playerPhysicsBody = otherBody; break; } } if (playerCollidedObject) { let kickForce = KICK_FORCE_MAGNITUDE; let kickAngleFactorY = -0.7; let isTimedShot = (Date.now() - playerCollidedObject.lastJumpTime) < 200 && playerCollidedObject.lastJumpTime !== 0; if (isTimedShot) { kickForce *= TIMED_JUMP_SHOT_BONUS_FACTOR; kickAngleFactorY *= JUMP_SHOT_LOFT_FACTOR; } const kickOrigin = playerPhysicsBody.position; const ownGoalX = playerCollidedObject.playerTeam === 1 ? WALL_THICKNESS : CANVAS_WIDTH - WALL_THICKNESS; const opponentGoalX = playerCollidedObject.playerTeam === 1 ? opponentGoalX_P1 : opponentGoalX_P2; let kickTargetPos = { x: opponentGoalX, y: goalCenterY }; if (playerCollidedObject.isAI) { const aiPlayerPos = playerPhysicsBody.position; const targetGoalPos = { x: opponentGoalX, y: goalCenterY }; const ownGoalPos = { x: ownGoalX, y: goalCenterY }; let humanPlayerObstacle = null; const humanPlayer = players.find(p => !p.isAI); if (humanPlayer) { const humanPlayerPos = humanPlayer.playerBody.position; const vecAiToGoal = Matter.Vector.sub(targetGoalPos, aiPlayerPos); const vecAiToHuman = Matter.Vector.sub(humanPlayerPos, aiPlayerPos); if (Matter.Vector.dot(vecAiToGoal, vecAiToHuman) > 0 && Matter.Vector.magnitudeSquared(vecAiToHuman) < Matter.Vector.magnitudeSquared(vecAiToGoal)) { const distToPath = perpDistToLine(aiPlayerPos, targetGoalPos, humanPlayerPos); if (distToPath < PLAYER_RECT_SIZE * 1.2 && Math.abs(humanPlayerPos.y - aiPlayerPos.y) < PLAYER_RECT_SIZE * 1.5) { humanPlayerObstacle = humanPlayer; } } } const ballToOwnGoalVector = Matter.Vector.sub(ownGoalPos, ballBody.position); const playerToBallVector = Matter.Vector.sub(ballBody.position, aiPlayerPos); const kickTowardsOwnGoalAngleThreshold = Math.PI / 2.5; const angleToOwnGoal = Matter.Vector.angle(playerToBallVector, ballToOwnGoalVector); let isOwnGoalRisk = false; if (aiPlayerPos.x > ballBody.position.x && ownGoalPos.x > aiPlayerPos.x && Math.abs(angleToOwnGoal) > Math.PI - kickTowardsOwnGoalAngleThreshold) { isOwnGoalRisk = true; } else if (aiPlayerPos.x < ballBody.position.x && ownGoalPos.x < aiPlayerPos.x && Math.abs(angleToOwnGoal) < kickTowardsOwnGoalAngleThreshold) { isOwnGoalRisk = true; } let kickVector; let shotType = ""; if (isOwnGoalRisk && Matter.Vector.magnitude(ballToOwnGoalVector) < CANVAS_WIDTH / 2.5) { shotType = "OWN GOAL CLEARANCE"; kickTargetPos = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 4 }; if (aiPlayerPos.x < CANVAS_WIDTH / 2) kickTargetPos.x = CANVAS_WIDTH * 0.75; else kickTargetPos.x = CANVAS_WIDTH * 0.25; kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos)); kickVector.y = Math.min(kickVector.y, -0.9); kickForce *= 0.85; } else if (humanPlayerObstacle) { const distanceToObstacle = Matter.Vector.magnitude(Matter.Vector.sub(humanPlayerObstacle.playerBody.position, aiPlayerPos)); const obstacleIsVeryClose = distanceToObstacle < PLAYER_RECT_SIZE * 1.8; const canChipOver = humanPlayerObstacle.playerBody.position.y > aiPlayerPos.y - PLAYER_RECT_SIZE * 0.3; if (obstacleIsVeryClose && canChipOver && Math.random() < 0.5) { shotType = "CHIP SHOT"; kickForce *= 0.75; kickTargetPos = { x: targetGoalPos.x, y: targetGoalPos.y - actualGoalOpeningHeight * 0.35 }; kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos)); kickVector.y = -0.85 - (Math.random() * 0.15); kickVector.x *= (0.4 + Math.random() * 0.2); } else { shotType = "CURVED SHOT"; kickForce *= 0.9; const curveDirection = Math.sign(targetGoalPos.x - humanPlayerObstacle.playerBody.position.x) || (Math.random() < 0.5 ? -1 : 1); const curveMagnitude = actualGoalOpeningHeight * (0.35 + Math.random() * 0.25); kickTargetPos = { x: targetGoalPos.x, y: targetGoalPos.y - actualGoalOpeningHeight * 0.1 + curveDirection * curveMagnitude }; kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos)); kickVector.y = -0.6 - Math.random() * 0.3; Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce }); const spinForce = KICK_FORCE_MAGNITUDE * (0.4 + Math.random() * 0.25); const spinApplicationPoint = { x: ballBody.position.x + curveDirection * BALL_RADIUS * 0.7, y: ballBody.position.y + BALL_RADIUS * (Math.random() * 0.4 - 0.2) }; const spinDirectionVector = {x:0, y: -curveDirection * spinForce}; Body.applyForce(ballBody, spinApplicationPoint, spinDirectionVector); playSound('kick.wav'); console.log(`AI Kick: ${shotType} executed.`); return; } } else { shotType = "POWER SHOT"; kickForce *= 1.2; const distanceToGoal = Matter.Vector.magnitude(Matter.Vector.sub(targetGoalPos, aiPlayerPos)); let targetYOffset = (Math.random() - 0.5) * actualGoalOpeningHeight * 0.5; kickTargetPos = { x: targetGoalPos.x, y: targetGoalPos.y + targetYOffset }; kickVector = Matter.Vector.normalise(Matter.Vector.sub(kickTargetPos, aiPlayerPos)); if (distanceToGoal < CANVAS_WIDTH / 3.5) { kickVector.y = Math.min(kickVector.y, -0.3 - Math.random() * 0.15); } else { kickVector.y = Math.min(kickVector.y, -0.5 - Math.random() * 0.25); } } console.log(`AI Kick: ${shotType} (Target: ${kickTargetPos.x.toFixed(0)},${kickTargetPos.y.toFixed(0)})`); kickVector = Matter.Vector.normalise(kickVector); Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce }); playSound('kick.wav'); return; } else { if (isTimedShot) { kickAngleFactorY = -0.8 * JUMP_SHOT_LOFT_FACTOR; kickForce *= 1.1; } else { kickAngleFactorY = -0.5 - Math.random() * 0.3; } kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.25) + (Math.random() * actualGoalOpeningHeight * 0.5); let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin); kickVector = Matter.Vector.normalise(kickVector); kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY)); kickVector = Matter.Vector.normalise(kickVector); playSound('kick.wav'); Body.applyForce(ballBody, kickOrigin, { x: kickVector.x * kickForce, y: kickVector.y * kickForce }); } } else { if (otherBody.label === 'goal-left-sensor') { handleGoalScored(2); } else if (otherBody.label === 'goal-right-sensor') { handleGoalScored(1); } else if (otherBody.label.startsWith('post-')) { playSound('post_hit.wav'); if (!otherBody.isShaking) { otherBody.isShaking = true; otherBody.shakeStartTime = engine.timing.timestamp; otherBody.shakeDuration = 250; otherBody.shakeIntensity = 1.0 / PIXEL_SCALE; console.log(`Shaking post: ${otherBody.label} at ${otherBody.shakeStartTime}`); } } else if (otherBody.label.includes('wall') || otherBody.label.includes('ceiling')) { if (Matter.Vector.magnitude(ballBody.velocity) > 1.5) { playSound('ball_hit_wall.wav'); spawnParticles(pair.collision.supports[0].x, pair.collision.supports[0].y, 4, '#DDDDDD', pair.collision.normal.x * 0.5, pair.collision.normal.y * 0.5, 1.5, 15, 1); } } } } players.forEach(player => { if((bodyA === player.playerBody && bodyB.label === 'ground') || (bodyB === player.playerBody && bodyA.label === 'ground')){player.isGrounded = true;} }); } }
+function gameRenderLoop() { customRenderAll(); const mainCtx = canvas.getContext('2d'); mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); mainCtx.imageSmoothingEnabled = false; const mainCornerRadius = 20; mainCtx.save(); mainCtx.beginPath(); mainCtx.moveTo(mainCornerRadius, 0); mainCtx.lineTo(CANVAS_WIDTH - mainCornerRadius, 0); mainCtx.arcTo(CANVAS_WIDTH, 0, CANVAS_WIDTH, mainCornerRadius, mainCornerRadius); mainCtx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - mainCornerRadius); mainCtx.arcTo(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_WIDTH - mainCornerRadius, CANVAS_HEIGHT, mainCornerRadius); mainCtx.lineTo(mainCornerRadius, CANVAS_HEIGHT); mainCtx.arcTo(0, CANVAS_HEIGHT, 0, CANVAS_HEIGHT - mainCornerRadius, mainCornerRadius); mainCtx.lineTo(0, mainCornerRadius); mainCtx.arcTo(0, 0, mainCornerRadius, 0, mainCornerRadius); mainCtx.closePath(); mainCtx.clip(); mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); mainCtx.restore(); gameRenderLoopId = requestAnimationFrame(gameRenderLoop); }
+function drawPlayer(pCtx, body, playerColor) { const x = body.position.x / PIXEL_SCALE; const y = body.position.y / PIXEL_SCALE; const size = PLAYER_RECT_SIZE / PIXEL_SCALE; const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE)); pCtx.save(); pCtx.translate(x, y); pCtx.rotate(body.angle); const bodyWidth = size * 0.7; const bodyHeight = size * 0.9; pCtx.fillStyle = shadeColor(playerColor, -0.3); pCtx.fillRect(-bodyWidth/2 + pixelSize, -bodyHeight/2 + pixelSize, bodyWidth, bodyHeight); pCtx.fillStyle = playerColor; pCtx.fillRect(-bodyWidth/2, -bodyHeight/2, bodyWidth, bodyHeight); const headSize = size * 0.25; const headY = -bodyHeight/2 - headSize/2; pCtx.fillStyle = shadeColor('#FFDBAC', -0.2); pCtx.fillRect(-headSize/2 + pixelSize/2, headY + pixelSize/2, headSize, headSize); pCtx.fillStyle = '#FFDBAC'; pCtx.fillRect(-headSize/2, headY, headSize, headSize); pCtx.fillStyle = shadeColor(playerColor, 0.4); const numberSize = pixelSize * 2; pCtx.fillRect(-numberSize/2, -bodyHeight/4, numberSize, numberSize); const legWidth = size * 0.15; const legHeight = size * 0.3; const legY = bodyHeight/2 - legHeight/2; pCtx.fillStyle = shadeColor(playerColor, -0.3); pCtx.fillRect(-legWidth + pixelSize/2, legY + pixelSize/2, legWidth, legHeight); pCtx.fillRect(pixelSize/2, legY + pixelSize/2, legWidth, legHeight); pCtx.fillStyle = playerColor; pCtx.fillRect(-legWidth, legY, legWidth, legHeight); pCtx.fillRect(0, legY, legWidth, legHeight); pCtx.fillStyle = '#000000'; pCtx.fillRect(-legWidth, legY + legHeight - pixelSize, legWidth + pixelSize, pixelSize * 2); pCtx.fillRect(0, legY + legHeight - pixelSize, legWidth + pixelSize, pixelSize * 2); pCtx.restore(); }
+function drawPixelIsoRectangle(pCtx, body, colorOverride = null) { const x = body.position.x / PIXEL_SCALE; const y = body.position.y / PIXEL_SCALE; let pWidth, pHeight; const label = body.label || ''; if (label.includes('player-t')) { return; } else if (label === 'ground') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = GROUND_THICKNESS / PIXEL_SCALE; } else if (label.includes('wall-left')) { pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE; } else if (label.includes('wall-right')) { pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE; } else if (label === 'ceiling') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = WALL_THICKNESS / PIXEL_SCALE; } else if (label.includes('crossbar')) { pWidth = GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE; pHeight = CROSSBAR_THICKNESS / PIXEL_SCALE; } else { const boundsWidth = (body.bounds.max.x - body.bounds.min.x) / PIXEL_SCALE; const boundsHeight = (body.bounds.max.y - body.bounds.min.y) / PIXEL_SCALE; pWidth = Math.max(1, Math.round(boundsWidth)); pHeight = Math.max(1, Math.round(boundsHeight)); } if (typeof body.currentPixelWidth !== 'undefined') { pWidth = body.currentPixelWidth; } if (typeof body.currentPixelHeight !== 'undefined') { pHeight = body.currentPixelHeight; } const color = colorOverride || (body.render && body.render.fillStyle) || '#333'; pCtx.fillStyle = color; pCtx.save(); pCtx.translate(x, y); pCtx.rotate(body.angle); const depthX = pWidth * ISOMETRIC_DEPTH_FACTOR * Math.cos(ISOMETRIC_ANGLE); const depthY = pHeight * ISOMETRIC_DEPTH_FACTOR * Math.sin(ISOMETRIC_ANGLE) * 0.5; if (label === 'ground') { const mainGrassColor = color; const stripeGrassColor = activeTheme.groundSecondary || shadeColor(color, 0.15); const stripeWidth = Math.max(2, Math.round(20 / PIXEL_SCALE)); const numStripes = Math.floor(pWidth / stripeWidth); for (let i = 0; i < numStripes; i++) { const currentX = -pWidth / 2 + i * stripeWidth; pixelCtx.fillStyle = (i % 2 === 0) ? mainGrassColor : stripeGrassColor; pixelCtx.fillRect(currentX, -pHeight / 2, stripeWidth, pHeight); } const remainingWidth = pWidth - numStripes * stripeWidth; if (remainingWidth > 0) { pixelCtx.fillStyle = (numStripes % 2 === 0) ? mainGrassColor : stripeGrassColor; pixelCtx.fillRect(-pWidth / 2 + numStripes * stripeWidth, -pHeight / 2, remainingWidth, pHeight); } } else if (label.includes('wall-left') || label.includes('wall-right')) { const darkerWall = shadeColor(color, -0.15); const stripeWidth = Math.max(1, Math.round(5 / PIXEL_SCALE)); for (let i = -pWidth / 2; i < pWidth / 2; i += stripeWidth * 2) { pCtx.fillStyle = color; pCtx.fillRect(i, -pHeight / 2, stripeWidth, pHeight); pCtx.fillStyle = darkerWall; pCtx.fillRect(i + stripeWidth, -pHeight / 2, stripeWidth, pHeight); } } else { pCtx.beginPath(); pCtx.moveTo(-pWidth / 2, -pHeight / 2); pCtx.lineTo(pWidth / 2, -pHeight / 2); pCtx.lineTo(pWidth / 2, pHeight / 2); pCtx.lineTo(-pWidth / 2, pHeight / 2); pCtx.closePath(); pCtx.fill(); } if (pHeight > 2 && pWidth > 2 && !label.includes('ground') && !label.includes('ceiling')) { const darkerColor = shadeColor(color, -0.2); pCtx.fillStyle = darkerColor; if (label.includes('wall-left')) { pCtx.beginPath(); pCtx.moveTo(pWidth / 2, -pHeight / 2); pCtx.lineTo(pWidth / 2 + depthX, -pHeight / 2 - depthY); pCtx.lineTo(pWidth / 2 + depthX, pHeight / 2 - depthY); pCtx.lineTo(pWidth / 2, pHeight / 2); pCtx.closePath(); pCtx.fill(); } else if (label.includes('wall-right')) { pCtx.beginPath(); pCtx.moveTo(-pWidth / 2, -pHeight / 2); pCtx.lineTo(-pWidth / 2 - depthX, -pHeight / 2 + depthY); pCtx.lineTo(-pWidth / 2 - depthX, pHeight / 2 + depthY); pCtx.lineTo(-pWidth / 2, pHeight / 2); pCtx.closePath(); pCtx.fill(); } else { pCtx.beginPath(); pCtx.moveTo(-pWidth / 2, -pHeight / 2); pCtx.lineTo(-pWidth / 2 + depthX, -pHeight / 2 - depthY); pCtx.lineTo(pWidth / 2 + depthX, -pHeight / 2 - depthY); pCtx.lineTo(pWidth / 2, -pHeight / 2); pCtx.closePath(); pCtx.fill(); pCtx.beginPath(); pCtx.moveTo(pWidth / 2, -pHeight / 2); pCtx.lineTo(pWidth / 2 + depthX, -pHeight / 2 - depthY); pCtx.lineTo(pWidth / 2 + depthX, pHeight / 2 - depthY); pCtx.lineTo(pWidth / 2, pHeight / 2); pCtx.closePath(); pCtx.fill(); } } pCtx.restore(); }
+function shadeColor(color, percent) { let R = parseInt(color.substring(1,3),16); let G = parseInt(color.substring(3,5),16); let B = parseInt(color.substring(5,7),16); R = parseInt(R * (1 + percent)); G = parseInt(G * (1 + percent)); B = parseInt(B * (1 + percent)); R = (R<255)?R:255; G = (G<255)?G:255; B = (B<255)?B:255; R = (R>0)?R:0; G = (G>0)?G:0; B = (B>0)?B:0; const RR = ((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16)); const GG = ((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16)); const BB = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16)); return "#"+RR+GG+BB; }
+function drawCloud(cloud) { pixelCtx.fillStyle = activeTheme.cloudColor; const fluffyPatterns = [ [ { dx: 0, dy: 0, rx: cloud.size * 0.6, ry: cloud.size * 0.4, alpha: 1.0 }, { dx: cloud.size * 0.3, dy: -cloud.size * 0.15, rx: cloud.size * 0.45, ry: cloud.size * 0.3, alpha: 0.9 }, { dx: -cloud.size * 0.25, dy: cloud.size * 0.1, rx: cloud.size * 0.5, ry: cloud.size * 0.35, alpha: 0.95 }, { dx: cloud.size * 0.1, dy: cloud.size * 0.2, rx: cloud.size * 0.4, ry: cloud.size * 0.25, alpha: 0.85 } ], [ { dx: 0, dy: 0, rx: cloud.size * 0.7, ry: cloud.size * 0.3, alpha: 1.0 }, { dx: cloud.size * 0.4, dy: -cloud.size * 0.05, rx: cloud.size * 0.5, ry: cloud.size * 0.25, alpha: 0.9 }, { dx: -cloud.size * 0.3, dy: cloud.size * 0.05, rx: cloud.size * 0.6, ry: cloud.size * 0.28, alpha: 0.95 } ], [ { dx: 0, dy: 0, rx: cloud.size * 0.5, ry: cloud.size * 0.5, alpha: 1.0 }, { dx: cloud.size * 0.2, dy: -cloud.size * 0.2, rx: cloud.size * 0.35, ry: cloud.size * 0.35, alpha: 0.9 }, { dx: -cloud.size * 0.15, dy: cloud.size * 0.15, rx: cloud.size * 0.4, ry: cloud.size * 0.4, alpha: 0.95 } ] ]; const pattern = fluffyPatterns[cloud.type] || fluffyPatterns[0]; pattern.forEach(part => { pixelCtx.beginPath(); pixelCtx.globalAlpha = cloud.opacity * part.alpha; pixelCtx.ellipse( cloud.x + part.dx, cloud.y + part.dy, Math.max(1, part.rx / PIXEL_SCALE), Math.max(1, part.ry / PIXEL_SCALE), 0, 0, Math.PI * 2 ); pixelCtx.fill(); }); pixelCtx.globalAlpha = 1.0; }
+function drawSpectator(spectator) { /* ... (not rendered) ... */ }
+function drawStadiumLight(light) { const pixelSize = Math.max(1, Math.round(2/PIXEL_SCALE)); const lightSize = pixelSize*3; pixelCtx.fillStyle = '#444444'; pixelCtx.fillRect(light.x - pixelSize/2, light.y, pixelSize, lightSize*2); pixelCtx.fillStyle = '#CCCCCC'; pixelCtx.fillRect(light.x - lightSize/2, light.y, lightSize, pixelSize); const glowSize = lightSize*2; const glowGradient = pixelCtx.createRadialGradient(light.x,light.y,0,light.x,light.y,glowSize); glowGradient.addColorStop(0, `rgba(255,255,200,${light.intensity*0.3})`); glowGradient.addColorStop(1, 'rgba(255,255,200,0)'); pixelCtx.fillStyle = glowGradient; pixelCtx.fillRect(light.x-glowSize, light.y-glowSize/2, glowSize*2, glowSize); }
+function drawInGameScoreboard() { if (gameState !== 'playing' && gameState !== 'gameOver') return; const pixelSize = Math.max(1, Math.round(1/PIXEL_SCALE)); const margin = 3*pixelSize; const scoreboardHeight = 12*pixelSize; const scoreBoxWidth = 25*pixelSize; const timeBoxWidth = 20*pixelSize; const scoreboardY = margin; let currentX = margin; function getTextColorForBg(hexcolor){ if (hexcolor.startsWith('#')) hexcolor = hexcolor.slice(1); const r = parseInt(hexcolor.substring(0,2),16); const g = parseInt(hexcolor.substring(2,4),16); const b = parseInt(hexcolor.substring(4,6),16); const brightness = (r*299 + g*587 + b*114) / 1000; return brightness < 128 ? '#FFFFFF' : '#000000'; } pixelCtx.fillStyle = activeTeam1Color; pixelCtx.fillRect(currentX, scoreboardY, scoreBoxWidth, scoreboardHeight); pixelCtx.fillStyle = getTextColorForBg(activeTeam1Color); const score1Text = team1Score.toString(); const score1TextWidth = score1Text.length * 3 * pixelSize * 1.5; drawPixelText(currentX + (scoreBoxWidth - score1TextWidth) / 2, scoreboardY + scoreboardHeight / 2 - (1.5 * pixelSize), score1Text, pixelSize * 1.5); currentX += scoreBoxWidth + pixelSize; pixelCtx.fillStyle = '#222222'; pixelCtx.fillRect(currentX, scoreboardY, timeBoxWidth, scoreboardHeight); pixelCtx.fillStyle = '#FFFFFF'; const minutes = Math.floor(Math.max(0,gameTimeRemaining)/60); const seconds = Math.max(0,gameTimeRemaining)%60; const timeText = `${minutes.toString().padStart(1,'0')}:${seconds.toString().padStart(2,'0')}`; const timeTextWidth = timeText.length * 3 * pixelSize * 1.2; drawPixelText(currentX + (timeBoxWidth - timeTextWidth) / 2, scoreboardY + scoreboardHeight/2 - (1.2*pixelSize), timeText, pixelSize * 1.2); currentX += timeBoxWidth + pixelSize; pixelCtx.fillStyle = activeTeam2Color; pixelCtx.fillRect(currentX, scoreboardY, scoreBoxWidth, scoreboardHeight); pixelCtx.fillStyle = getTextColorForBg(activeTeam2Color); const score2Text = team2Score.toString(); const score2TextWidth = score2Text.length * 3 * pixelSize * 1.5; drawPixelText(currentX + (scoreBoxWidth - score2TextWidth) / 2, scoreboardY + scoreboardHeight / 2 - (1.5 * pixelSize), score2Text, pixelSize * 1.5); }
+function drawPixelText(x,y,text,pixelSize) { const fontMap={'0':[[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],'1':[[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],'2':[[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],'3':[[1,1,1],[0,0,1],[1,1,1],[0,0,1],[1,1,1]],'4':[[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],'5':[[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],'6':[[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]],'7':[[1,1,1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]],'8':[[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]],'9':[[1,1,1],[1,0,1],[1,1,1],[0,0,1],[1,1,1]],':':[[0,0,0],[0,1,0],[0,0,0],[0,1,0],[0,0,0]],'A':[[0,1,0],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],'B':[[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,1,0]],'C':[[0,1,1],[1,0,0],[1,0,0],[1,0,0],[0,1,1]],'D':[[1,1,0],[1,0,1],[1,0,1],[1,0,1],[1,1,0]],'E':[[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,1,1]],'F':[[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,0,0]],'G':[[0,1,1],[1,0,0],[1,0,1],[1,0,1],[0,1,1]],'H':[[1,0,1],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],'I':[[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],'L':[[1,0,0],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],'M':[[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],'N':[[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],'O':[[0,1,0],[1,0,1],[1,0,1],[1,0,1],[0,1,0]],'P':[[1,1,1],[1,0,1],[1,1,1],[1,0,0],[1,0,0]],'R':[[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,0,1]],'S':[[0,1,1],[1,0,0],[0,1,0],[0,0,1],[1,1,0]],'T':[[1,1,1],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],'U':[[1,0,1],[1,0,1],[1,0,1],[1,0,1],[0,1,0]],'X':[[1,0,1],[1,0,1],[0,1,0],[1,0,1],[1,0,1]],' ': [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]}; for (let i=0; i<text.length; i++) { const char = text[i].toUpperCase(); const pattern = fontMap[char]; if (pattern) { for (let row=0; row<pattern.length; row++) { for (let col=0; col<pattern[row].length; col++) { if (pattern[row][col]) { pixelCtx.fillRect(x + i*4*pixelSize + col*pixelSize, y + row*pixelSize, pixelSize, pixelSize); } } } } } }
+function drawPixelIsoCircle(pCtx,body,colorOverride=null) { const x=body.position.x/PIXEL_SCALE; const y=body.position.y/PIXEL_SCALE; const radius=(typeof body.currentPixelRadius !== 'undefined' ? body.currentPixelRadius : (body.circleRadius || BALL_RADIUS))/PIXEL_SCALE; let baseColor=colorOverride||(body.render && body.render.fillStyle)||'#333'; if (body.label==='ball') { baseColor=BALL_PANEL_COLOR_PRIMARY; pCtx.fillStyle=baseColor; pCtx.beginPath(); pCtx.arc(x,y,Math.max(1,radius),0,Math.PI*2); pCtx.fill(); const panelColor=BALL_PANEL_COLOR_SECONDARY; const numPanels=5; const panelRadius=radius*0.35; const panelOffsetRadius=radius*0.55; for (let i=0; i<numPanels; i++) { const angleOffset=body.angle*2; const angle=(i/numPanels)*Math.PI*2 + angleOffset; const panelX=x+panelOffsetRadius*Math.cos(angle); const panelY=y+panelOffsetRadius*Math.sin(angle); pCtx.fillStyle=panelColor; pCtx.beginPath(); pCtx.arc(panelX,panelY,Math.max(1,panelRadius),0,Math.PI*2); pCtx.fill(); } if (radius>1) { const darkerShade=shadeColor(baseColor,-0.1); pCtx.fillStyle=darkerShade; pCtx.beginPath(); pCtx.arc(x+radius*0.15,y+radius*0.15,radius*0.85,0,Math.PI*2); pCtx.fill(); } } else { pCtx.fillStyle=baseColor; pCtx.beginPath(); pCtx.arc(x,y,Math.max(1,radius),0,Math.PI*2); pCtx.fill(); if (radius>1) { const darkerColor=shadeColor(baseColor,-0.25); pCtx.fillStyle=darkerColor; pCtx.beginPath(); pCtx.arc(x+radius*0.2,y+radius*0.2,radius*0.8,0,Math.PI*2); pCtx.fill(); pCtx.fillStyle=baseColor; pCtx.beginPath(); pCtx.arc(x-radius*0.1,y-radius*0.1,radius*0.5,0,Math.PI*2); pCtx.fill(); } } }
+function customRenderAll() { const currentSunColor = getCurrentSunColor(); const gradient = pixelCtx.createLinearGradient(0,0,0,PIXEL_CANVAS_HEIGHT); let skyTop,skyMid,skyBottom; if(currentSunColor===SUN_COLORS.dawn||currentSunColor===SUN_COLORS.evening){skyTop='#FF6B6B';skyMid='#FFD93D';skyBottom='#87CEEB';}else if(currentSunColor===SUN_COLORS.night){skyTop='#191970';skyMid='#000033';skyBottom='#191970';}else{skyTop=shadeColor(activeTheme.skyColor,0.2);skyMid=activeTheme.skyColor;skyBottom=shadeColor(activeTheme.skyColor,-0.3);} gradient.addColorStop(0,skyTop);gradient.addColorStop(0.6,skyMid);gradient.addColorStop(1,skyBottom); pixelCtx.fillStyle=gradient; pixelCtx.fillRect(0,0,PIXEL_CANVAS_WIDTH,PIXEL_CANVAS_HEIGHT); stadiumLights.forEach(light=>drawStadiumLight(light)); clouds.forEach(cloud=>drawCloud(cloud)); const sunSize=Math.max(6,Math.round(8/PIXEL_SCALE)); const sunGlow=Math.max(10,Math.round(14/PIXEL_SCALE)); const sunGradient=pixelCtx.createRadialGradient(sunPosition.x,sunPosition.y,0,sunPosition.x,sunPosition.y,sunGlow); sunGradient.addColorStop(0,currentSunColor+'80'); sunGradient.addColorStop(1,currentSunColor+'00'); pixelCtx.fillStyle=sunGradient; pixelCtx.fillRect(sunPosition.x-sunGlow,sunPosition.y-sunGlow,sunGlow*2,sunGlow*2); const pixelSize=Math.max(1,Math.round(1/PIXEL_SCALE)); pixelCtx.fillStyle=currentSunColor; for(let x=0;x<sunSize;x+=pixelSize){for(let y=0;y<sunSize;y+=pixelSize){const distance=Math.sqrt((x-sunSize/2)**2+(y-sunSize/2)**2); if(distance<sunSize/2){pixelCtx.fillRect(sunPosition.x-sunSize/2+x,sunPosition.y-sunSize/2+y,pixelSize,pixelSize);}}} const allStaticBodies=Composite.allBodies(world).filter(b=>b.isStatic&&!b.isSensor); allStaticBodies.forEach(body=>{if(body.render.visible===false)return;let renderX=body.position.x;let renderY=body.position.y;if(body.label.startsWith('post-')&&body.isShaking){const elapsedTime=engine.timing.timestamp-body.shakeStartTime;if(elapsedTime<body.shakeDuration){const progress=elapsedTime/body.shakeDuration;const diminishingIntensity=body.shakeIntensity*(1-Math.pow(progress,2));renderX+=(Math.random()-0.5)*2*diminishingIntensity;renderY+=(Math.random()-0.5)*2*diminishingIntensity*0.5;}else{body.isShaking=false;}}let pWidth,pHeight;if(body.label.startsWith('post-')){pWidth=(body.label.includes('-h-')?GOAL_MOUTH_VISUAL_WIDTH:physicalPostThickness)/PIXEL_SCALE;pHeight=(body.label.includes('-h-')?CROSSBAR_THICKNESS:(GOAL_HEIGHT-CROSSBAR_THICKNESS))/PIXEL_SCALE;}else if(body.label==='ground'){pWidth=CANVAS_WIDTH/PIXEL_SCALE;pHeight=GROUND_THICKNESS/PIXEL_SCALE;}else if(body.label.includes('wall')){pWidth=WALL_THICKNESS/PIXEL_SCALE;pHeight=CANVAS_HEIGHT/PIXEL_SCALE;}else if(body.label==='ceiling'){pWidth=CANVAS_WIDTH/PIXEL_SCALE;pHeight=WALL_THICKNESS/PIXEL_SCALE;}else{const boundsWidth=(body.bounds.max.x-body.bounds.min.x)/PIXEL_SCALE;const boundsHeight=(body.bounds.max.y-body.bounds.min.y)/PIXEL_SCALE;pWidth=Math.max(1,Math.round(boundsWidth));pHeight=Math.max(1,Math.round(boundsHeight));}const pX=renderX/PIXEL_SCALE;const pY=renderY/PIXEL_SCALE;pixelCtx.save();pixelCtx.translate(pX,pY);pixelCtx.rotate(body.angle);pixelCtx.fillStyle=body.render.fillStyle||(body.label.startsWith('post-')?goalPostRenderStyle.fillStyle:'#333');pixelCtx.fillRect(-pWidth/2,-pHeight/2,pWidth,pHeight);if(body.render.strokeStyle&&body.label.startsWith('post-')){pixelCtx.strokeStyle=body.render.strokeStyle;pixelCtx.lineWidth=body.render.lineWidth/PIXEL_SCALE||1;pixelCtx.strokeRect(-pWidth/2,-pHeight/2,pWidth,pHeight);}pixelCtx.restore();}); if(ball&&ball.render.visible!==false)drawPixelIsoCircle(pixelCtx,ball,BALL_PANEL_COLOR_PRIMARY); players.forEach(p=>{if(p.playerBody.render.visible!==false)drawPlayer(pixelCtx,p.playerBody,p.color);}); particles.forEach(particle=>{pixelCtx.fillStyle=particle.color;pixelCtx.fillRect(Math.round(particle.x-particle.size/2),Math.round(particle.y-particle.size/2),Math.max(1,particle.size),Math.max(1,particle.size));}); const netColor=activeTheme.net||'rgba(200,200,200,0.6)'; const postThickness=Math.max(1,Math.round(physicalPostThickness/PIXEL_SCALE/2)); const goalPixelH=Math.round(goalOpeningActualHeight/PIXEL_SCALE); const goalPixelMW=Math.round(GOAL_MOUTH_VISUAL_WIDTH/PIXEL_SCALE); const goalPixDepth=Math.round((GOAL_MOUTH_VISUAL_WIDTH*0.5)/PIXEL_SCALE); const gndY=Math.round((CANVAS_HEIGHT-GROUND_THICKNESS)/PIXEL_SCALE); const goalTY=gndY-goalPixelH; pixelCtx.strokeStyle=netColor; pixelCtx.lineWidth=Math.max(1,Math.round(1/PIXEL_SCALE));[-1,1].forEach(side=>{const startX=(side===-1)?Math.round(WALL_THICKNESS/PIXEL_SCALE)+postThickness:Math.round((CANVAS_WIDTH-WALL_THICKNESS-GOAL_MOUTH_VISUAL_WIDTH)/PIXEL_SCALE)+postThickness;const endX=startX+goalPixelMW-2*postThickness;const backYTop=goalTY+goalPixDepth*0.3;const backYBottom=gndY-goalPixDepth*0.1;const backXStart=startX+goalPixDepth*0.7;const backXEnd=endX-goalPixDepth*0.7;pixelCtx.beginPath();pixelCtx.moveTo(backXStart,backYTop);pixelCtx.lineTo(backXEnd,backYTop);pixelCtx.stroke();pixelCtx.beginPath();pixelCtx.moveTo(backXStart,backYBottom);pixelCtx.lineTo(backXEnd,backYBottom);pixelCtx.stroke();pixelCtx.beginPath();pixelCtx.moveTo(backXStart,backYTop);pixelCtx.lineTo(backXStart,backYBottom);pixelCtx.stroke();pixelCtx.beginPath();pixelCtx.moveTo(backXEnd,backYTop);pixelCtx.lineTo(backXEnd,backYBottom);pixelCtx.stroke();for(let i=1;i<5;i++){const t=i/5;pixelCtx.beginPath();pixelCtx.moveTo(startX,goalTY+t*goalPixelH);pixelCtx.lineTo(backXStart+t*(backXEnd-backXStart)*0.1,backYTop+t*(backYBottom-backYTop));pixelCtx.lineTo(backXEnd-t*(backXEnd-backXStart)*0.1,backYTop+t*(backYBottom-backYTop));pixelCtx.lineTo(endX,goalTY+t*goalPixelH);pixelCtx.stroke();}for(let i=1;i<6;i++){const t=i/6;pixelCtx.beginPath();pixelCtx.moveTo(startX+t*(endX-startX),goalTY);pixelCtx.lineTo(backXStart+t*(backXEnd-backXStart),backYTop);pixelCtx.lineTo(backXStart+t*(backXEnd-backXStart),backYBottom);pixelCtx.stroke();}}); drawInGameScoreboard(); }
+function gameRenderLoop() { customRenderAll(); const mainCtx = canvas.getContext('2d'); mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); mainCtx.imageSmoothingEnabled = false; const mainCornerRadius = 20; mainCtx.save(); mainCtx.beginPath(); mainCtx.moveTo(mainCornerRadius, 0); mainCtx.lineTo(CANVAS_WIDTH - mainCornerRadius, 0); mainCtx.arcTo(CANVAS_WIDTH, 0, CANVAS_WIDTH, mainCornerRadius, mainCornerRadius); mainCtx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - mainCornerRadius); mainCtx.arcTo(CANVAS_WIDTH, CANVAS_HEIGHT, CANVAS_WIDTH - mainCornerRadius, CANVAS_HEIGHT, mainCornerRadius); mainCtx.lineTo(mainCornerRadius, CANVAS_HEIGHT); mainCtx.arcTo(0, CANVAS_HEIGHT, 0, CANVAS_HEIGHT - mainCornerRadius, mainCornerRadius); mainCtx.lineTo(0, mainCornerRadius); mainCtx.arcTo(0, 0, mainCornerRadius, 0, mainCornerRadius); mainCtx.closePath(); mainCtx.clip(); mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); mainCtx.restore(); gameRenderLoopId = requestAnimationFrame(gameRenderLoop); }
+function spawnParticles(x,y,count,color,baseVelocityX=0,baseVelocityY=0,spread=2,life=20,size=1){for(let i=0;i<count;i++){particles.push({x:x/PIXEL_SCALE,y:y/PIXEL_SCALE,vx:(Math.random()-0.5)*spread+baseVelocityX,vy:(Math.random()-0.5)*spread+baseVelocityY-Math.random()*(spread/2),life:life+Math.random()*(life*0.5),color:color,size:Math.max(1,Math.round(size/PIXEL_SCALE)),drag:0.02,gravity:0.05});}}
+function updateParticles(){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.vx*=(1-p.drag);p.vy*=(1-p.drag);p.vy+=p.gravity;p.x+=p.vx;p.y+=p.vy;p.life--;if(p.life<=0){particles.splice(i,1);}}}
 
 document.addEventListener('DOMContentLoaded', setup);
+[end of game.js]
