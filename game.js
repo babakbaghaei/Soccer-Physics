@@ -355,7 +355,7 @@ function updateGame() {
                     Body.setAngularVelocity(part, part.angularVelocity * LANDING_DAMPING_FACTOR);
                 });
                 if (Math.abs(player.body.angle) > 0.15) {
-                    Body.setTorque(player.body, -player.body.angle * UPRIGHT_TORQUE_STRENGTH_FACTOR);
+                    Matter.Body.setTorque(player.body, -player.body.angle * UPRIGHT_TORQUE_STRENGTH_FACTOR);
                 }
             }
         }
