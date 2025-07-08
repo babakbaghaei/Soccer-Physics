@@ -387,7 +387,8 @@ function setup() {
     // Start the game immediately
     isGameStarted = true;
     isGameOver = false;
-    Runner.run(runner, engine); // Re-enable Matter.js runner
+    Runner.run(runner, engine);
+    console.log("SETUP: Matter.js Runner started immediately.");
     startGameTimer();
 
     if (typeof gameRenderLoopId !== 'undefined') {
@@ -569,12 +570,12 @@ function updateGame() {
 
     if (!isGameStarted || isGameOver) return;
 
-    // gameTime++; // Logic below still commented
-    // updatePlayerStates();
-    // handleHumanPlayerControls();
-    // updateAIPlayers();
-    // updatePlayerAnimations();
-    // updateParticles();
+    gameTime++;
+    // updatePlayerStates(); // Temporarily commented out to prevent game freeze
+    handleHumanPlayerControls();
+    updateAIPlayers();
+    updatePlayerAnimations();
+    updateParticles();
 }
 
 // Update cloud positions
@@ -1247,10 +1248,7 @@ function gameRenderLoop() {
     mainCtx.imageSmoothingEnabled = false;
     mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Ensure the loop continues unless a critical error decision is made to stop it
-    if (!isGameOver) { // Only continue if game is not over
-            gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
-    }
+    gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
 }
 
 
@@ -2158,9 +2156,8 @@ function customRenderAll() {
         pixelCtx.lineTo(xBackLine, netBottomBackY);
         pixelCtx.stroke();
     }
-} catch (error) {
-    console.error("Error in customRenderAll:", error);
-    // showGameMessage("Critical render error in customRenderAll. Check console.");
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setup();
     setupControlButtons();
