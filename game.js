@@ -1293,9 +1293,41 @@ function customRenderAll() {
 
     function renderPlayerPart(partBody, playerObject, mainBodyAngle, mainBodyPosition) {
         let renderAngle = mainBodyAngle + partBody.angle; // Part's angle is relative to compound body's angle
-        // Corrected calculation for world position of a compound body part:
-        // partBody.position is the local position relative to the mainBody's center when mainBody's angle is 0.
-        let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle));
+
+        // Reverted to a logic similar to the original, assuming partBody.position might be global or needs to be treated as such
+        // and then made relative, rotated, and added back. This addresses the "only legs visible" issue.
+        // It also implies the ReferenceError was the primary bug in the original problematic line.
+        let localPartVector = Matter.Vector.sub(partBody.position, mainBodyPosition);
+        let rotatedPartVector = Matter.Vector.rotate(localPartVector, mainBodyAngle);
+        let partPosition = Matter.Vector.add(mainBodyPosition, rotatedPartVector);
+        // If partBody.position was already local (as per my previous understanding of Body.create parts),
+        // then mainBodyPosition should not be subtracted. However, the bug "only legs visible" suggests
+        // that the simpler Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle))
+        // was not positioning head and torso correctly. This version is more robust if partBody.position interpretation is tricky.
+        // The most robust is: part.render.worldTransform * part.position (but that's for internal rendering)
+        // Let's assume partBody.position are global-like coordinates of the parts *before* being assembled into a compound body's local frame.
+        // No, Matter.js docs state: "part.position will be the parts position relative to the parent body.position"
+        // This means partBody.position IS local. My previous fix:
+        // let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle));
+        // MUST be correct.
+        // The "only legs" bug must stem from something else if that formula is right.
+        // Let's stick to the documented correct way and investigate further if head/torso are still missing.
+        // The error log was "Can't find variable: mainBody", not an issue with the formula itself if mainBody was defined.
+        // The previous fix for ReferenceError was:
+        // Original line that caused ReferenceError:
+        // let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(Matter.Vector.sub(partBody.position, mainBody.position), mainBodyAngle));
+        // My fix that resulted in "only legs":
+        // let partPosition = Matter.Vector.add(mainBodyPosition, Matter.Vector.rotate(partBody.position, mainBodyAngle));
+        //
+        // If the "only legs" means supportLeg IS rendering, then the formula above IS working for supportLeg.
+        // Why not for head and torso? Are their partBody.position values zeroed out or corrupted?
+
+        // Reverting to the logic that assumes partBody.position are global-like coordinates
+        // that first need to be made relative to mainBodyPosition, then rotated, then added back.
+        // This is to test if the "only legs visible" bug is due to misinterpretation of partBody.position's frame of reference.
+        let localPartVec = Matter.Vector.sub(partBody.position, mainBodyPosition);
+        let rotatedLocalPartVec = Matter.Vector.rotate(localPartVec, mainBodyAngle);
+        partPosition = Matter.Vector.add(mainBodyPosition, rotatedLocalPartVec);
 
         let yRenderOffset = 0;
         let currentPartHeight = partBody.label.includes('leg') ? LEG_HEIGHT : BODY_HEIGHT; // Default to original
