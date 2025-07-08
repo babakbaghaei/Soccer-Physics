@@ -193,19 +193,21 @@ const aiIntents = {
         name: INTENT_ATTACK,
         calculateUtility: function(gameState, player) {
             let score = 0;
-            if (!gameState.ball || !player || !gameState.opponentGoalPosition || !gameState.humanPlayer) return 0;
+            if (!gameState.ball || !player || !gameState.opponentGoalPosition || !gameState.humanPlayer || !gameState.predictedBallMedium) return 0;
 
             const aiPos = player.playerBody.position;
-            const ballPos = gameState.ball.position;
+            // Use predicted ball position for some calculations
+            const ballPosForAttackStrategy = gameState.predictedBallMedium.position;
+            const currentBallPos = gameState.ball.position; // Current position for immediate interaction like AI_to_ball distance
             const opponentGoalPos = gameState.opponentGoalPosition;
             const humanPlayerPos = gameState.humanPlayer.playerBody.position;
 
-            // 1. Proximity of ball to opponent's goal
-            const ballToOpponentGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, opponentGoalPos));
+            // 1. Proximity of *predicted* ball to opponent's goal
+            const ballToOpponentGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPosForAttackStrategy, opponentGoalPos));
             score += (CANVAS_WIDTH - ballToOpponentGoalDist) / CANVAS_WIDTH * 70; // Max 70 points
 
-            // 2. Proximity of AI to ball
-            const aiToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
+            // 2. Proximity of AI to *current* ball (for actual interception/kick)
+            const aiToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, currentBallPos));
             score += (AI_ACTION_RANGE * 2 - aiToBallDist) / (AI_ACTION_RANGE * 2) * 50; // Max 50 points if AI is very close
 
             // 3. Is shot path to goal clear of human player?
@@ -225,9 +227,11 @@ const aiIntents = {
             const vecBallToAi = Matter.Vector.sub(aiPos, ballPos);
             const angleBetweenBallGoalAndBallAi = Matter.Vector.angle(vecBallToGoal, vecBallToAi);
             // Ideal angle is Math.PI (AI is directly behind ball). Score higher as angle approaches PI.
-            // We use (Math.PI - abs(angle)) to score higher when AI is behind the ball.
-            // Normalize this to a positive score contribution.
-            const angleScoreFactor = (Math.PI - Math.abs(angleBetweenBallGoalAndBallAi)) / Math.PI; // 0 to 1
+            // Using current ball position for angle as it's about immediate kick setup
+            const vecCurrentBallToGoal = Matter.Vector.sub(opponentGoalPos, currentBallPos);
+            const vecCurrentBallToAi = Matter.Vector.sub(aiPos, currentBallPos);
+            const angleBetweenCurrentBallGoalAndCurrentBallAi = Matter.Vector.angle(vecCurrentBallToGoal, vecCurrentBallToAi);
+            const angleScoreFactor = (Math.PI - Math.abs(angleBetweenCurrentBallGoalAndCurrentBallAi)) / Math.PI; // 0 to 1
             score += angleScoreFactor * 30; // Max 30 points for good angle
 
             // 5. Bonus if AI is facing the opponent's goal
@@ -244,6 +248,31 @@ const aiIntents = {
                 score += Matter.Vector.magnitude(gameState.ball.velocity) * 3; // More score for faster ball
             }
 
+            // 7. Bonus for potential smart jump / header opportunity
+            if (player.isGrounded && player.jumpCooldown === 0) {
+                for (let i = 10; i <= PREDICTION_FRAMES_MEDIUM; i += 5) {
+                    const futureBallState = predictBallPosition(gameState.ball, i);
+                    const futureBallPosY = futureBallState.position.y;
+                    const futureBallPosX = futureBallState.position.x;
+                    const minJumpHeight = aiPos.y - PLAYER_RECT_SIZE * 1.5;
+                    const maxJumpHeight = aiPos.y - PLAYER_RECT_SIZE * 0.3;
+
+                    if (futureBallPosY > minJumpHeight && futureBallPosY < maxJumpHeight) {
+                        const horizontalReach = PLAYER_RECT_SIZE * 1.5;
+                        if (Math.abs(futureBallPosX - aiPos.x) < horizontalReach) {
+                            if (futureBallState.velocity.y > -1.5) {
+                                // Higher bonus if ball is also heading towards opponent goal
+                                const vecFutureBallToGoal = Matter.Vector.sub(opponentGoalPos, futureBallState.position);
+                                if(Matter.Vector.dot(futureBallState.velocity, vecFutureBallToGoal) > 0 || Matter.Vector.magnitude(futureBallState.velocity) < 1){
+                                     score += 25; // Significant bonus for good aerial opportunity
+                                     // console.log(`AI (${player.playerTeam}) Attack Utility: Header bonus!`);
+                                     break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             return Math.max(0, score); // Ensure score is not negative
         }
@@ -252,45 +281,45 @@ const aiIntents = {
         name: INTENT_DEFEND,
         calculateUtility: function(gameState, player) {
             let score = 0;
-            if (!gameState.ball || !player || !gameState.ownGoalPosition || !gameState.humanPlayer) return 0;
+            if (!gameState.ball || !player || !gameState.ownGoalPosition || !gameState.humanPlayer || !gameState.predictedBallMedium) return 0;
 
             const aiPos = player.playerBody.position;
-            const ballPos = gameState.ball.position;
+            const ballPosForDefenseStrategy = gameState.predictedBallMedium.position; // Use predicted for strategic positioning
+            const currentBallPos = gameState.ball.position; // Current for immediate threats/actions
             const ownGoalPos = gameState.ownGoalPosition;
             const humanPlayerPos = gameState.humanPlayer.playerBody.position;
 
-            // 1. Proximity of ball to own goal
-            const ballToOwnGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, ownGoalPos));
+            // 1. Proximity of *predicted* ball to own goal
+            const ballToOwnGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPosForDefenseStrategy, ownGoalPos));
             score += (CANVAS_WIDTH - ballToOwnGoalDist) / CANVAS_WIDTH * 70; // Max 70 points
 
-            // 2. AI is between ball and own goal
-            // Check if AI's x-coordinate is between ball's x and own goal's x
-            const isAiBetweenBallAndGoalX = (ballPos.x < aiPos.x && aiPos.x < ownGoalPos.x) || (ownGoalPos.x < aiPos.x && aiPos.x < ballPos.x);
-            // Check if AI is also relatively aligned vertically or can intercept
-            const verticalAlignmentFactor = Math.max(0, 1 - (Math.abs(aiPos.y - ballPos.y) / (CANVAS_HEIGHT / 2)));
+            // 2. AI is between *predicted* ball and own goal
+            const isAiBetweenBallAndGoalX = (ballPosForDefenseStrategy.x < aiPos.x && aiPos.x < ownGoalPos.x) ||
+                                          (ownGoalPos.x < aiPos.x && aiPos.x < ballPosForDefenseStrategy.x);
+            const verticalAlignmentFactor = Math.max(0, 1 - (Math.abs(aiPos.y - ballPosForDefenseStrategy.y) / (CANVAS_HEIGHT / 2)));
             if (isAiBetweenBallAndGoalX) {
                 score += 50 * verticalAlignmentFactor; // Max 50 points for good positioning
             }
 
-            // 3. Proximity of AI to human player (if human has ball or is near ball)
-            const humanToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(humanPlayerPos, ballPos));
-            if (humanToBallDist < AI_ACTION_RANGE * 1.5) { // If human is relevant to the ball
+            // 3. Proximity of AI to human player (if human has *current* ball or is near *current* ball)
+            const humanToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(humanPlayerPos, currentBallPos));
+            if (humanToBallDist < AI_ACTION_RANGE * 1.5) { // If human is relevant to the current ball position
                 const aiToHumanDist = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, humanPlayerPos));
                 score += (AI_ACTION_RANGE * 2 - aiToHumanDist) / (AI_ACTION_RANGE * 2) * 40; // Max 40 points
             }
 
-            // 4. Ball is moving towards own goal with significant speed
-            const vecBallToOwnGoal = Matter.Vector.sub(ownGoalPos, ballPos);
+            // 4. *Current* Ball is moving towards own goal with significant speed
+            const vecBallToOwnGoal = Matter.Vector.sub(ownGoalPos, currentBallPos); // Based on current ball velocity
             const ballSpeedTowardsGoal = Matter.Vector.dot(gameState.ball.velocity, Matter.Vector.normalise(vecBallToOwnGoal));
             if (ballSpeedTowardsGoal > 2) { // Threshold for "significant speed"
                 score += ballSpeedTowardsGoal * 10; // Max ~50 points if ball is very fast (e.g. speed 5)
             }
 
-            // 5. Penalty if AI is behind the ball (relative to own goal)
+            // 5. Penalty if AI is behind the *current* ball (relative to own goal)
             const vecOwnGoalToAi = Matter.Vector.sub(aiPos, ownGoalPos);
-            const vecOwnGoalToBall = Matter.Vector.sub(ballPos, ownGoalPos);
-            if (Matter.Vector.dot(vecOwnGoalToAi, vecOwnGoalToBall) > 0 && // Both are on the same side of goal
-                Matter.Vector.magnitudeSquared(vecOwnGoalToAi) > Matter.Vector.magnitudeSquared(vecOwnGoalToBall)) { // AI is further from goal than ball
+            const vecOwnGoalToBall = Matter.Vector.sub(currentBallPos, ownGoalPos);
+            if (Matter.Vector.dot(vecOwnGoalToAi, vecOwnGoalToBall) > 0 &&
+                Matter.Vector.magnitudeSquared(vecOwnGoalToAi) > Matter.Vector.magnitudeSquared(vecOwnGoalToBall)) {
                 score -= 30;
             }
 
@@ -697,8 +726,11 @@ function updateAIPlayers() {
                 { x: WALL_THICKNESS + GOAL_MOUTH_VISUAL_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_THICKNESS - (GOAL_HEIGHT - CROSSBAR_THICKNESS) / 2 } :
                 { x: CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_THICKNESS - (GOAL_HEIGHT - CROSSBAR_THICKNESS) / 2 };
 
+            const predictedBallStateMedium = ball ? predictBallPosition(ball, PREDICTION_FRAMES_MEDIUM) : null;
+
             const gameState = {
                 ball: ball, // The global ball object
+                predictedBallMedium: predictedBallStateMedium, // Predicted ball state for utility functions
                 humanPlayer: humanPlayer,
                 aiPlayer: player,
                 opponentGoalPosition: opponentGoalPosition,
@@ -748,8 +780,12 @@ function executeAIPlayerLogic(player) {
     }
 
     const aiPos = player.playerBody.position;
-    const ballPos = ball.position;
-    const humanPlayer = players.find(p => !p.isAI);
+    // Get current and predicted ball positions
+    const currentBallPos = ball.position;
+            const predictedBallStateShort = predictBallPosition(ball, PREDICTION_FRAMES_SHORT);
+            const ballPos = predictedBallStateShort.position;
+
+            const humanPlayer = players.find(p => !p.isAI && p.playerBody); // Ensure humanPlayer has playerBody
     const opponentGoalX = player.playerTeam === 1 ? CANVAS_WIDTH - WALL_THICKNESS : WALL_THICKNESS;
     const ownGoalX = player.playerTeam === 1 ? WALL_THICKNESS : CANVAS_WIDTH - WALL_THICKNESS;
     const { actualGoalOpeningHeight } = getFieldDerivedConstants();
@@ -770,25 +806,57 @@ function executeAIPlayerLogic(player) {
             } else { // Attacking left goal
                 targetX = ballPos.x + PLAYER_RECT_SIZE * 0.6;
             }
-            targetY = ballPos.y - PLAYER_RECT_SIZE * 0.3; // Try to be slightly above the ball's center
+            targetY = ballPos.y - PLAYER_RECT_SIZE * 0.3;
 
-            // Simple jump logic for attack: if ball is higher and AI is grounded
-            if (ballPos.y < aiPos.y - PLAYER_RECT_SIZE * 0.5 && player.isGrounded && player.jumpCooldown === 0) {
-                shouldJump = true;
+            // Smart Jump Logic for Attack
+            if (player.isGrounded && player.jumpCooldown === 0) {
+                for (let i = 5; i <= PREDICTION_FRAMES_MEDIUM; i += 5) { // Check a few future points
+                    const futureBallState = predictBallPosition(ball, i);
+                    const futureBallPosY = futureBallState.position.y;
+                    const futureBallPosX = futureBallState.position.x;
+
+                    // Is ball at a good height for a header/volley?
+                    // (e.g., between just above head and 1.5 player heights)
+                    const minJumpHeight = aiPos.y - PLAYER_RECT_SIZE * 1.5;
+                    const maxJumpHeight = aiPos.y - PLAYER_RECT_SIZE * 0.3;
+
+                    if (futureBallPosY > minJumpHeight && futureBallPosY < maxJumpHeight) {
+                        // Can AI reach it horizontally?
+                        const horizontalReach = PLAYER_RECT_SIZE * 1.5;
+                         // How long it takes AI to get there vs how long ball takes
+                        const timeForAiToReach = (Math.abs(futureBallPosX - aiPos.x) / (AI_MOVE_FORCE * 300)) * 60 ; // rough estimate of frames to reach
+
+                        if (Math.abs(futureBallPosX - aiPos.x) < horizontalReach && i > timeForAiToReach - 10) { // AI can reach it in time
+                             // Is ball descending or near peak (slower vertical speed)?
+                            if (futureBallState.velocity.y > -1.5) { // Velocity.y is positive downwards
+                                targetX = futureBallPosX; // Target the predicted spot
+                                shouldJump = true;
+                                // console.log(`AI (${player.playerTeam}) Smart Jump! TargetX: ${targetX.toFixed(0)}, BallY_pred: ${futureBallPosY.toFixed(0)} in ${i} frames.`);
+                                break; // Found a good jump spot
+                            }
+                        }
+                    }
+                }
             }
-            // Kick if in range
-            const distToBall = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
-            if (distToBall < AI_KICK_BALL_RANGE) {
+             // Fallback jump logic if no smart jump identified but ball is very close and high
+            if (!shouldJump && ballPos.y < aiPos.y - PLAYER_RECT_SIZE * 0.7 && player.isGrounded && player.jumpCooldown === 0 &&
+                Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos)) < PLAYER_RECT_SIZE * 1.5) {
+                 //shouldJump = true; // This can be too simplistic, rely on smart jump mostly
+            }
+
+            // Kick if in range (use currentBallPos for kicking accuracy)
+            const distToCurrentBall = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, currentBallPos));
+            if (distToCurrentBall < AI_KICK_BALL_RANGE) {
                 shouldKick = true;
             }
             break;
 
         case INTENT_DEFEND:
-            // Try to position between ball and own goal
-            targetX = (ballPos.x + ownGoalX) / 2;
-            targetY = ballPos.y - PLAYER_RECT_SIZE * 0.2; // Stay a bit above ball to intercept
+            // Try to position between predicted ball and own goal
+            targetX = (ballPos.x + ownGoalX) / 2; // ballPos is predicted here
+            targetY = ballPos.y - PLAYER_RECT_SIZE * 0.2;
 
-            // If human player has the ball and is moving towards goal, try to intercept human
+            // If human player has the current ball and is moving towards goal, try to intercept human
             if (humanPlayer) {
                 const humanPlayerPos = humanPlayer.playerBody.position;
                 const distHumanToBall = Matter.Vector.magnitude(Matter.Vector.sub(humanPlayerPos, ballPos));
@@ -860,36 +928,77 @@ function executeAIPlayerLogic(player) {
     if (player.jumpCooldown > 0) player.jumpCooldown--;
 
 
-    // Kicking (using existing advanced kick logic for now, but triggered by intent)
+    // Kicking
     if (shouldKick && player.actionCooldown === 0) {
-        const kickOrigin = player.playerBody.position;
+        const kickOrigin = player.playerBody.position; // Kick originates from player center
         let kickForceMagnitude = AI_KICK_ATTEMPT_STRENGTH;
-        let kickTargetPos = { x: opponentGoalX, y: goalCenterY - actualGoalOpeningHeight * 0.1 + (Math.random() * actualGoalOpeningHeight * 0.3) };
+        const opponentGoalTargetPos = { x: opponentGoalX, y: goalCenterY - actualGoalOpeningHeight * 0.1 + (Math.random() * actualGoalOpeningHeight * 0.3) };
+        let kickTargetPos = opponentGoalTargetPos;
+        let isDribble = false;
 
-        // Simplified kick direction based on intent for now
-        // More advanced kicking (dribbling, smart jump shots) will be in Phase 2
-        if (player.currentIntent === INTENT_DEFEND) {
+        if (player.currentIntent === INTENT_ATTACK) {
+            const humanPlayerForBlockCheck = players.find(p => !p.isAI && p.playerBody);
+            if (isShotPathBlocked(player, opponentGoalTargetPos, humanPlayerForBlockCheck, currentBallPos)) {
+                isDribble = true;
+                kickForceMagnitude = KICK_FORCE_MAGNITUDE * 0.25; // Much softer kick for dribble
+
+                // Dribble logic: Try to push ball slightly to the side of the human player or into open space
+                const humanPos = humanPlayerForBlockCheck.playerBody.position;
+                const vecAiToHuman = Matter.Vector.sub(humanPos, aiPos);
+                // Dribble perpendicular to the line to human, or slightly forward and side
+                // For simplicity, let's try to dribble towards the opponent's goal but slightly offset from human
+
+                let dribbleAngleOffset = (Math.random() < 0.5 ? -1 : 1) * (Math.PI / 3); // 60 degrees to side
+                if (humanPos.y < aiPos.y - PLAYER_RECT_SIZE*0.5 && Math.abs(humanPos.x - aiPos.x) < PLAYER_RECT_SIZE ) { // Human is jumping in front
+                    dribbleAngleOffset = 0; // try to push it under
+                    kickForceMagnitude = KICK_FORCE_MAGNITUDE * 0.15;
+                }
+
+                const vecToGoal = Matter.Vector.sub(opponentGoalTargetPos, currentBallPos);
+                let dribbleDirection = Matter.Vector.rotate(Matter.Vector.normalise(vecToGoal), dribbleAngleOffset);
+
+                // If human is directly in goal path, try to go more sideways
+                const distAiToHuman = Matter.Vector.magnitude(vecAiToHuman);
+                if(distAiToHuman < PLAYER_RECT_SIZE * 2){
+                     const isHumanLeft = humanPos.x < aiPos.x;
+                     // if human is to the left, dribble right, and vice versa
+                     const sideDir = isHumanLeft ? 1 : -1;
+                     // Create a vector that is more sideways
+                     dribbleDirection = Matter.Vector.normalise({x: sideDir * 0.7, y: 0.3}); // Adjust y for slight forward push
+                }
+
+                kickTargetPos = Matter.Vector.add(currentBallPos, Matter.Vector.mult(dribbleDirection, 100)); // Target a point along dribble direction
+                // console.log(`AI (${player.playerTeam}) Dribbling! Path Blocked. Target: ${kickTargetPos.x.toFixed(0)},${kickTargetPos.y.toFixed(0)}`);
+            }
+        } else if (player.currentIntent === INTENT_DEFEND) {
             // Defensive clear: aim towards center field or opponent side, high up
-            kickTargetPos.x = CANVAS_WIDTH / 2 + (opponentGoalX - CANVAS_WIDTH/2) * 0.5; // Mid of opponent half
-            kickTargetPos.y = CANVAS_HEIGHT / 4; // High clearance
-            kickForceMagnitude *= 0.9;
+            kickTargetPos = {
+                x: CANVAS_WIDTH / 2 + (opponentGoalX - CANVAS_WIDTH/2) * (0.3 + Math.random()*0.4) ,
+                y: CANVAS_HEIGHT / 4 + (Math.random() - 0.5) * 50 // Higher clearance with some variation
+            };
+            kickForceMagnitude *= (0.9 + Math.random() * 0.2);
         }
 
-        let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
+        let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin); // From player to target
         kickVector = Matter.Vector.normalise(kickVector);
 
-        // Loft adjustment for AI kicks, less extreme than human jump shots initially
-        if (!player.isGrounded) { // Air shot
+        if (isDribble) {
+            kickVector.y = Math.min(kickVector.y, -0.1 - Math.random() * 0.1); // Keep dribble low
+             // Ensure dribble has some forward component if possible
+            if (Math.sign(kickVector.x) !== Math.sign(opponentGoalX - aiPos.x) && Math.abs(kickVector.x) > 0.3){
+                 // if dribble vector is backwards, try to make it more neutral or slightly forward if possible
+            }
+        } else if (!player.isGrounded) { // Air shot (non-dribble)
             kickVector.y = Math.min(kickVector.y, -0.6 - Math.random() * 0.2);
             kickForceMagnitude *= 1.1;
-        } else { // Ground shot
+        } else { // Ground shot (non-dribble)
             kickVector.y = Math.min(kickVector.y, -0.4 - Math.random() * 0.2);
         }
-        kickVector = Matter.Vector.normalise(kickVector);
+        kickVector = Matter.Vector.normalise(kickVector); // Re-normalize after Y adjustment
 
-        Body.applyForce(ball, kickOrigin, { x: kickVector.x * kickForceMagnitude, y: kickVector.y * kickForceMagnitude });
+        Body.applyForce(ball, ball.position, { x: kickVector.x * kickForceMagnitude, y: kickVector.y * kickForceMagnitude }); // Apply force TO THE BALL, from ball's current position
         playSound('kick.wav');
-        player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES;
+        player.actionCooldown = isDribble ? PLAYER_ACTION_COOLDOWN_FRAMES / 2 : PLAYER_ACTION_COOLDOWN_FRAMES;
     }
     if (player.actionCooldown > 0) player.actionCooldown--;
 }
@@ -898,7 +1007,7 @@ function executeAIPlayerLogic(player) {
 // --- perpDistToLine (ensure this helper function exists) ---
 function perpDistToLine(p1, p2, p3) {
     const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-    if (dx === 0 && dy === 0) return Matter.Vector.magnitude(Matter.Vector.sub(p3,p1));
+    if (dx === 0 && dy === 0) return Matter.Vector.magnitude(Matter.Vector.sub(p3, p1));
     const t = ((p3.x - p1.x) * dx + (p3.y - p1.y) * dy) / (dx * dx + dy * dy);
     let cp;
     if (t < 0) cp = p1;
@@ -906,6 +1015,87 @@ function perpDistToLine(p1, p2, p3) {
     else cp = { x: p1.x + t * dx, y: p1.y + t * dy };
     return Matter.Vector.magnitude(Matter.Vector.sub(p3, cp));
 }
+
+// --- Ball Prediction Function ---
+function predictBallPosition(currentBall, framesInFuture) {
+    if (!currentBall || !engine) {
+        return currentBall ? { position: { ...currentBall.position }, velocity: { ...currentBall.velocity } } : { position: { x: 0, y: 0 }, velocity: { x: 0, y: 0 } };
+    }
+
+    let predictedPosition = { ...currentBall.position };
+    let predictedVelocity = { ...currentBall.velocity };
+    const timeStep = 1000 / 60 / 1000; // Assuming 60 FPS, timeStep in seconds
+
+    for (let i = 0; i < framesInFuture; i++) {
+        // Apply gravity
+        predictedVelocity.y += engine.world.gravity.y * engine.world.gravity.scale * timeStep * 100; // Gravity is often scaled weirdly in Matter, adjust if necessary
+                                                                                                   // Or use a fixed gravity value if engine.world.gravity.y is not direct force
+                                                                                                   // Simplified: engine.world.gravity.y is an acceleration factor.
+
+        // Apply air friction (simplified)
+        // Matter.js applies friction internally, but for prediction we simplify
+        predictedVelocity.x *= (1 - currentBall.frictionAir);
+        predictedVelocity.y *= (1 - currentBall.frictionAir);
+
+        // Update position
+        predictedPosition.x += predictedVelocity.x * timeStep * 100; // Multiply by a factor if positions are scaled
+        predictedPosition.y += predictedVelocity.y * timeStep * 100;
+
+        // Simplified boundary checks (not full collision physics)
+        if (predictedPosition.x - BALL_RADIUS < WALL_THICKNESS || predictedPosition.x + BALL_RADIUS > CANVAS_WIDTH - WALL_THICKNESS) {
+            predictedVelocity.x *= -currentBall.restitution; // Bounce
+            predictedPosition.x = Math.max(predictedPosition.x, WALL_THICKNESS + BALL_RADIUS);
+            predictedPosition.x = Math.min(predictedPosition.x, CANVAS_WIDTH - WALL_THICKNESS - BALL_RADIUS);
+        }
+        if (predictedPosition.y - BALL_RADIUS < WALL_THICKNESS) { // Ceiling
+            predictedVelocity.y *= -currentBall.restitution;
+            predictedPosition.y = Math.max(predictedPosition.y, WALL_THICKNESS + BALL_RADIUS);
+        }
+        // Ground collision is more complex due to player interactions, so we might ignore precise ground bounces in long predictions
+        // or simplify it. For AI positioning, exact bounce height might be less critical than general trajectory.
+        if (predictedPosition.y + BALL_RADIUS > CANVAS_HEIGHT - GROUND_THICKNESS) {
+             predictedVelocity.y *= -currentBall.restitution;
+             predictedPosition.y = CANVAS_HEIGHT - GROUND_THICKNESS - BALL_RADIUS;
+        }
+    }
+    return { position: predictedPosition, velocity: predictedVelocity };
+}
+
+// --- Helper function to check if shot path is blocked ---
+function isShotPathBlocked(aiPlayer, targetGoalPos, humanPlayer, ballPos) {
+    if (!humanPlayer || !humanPlayer.playerBody) return false;
+
+    const aiPos = aiPlayer.playerBody.position;
+    const humanPos = humanPlayer.playerBody.position;
+
+    // Consider path from ball to goal for shooting, or AI to goal if AI is far from ball but wants to shoot
+    const shotOrigin = ballPos; // Path is from ball to goal generally
+
+    const vecShotOriginToGoal = Matter.Vector.sub(targetGoalPos, shotOrigin);
+    const vecShotOriginToHuman = Matter.Vector.sub(humanPos, shotOrigin);
+
+    // Check if human is generally between shot origin and goal
+    if (Matter.Vector.dot(vecShotOriginToGoal, vecShotOriginToHuman) > 0 &&
+        Matter.Vector.magnitudeSquared(vecShotOriginToHuman) < Matter.Vector.magnitudeSquared(vecShotOriginToGoal)) {
+        // Human is closer to shot origin than the goal is, and in the general direction.
+        const distHumanToShotPath = perpDistToLine(shotOrigin, targetGoalPos, humanPos);
+
+        // If human is close to the direct line of shot
+        // PLAYER_RECT_SIZE * 1.5 means human body width plus some margin
+        if (distHumanToShotPath < PLAYER_RECT_SIZE * 1.25) {
+            // Also check if human is not too far vertically from the ball (relevant for ground shots)
+            if (Math.abs(humanPos.y - ballPos.y) < PLAYER_RECT_SIZE * 1.5) {
+                 // Optional: Check if AI is actually close enough to ball to consider this a "dribble past" situation
+                const distAiToBall = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
+                if (distAiToBall < AI_KICK_BALL_RANGE * 1.5) { // AI is close enough to dribble
+                    return true; // Path is blocked
+                }
+            }
+        }
+    }
+    return false; // Path is clear or not relevant for dribbling
+}
+
 
 // --- handleGoalScored, checkWinCondition, resetPositions (no changes) ---
 let goalScoredRecently = false;
