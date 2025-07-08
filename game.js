@@ -35,6 +35,17 @@ const worldCategory = 0x0008; // For ground, walls, ceiling
 let pixelCanvas;
 let pixelCtx;
 
+// Adaptive Learning Module Variables
+let humanPlayerShotHistory = [];
+const MAX_SHOT_HISTORY_LENGTH = 50; // Store last 50 shots for analysis
+let aiBehavioralParams = {
+    defensiveBiasX: 0, // -1 (more left) to 1 (more right)
+    offensiveBiasX: 0, // -1 (more left) to 1 (more right)
+    lastAnalysisTime: 0,
+    analysisInterval: 30000, // Analyze every 30 seconds
+    minShotsForAnalysis: 5
+};
+
 let engine;
 let world;
 let runner;
@@ -299,6 +310,14 @@ const aiIntents = {
             const verticalAlignmentFactor = Math.max(0, 1 - (Math.abs(aiPos.y - ballPosForDefenseStrategy.y) / (CANVAS_HEIGHT / 2)));
             if (isAiBetweenBallAndGoalX) {
                 score += 50 * verticalAlignmentFactor; // Max 50 points for good positioning
+
+                // Apply defensiveBiasX bonus if AI is positioned according to bias when between ball and goal
+                const biasEffect = aiBehavioralParams.defensiveBiasX * (player.playerTeam === 1 ? 1 : -1); // Team 1 defends left, Team 2 defends right. Bias positive means human attacks AI's right.
+                // If bias is positive (human attacks AI's right), AI should shift right.
+                // If AI is on the 'biased correct' side of the center of defense (ballPos.x), give bonus.
+                if ((biasEffect > 0 && aiPos.x > ballPosForDefenseStrategy.x) || (biasEffect < 0 && aiPos.x < ballPosForDefenseStrategy.x)) {
+                    score += Math.abs(biasEffect) * 15; // Max ~10 points bonus from bias
+                }
             }
 
             // 3. Proximity of AI to human player (if human has *current* ball or is near *current* ball)
@@ -335,9 +354,10 @@ const aiIntents = {
             const aiPos = player.playerBody.position;
             const ballPos = gameState.ball.position;
 
-            // 1. Move to a strategic central position if ball is neutral or far
-            const distAiToCenter = Math.abs(aiPos.x - CANVAS_WIDTH / 2);
-            score += (CANVAS_WIDTH / 2 - distAiToCenter) / (CANVAS_WIDTH / 2) * 25; // Max 25 for being central
+            // 1. Move to a strategic central position, adjusted by defensive bias
+            const biasedCenterX = CANVAS_WIDTH / 2 + (aiBehavioralParams.defensiveBiasX * (CANVAS_WIDTH / 7) * (player.playerTeam === 1 ? 1 : -1));
+            const distAiToBiasedCenter = Math.abs(aiPos.x - biasedCenterX);
+            score += (CANVAS_WIDTH / 2 - distAiToBiasedCenter) / (CANVAS_WIDTH / 2) * 25; // Max 25 for being central (biased)
 
             // 2. Maintain a moderate distance from the ball - not too close if not attacking/defending, not too far
             const aiToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
@@ -713,6 +733,31 @@ function updatePlayerStates() { /* ... */ }
 function handleHumanPlayerControls() { /* ... */ }
 // --- updateAIPlayers, executeAIPlayerLogic (MODIFIED for Utility AI) ---
 function updateAIPlayers() {
+    // Periodic analysis of human player patterns
+    if (isGameStarted && !isGameOver && Date.now() - aiBehavioralParams.lastAnalysisTime > aiBehavioralParams.analysisInterval) {
+        aiBehavioralParams.lastAnalysisTime = Date.now();
+        if (humanPlayerShotHistory.length >= aiBehavioralParams.minShotsForAnalysis) {
+            const patterns = analyzePlayerPatterns(humanPlayerShotHistory);
+            // console.log("Periodic Player Pattern Analysis:", patterns);
+            // Next step will use 'patterns' to adjust aiBehavioralParams.defensiveBiasX etc.
+            // This is where aiBehavioralParams would be updated based on 'patterns'
+            if (patterns.preferredShotSide === 'left') {
+                // Gradually shift bias, e.g., by 0.1, capped at -0.7
+                aiBehavioralParams.defensiveBiasX = Math.max(-0.7, aiBehavioralParams.defensiveBiasX - 0.05);
+            } else if (patterns.preferredShotSide === 'right') {
+                aiBehavioralParams.defensiveBiasX = Math.min(0.7, aiBehavioralParams.defensiveBiasX + 0.05);
+            } else { // Center or not enough data to be sure
+                // Gradually return bias to neutral
+                if (aiBehavioralParams.defensiveBiasX > 0) {
+                    aiBehavioralParams.defensiveBiasX = Math.max(0, aiBehavioralParams.defensiveBiasX - 0.02);
+                } else if (aiBehavioralParams.defensiveBiasX < 0) {
+                    aiBehavioralParams.defensiveBiasX = Math.min(0, aiBehavioralParams.defensiveBiasX + 0.02);
+                }
+            }
+             // console.log("Updated aiBehavioralParams.defensiveBiasX:", aiBehavioralParams.defensiveBiasX);
+        }
+    }
+
     players.filter(p => p.isAI).forEach(player => {
         player.aiDecisionTimer = (player.aiDecisionTimer || 0) + 1;
         if (player.aiDecisionTimer >= player.aiDecisionInterval) {
@@ -852,8 +897,22 @@ function executeAIPlayerLogic(player) {
             break;
 
         case INTENT_DEFEND:
-            // Try to position between predicted ball and own goal
-            targetX = (ballPos.x + ownGoalX) / 2; // ballPos is predicted here
+            // Try to position between predicted ball and own goal, adjusted by defensive bias
+            const defensiveMidPointX = (ballPos.x + ownGoalX) / 2;
+            // defensiveBiasX: positive means human prefers AI's right. AI for team 1 defends left goal (ownGoalX is small). AI for team 2 defends right goal (ownGoalX is large).
+            // If AI is team 1 (defends left), and human attacks from AI's right (bias > 0), AI should shift right (increase targetX).
+            // If AI is team 2 (defends right), and human attacks from AI's right (bias > 0), AI should shift right (increase targetX).
+            // So, if bias > 0, AI shifts right. If bias < 0, AI shifts left.
+            // The actual bias direction on field depends on which side AI is.
+            // Let's use a simpler approach: bias shifts the AI's "center" of defense.
+            // If human attacks AI's right (bias > 0), AI should defend more to its right.
+            // If player.playerTeam === 1 (AI on left, attacks right), its right is larger X.
+            // If player.playerTeam === 2 (AI on right, attacks left), its right is larger X.
+            const biasShiftFactor = player.playerTeam === 1 ? 1 : 1; // For defensiveBiasX, positive always means human attacks AI's physical right side.
+                                                                    // So AI should shift towards its physical right.
+            targetX = defensiveMidPointX + (aiBehavioralParams.defensiveBiasX * biasShiftFactor * (CANVAS_WIDTH / 10));
+            targetX = Math.max(PLAYER_RECT_SIZE/2 + WALL_THICKNESS, Math.min(CANVAS_WIDTH - PLAYER_RECT_SIZE/2 - WALL_THICKNESS, targetX)); // Clamp within field
+
             targetY = ballPos.y - PLAYER_RECT_SIZE * 0.2;
 
             // If human player has the current ball and is moving towards goal, try to intercept human
@@ -884,13 +943,19 @@ function executeAIPlayerLogic(player) {
             break;
 
         case INTENT_REPOSITION:
-            // Move towards a general central field position, or slightly biased to own half.
-            targetX = CANVAS_WIDTH / 2;
-            if (player.playerTeam === 1) { // Team 1 (left side)
-                targetX = CANVAS_WIDTH * 0.4;
-            } else { // Team 2 (right side)
-                targetX = CANVAS_WIDTH * 0.6;
+            // Move towards a general central field position, adjusted by defensive bias and biased to own half.
+            let baseRepoX = CANVAS_WIDTH / 2;
+            if (player.playerTeam === 1) { // Team 1 (AI on left, human on left, AI attacks right)
+                baseRepoX = CANVAS_WIDTH * 0.35; // Bias to own half
+            } else { // Team 2 (AI on right, human on right, AI attacks left)
+                baseRepoX = CANVAS_WIDTH * 0.65; // Bias to own half
             }
+            // Apply defensive bias: if human attacks AI's right (bias > 0), AI repositions more to its right.
+            const repoBiasShift = aiBehavioralParams.defensiveBiasX * (CANVAS_WIDTH / 8);
+            targetX = baseRepoX + repoBiasShift;
+            targetX = Math.max(PLAYER_RECT_SIZE/2 + WALL_THICKNESS, Math.min(CANVAS_WIDTH - PLAYER_RECT_SIZE/2 - WALL_THICKNESS, targetX));
+
+
             // Maintain a certain height, e.g., ground level or slightly above
             targetY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 10;
 
@@ -1060,6 +1125,76 @@ function predictBallPosition(currentBall, framesInFuture) {
     }
     return { position: predictedPosition, velocity: predictedVelocity };
 }
+
+// --- Adaptive Learning: Analyze Player Patterns ---
+function analyzePlayerPatterns(shotHistory) {
+    const analysisResult = {
+        averageShotX: null,
+        averageShotY: null,
+        preferredShotSide: null, // 'left', 'right', 'center'
+        shotCount: shotHistory.length
+    };
+
+    if (shotHistory.length < aiBehavioralParams.minShotsForAnalysis) {
+        // console.log("Not enough shot data to analyze patterns.", shotHistory.length);
+        return analysisResult; // Not enough data
+    }
+
+    let sumX = 0;
+    let sumY = 0;
+    shotHistory.forEach(shot => {
+        sumX += shot.x;
+        sumY += shot.y;
+    });
+
+    analysisResult.averageShotX = sumX / shotHistory.length;
+    analysisResult.averageShotY = sumY / shotHistory.length;
+
+    const centerThreshold = CANVAS_WIDTH / 10; // 10% of canvas width as threshold for 'center'
+    if (analysisResult.averageShotX < CANVAS_WIDTH / 2 - centerThreshold) {
+        analysisResult.preferredShotSide = 'left';
+    } else if (analysisResult.averageShotX > CANVAS_WIDTH / 2 + centerThreshold) {
+        analysisResult.preferredShotSide = 'right';
+    } else {
+        analysisResult.preferredShotSide = 'center';
+    }
+
+    // console.log("Player Pattern Analysis Complete: ", analysisResult);
+    return analysisResult;
+}
+
+// --- Update AI Behavioral Parameters based on Analysis ---
+// This function is now integrated into the periodic analysis block in updateAIPlayers
+/*
+function updateAIBehavioralParams(patterns) {
+    if (!patterns || patterns.shotCount < aiBehavioralParams.minShotsForAnalysis) {
+        // Gradually return bias to neutral if not enough data or unclear pattern
+        if (aiBehavioralParams.defensiveBiasX > 0) {
+            aiBehavioralParams.defensiveBiasX = Math.max(0, aiBehavioralParams.defensiveBiasX - 0.01);
+        } else if (aiBehavioralParams.defensiveBiasX < 0) {
+            aiBehavioralParams.defensiveBiasX = Math.min(0, aiBehavioralParams.defensiveBiasX + 0.01);
+        }
+        return;
+    }
+
+    const BIAS_ADJUSTMENT_STEP = 0.05;
+    const MAX_BIAS = 0.7;
+
+    if (patterns.preferredShotSide === 'left') {
+        aiBehavioralParams.defensiveBiasX = Math.max(-MAX_BIAS, aiBehavioralParams.defensiveBiasX - BIAS_ADJUSTMENT_STEP);
+    } else if (patterns.preferredShotSide === 'right') {
+        aiBehavioralParams.defensiveBiasX = Math.min(MAX_BIAS, aiBehavioralParams.defensiveBiasX + BIAS_ADJUSTMENT_STEP);
+    } else { // 'center'
+        // Gradually return bias to neutral
+        if (aiBehavioralParams.defensiveBiasX > 0) {
+            aiBehavioralParams.defensiveBiasX = Math.max(0, aiBehavioralParams.defensiveBiasX - BIAS_ADJUSTMENT_STEP / 2);
+        } else if (aiBehavioralParams.defensiveBiasX < 0) {
+            aiBehavioralParams.defensiveBiasX = Math.min(0, aiBehavioralParams.defensiveBiasX + BIAS_ADJUSTMENT_STEP / 2);
+        }
+    }
+    // console.log("Updated aiBehavioralParams.defensiveBiasX:", aiBehavioralParams.defensiveBiasX.toFixed(2));
+}
+*/
 
 // --- Helper function to check if shot path is blocked ---
 function isShotPathBlocked(aiPlayer, targetGoalPos, humanPlayer, ballPos) {
