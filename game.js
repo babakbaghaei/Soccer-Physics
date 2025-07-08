@@ -484,6 +484,8 @@ function initStadiumLights() { /* ... (no changes) ... */
 
 // --- Initialization Function ---
 function setup() {
+    console.log("DEBUG: --- Entering setup() ---");
+    console.log(`DEBUG: Canvas Dimensions: CW=${CANVAS_WIDTH}, CH=${CANVAS_HEIGHT}, PS=${PIXEL_SCALE}, PCW=${PIXEL_CANVAS_WIDTH}, PCH=${PIXEL_CANVAS_HEIGHT}`);
     console.log("SETUP: Initializing game state...");
     isGameStarted = false; isGameOver = false; restartDebounce = false;
     team1Score = 0; team2Score = 0;
@@ -517,6 +519,7 @@ function setup() {
 
     engine = Engine.create({ enableSleeping: false });
     world = engine.world;
+    console.log("DEBUG: Engine and world created.", engine, world);
     engine.world.gravity.y = 1.1;
     world.slop = 0.08;
     engine.positionIterations = 8;
@@ -541,13 +544,17 @@ function setup() {
         pixelCtx = pixelCanvas.getContext('2d');
     }
     pixelCtx.imageSmoothingEnabled = false;
+    console.log("DEBUG: pixelCanvas and pixelCtx initialized.");
 
-    createField(); // This will now create new posts and sensors
+    createField();
+    console.log("DEBUG: createField() called.");
     createBall();
+    console.log("DEBUG: createBall() called.");
     players = [];
     const playerSpawnY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 5;
     players.push(createPlayer(CANVAS_WIDTH / 4, playerSpawnY, activeTeam1Color, true, false));
     players.push(createPlayer(CANVAS_WIDTH * 3 / 4, playerSpawnY, activeTeam2Color, false, true));
+    console.log("DEBUG: createPlayer() called for both players. Total players:", players.length);
     
     setupInputListeners();
     runner = Runner.create();
@@ -610,6 +617,7 @@ function getFieldDerivedConstants() {
 
 // --- createField (NEW VERSION with physical posts and new sensors) ---
 function createField() {
+    console.log("DEBUG: --- Entering createField() ---");
     const chamferOptions = { chamfer: { radius: 5 } };
     const postChamfer = { chamfer: { radius: 2 } };
 
@@ -702,10 +710,15 @@ function createField() {
         postLV_R, postRV_R, postH_R,
         mainLeftGoalSensor, mainRightGoalSensor
     ]);
+    console.log("DEBUG: Field elements (ground, walls, posts, sensors) created and added to world.");
+    // Example log for one element:
+    console.log(`DEBUG: Ground: x=${ground.position.x}, y=${ground.position.y}, w=${CANVAS_WIDTH}, h=${GROUND_THICKNESS}`);
+    console.log(`DEBUG: Left Goal Sensor: x=${mainLeftGoalSensor.position.x}, y=${mainLeftGoalSensor.position.y}`);
 }
 
 // --- createBall (NEW VERSION with collisionFilter) ---
 function createBall() {
+    console.log("DEBUG: --- Entering createBall() ---");
     ball = Bodies.circle(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 3, BALL_RADIUS, {
         label: 'ball',
         density: 0.001, friction: 0.01, frictionAir: 0.008, restitution: 0.7,
@@ -716,10 +729,12 @@ function createBall() {
         }
     });
     World.add(world, ball);
+    console.log(`DEBUG: Ball created at x=${ball.position.x}, y=${ball.position.y}, r=${BALL_RADIUS} and added to world.`);
 }
 
 // --- createPlayer (NEW VERSION with collisionFilter) ---
 function createPlayer(x, y, teamColor, isTeam1, isAI) {
+    console.log(`DEBUG: --- Entering createPlayer(x=${x}, y=${y}, color=${teamColor}, team1=${isTeam1}, isAI=${isAI}) ---`);
     const playerLabelPrefix = isTeam1 ? 'player-t1' : 'player-t2';
     const options = {
         density: PLAYER_DENSITY,
@@ -736,6 +751,7 @@ function createPlayer(x, y, teamColor, isTeam1, isAI) {
     };
     const playerBody = Bodies.rectangle(x, y, PLAYER_RECT_SIZE, PLAYER_RECT_SIZE, options);
     World.add(world, playerBody);
+    console.log(`DEBUG: Player ${playerLabelPrefix} created at x=${playerBody.position.x}, y=${playerBody.position.y}, size=${PLAYER_RECT_SIZE} and added to world.`);
     return {
         playerBody: playerBody, playerTeam: isTeam1 ? 1 : 2, color: teamColor, actionCooldown: 0,
         jumpCooldown: 0, isAI: isAI, isGrounded: false, lastJumpTime: 0, isAttemptingVariableJump: false,
@@ -1519,8 +1535,10 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) { /* ... (no chang
 
 // --- customRenderAll (Goal rendering part needs to be updated if physical posts are used) ---
 function customRenderAll() {
+    console.log("DEBUG: --- Entering customRenderAll() ---");
     // Sky, lights, clouds, sun (no changes)
     /* ... */
+    console.log(`DEBUG: Active Theme: ${activeTheme.name}, SkyColor: ${activeTheme.skyColor}, Ground: ${activeTheme.ground}, Walls: ${activeTheme.walls}`);
     const currentSunColor = getCurrentSunColor();
     const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
     let skyTop, skyMid, skyBottom;
@@ -1544,6 +1562,11 @@ function customRenderAll() {
 
     // Render all static bodies (ground, walls, AND posts with potential shake)
     const allStaticBodies = Composite.allBodies(world).filter(b => b.isStatic && !b.isSensor);
+    console.log(`DEBUG: Rendering ${allStaticBodies.length} static bodies.`);
+    if (allStaticBodies.length > 0) {
+        const firstStatic = allStaticBodies[0];
+        console.log(`DEBUG: First static body example: label=${firstStatic.label}, x=${firstStatic.position.x / PIXEL_SCALE}, y=${firstStatic.position.y / PIXEL_SCALE}, color=${firstStatic.render.fillStyle}`);
+    }
     allStaticBodies.forEach(body => {
         if (body.render.visible === false) return; // Skip explicitly invisible bodies
 
@@ -1605,12 +1628,25 @@ function customRenderAll() {
     });
     
     // Render dynamic bodies (players, ball)
-    if(ball && ball.render.visible !== false) drawPixelIsoCircle(pixelCtx, ball, BALL_PANEL_COLOR_PRIMARY);
-    players.forEach(p => {
-        if (p.playerBody.render.visible !== false) drawPlayer(pixelCtx, p.playerBody, p.color);
+    if (ball) {
+        console.log(`DEBUG: Ball exists. Visible: ${ball.render.visible !== false}. Pos: x=${ball.position.x / PIXEL_SCALE}, y=${ball.position.y / PIXEL_SCALE}, Color used: ${BALL_PANEL_COLOR_PRIMARY}`);
+        if(ball.render.visible !== false) drawPixelIsoCircle(pixelCtx, ball, BALL_PANEL_COLOR_PRIMARY);
+    } else {
+        console.log("DEBUG: Ball object does not exist for rendering.");
+    }
+
+    console.log(`DEBUG: Rendering ${players.length} players.`);
+    players.forEach((p, index) => {
+        if (p.playerBody) {
+            console.log(`DEBUG: Player ${index + 1} (Team ${p.playerTeam}): Visible: ${p.playerBody.render.visible !== false}. Pos: x=${p.playerBody.position.x / PIXEL_SCALE}, y=${p.playerBody.position.y / PIXEL_SCALE}, Color: ${p.color}`);
+            if (p.playerBody.render.visible !== false) drawPlayer(pixelCtx, p.playerBody, p.color);
+        } else {
+            console.log(`DEBUG: Player ${index + 1} (Team ${p.playerTeam}): playerBody does not exist for rendering.`);
+        }
     });
 
     particles.forEach(particle => { /* ... (no changes) ... */ });
+    if (particles.length > 0) console.log(`DEBUG: Rendering ${particles.length} particles.`);
 
     // --- Goal Net Rendering (Simplified, to be drawn behind players/ball but in front of far background) ---
     // This part needs to be carefully placed in the Z-order.
@@ -1663,12 +1699,64 @@ function customRenderAll() {
             pixelCtx.stroke();
         }
     });
+    console.log("DEBUG: Goal nets rendering attempted.");
     // --- End of Goal Net Rendering ---
 
     drawInGameScoreboard();
+    console.log("DEBUG: In-game scoreboard rendering attempted.");
+    console.log("DEBUG: --- Exiting customRenderAll() ---");
 }
 // --- gameRenderLoop (with rounded corners, no changes from before) ---
-function gameRenderLoop() { /* ... */ }
+function gameRenderLoop() {
+    console.log("DEBUG: --- Entering gameRenderLoop() ---");
+
+    if (!engine || !pixelCtx || !canvas) {
+        console.error("DEBUG: Render loop aborted: engine, pixelCtx, or canvas not initialized.");
+        return;
+    }
+
+    customRenderAll();
+    console.log("DEBUG: customRenderAll() called from gameRenderLoop.");
+
+    const mainCtx = canvas.getContext('2d');
+    mainCtx.fillStyle = activeTheme.background;
+    mainCtx.fillRect(0, 0, canvas.width, canvas.height);
+    console.log(`DEBUG: Main canvas cleared with color: ${activeTheme.background}`);
+
+    const scaledWidth = PIXEL_CANVAS_WIDTH * PIXEL_SCALE;
+    const scaledHeight = PIXEL_CANVAS_HEIGHT * PIXEL_SCALE;
+    console.log(`DEBUG: Calculated scaled dimensions for drawImage: scaledWidth=${scaledWidth}, scaledHeight=${scaledHeight}`);
+    console.log(`DEBUG: Main canvas dimensions for drawImage: canvas.width=${canvas.width}, canvas.height=${canvas.height}`);
+
+    mainCtx.imageSmoothingEnabled = false;
+    mainCtx.drawImage(
+        pixelCanvas,
+        0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT,
+        0, 0, canvas.width, canvas.height
+    );
+    console.log("DEBUG: pixelCanvas drawn onto mainCtx.");
+
+    const cornerRadius = 10;
+    mainCtx.beginPath();
+    mainCtx.moveTo(cornerRadius, 0);
+    mainCtx.lineTo(canvas.width - cornerRadius, 0);
+    mainCtx.arcTo(canvas.width, 0, canvas.width, cornerRadius, cornerRadius);
+    mainCtx.lineTo(canvas.width, canvas.height - cornerRadius);
+    mainCtx.arcTo(canvas.width, canvas.height, canvas.width - cornerRadius, canvas.height, cornerRadius);
+    mainCtx.lineTo(cornerRadius, canvas.height);
+    mainCtx.arcTo(0, canvas.height, 0, canvas.height - cornerRadius, cornerRadius);
+    mainCtx.lineTo(0, cornerRadius);
+    mainCtx.arcTo(0, 0, cornerRadius, 0, cornerRadius);
+    mainCtx.closePath();
+    // mainCtx.clip(); // Not currently used
+
+    if (!isGameOver) {
+        gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
+    } else {
+        console.log("DEBUG: Render loop stopped: Game Over.");
+    }
+    console.log("DEBUG: --- Exiting gameRenderLoop() ---");
+}
 // --- Particle System (spawnParticles, updateParticles - no changes) ---
 function spawnParticles(x,y,count,color,baseVelocityX,baseVelocityY,spread,life,size) { /* ... */ }
 function updateParticles() { /* ... */ }
