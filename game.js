@@ -256,30 +256,7 @@ function initClouds() {
 // Initialize spectators
 function initSpectators() {
     spectators = [];
-    const stadiumSections = [
-        // Left stand
-        { startX: 2, endX: 25, y: PIXEL_CANVAS_HEIGHT * 0.2, rows: 4 },
-        // Right stand  
-        { startX: PIXEL_CANVAS_WIDTH - 25, endX: PIXEL_CANVAS_WIDTH - 2, y: PIXEL_CANVAS_HEIGHT * 0.2, rows: 4 },
-        // Top stand
-        { startX: PIXEL_CANVAS_WIDTH * 0.3, endX: PIXEL_CANVAS_WIDTH * 0.7, y: 5, rows: 3 }
-    ];
-    
-    stadiumSections.forEach(section => {
-        for (let row = 0; row < section.rows; row++) {
-            for (let x = section.startX; x < section.endX; x += 3) {
-                if (Math.random() > 0.3) { // 70% chance of spectator
-                    spectators.push({
-                        x: x + Math.random() * 2,
-                        y: section.y + row * 4,
-                        color: `hsl(${Math.random() * 360}, 60%, ${40 + Math.random() * 30}%)`,
-                        animation: Math.random() * 100,
-                        type: Math.floor(Math.random() * 3)
-                    });
-                }
-            }
-        }
-    });
+    console.log("SPECTATORS: Initialized empty array");
 }
 
 // Initialize stadium lights
@@ -554,9 +531,6 @@ function updatePlayerAnimations() {
 }
 
 function updateGame() {
-    // Always update visual elements
-    updateClouds();
-    updateSun();
 
     if (gameState === 'gameOver') {
         // Game over state - restart game
@@ -571,10 +545,9 @@ function updateGame() {
     if (!isGameStarted || isGameOver) return;
 
     gameTime++;
-    // updatePlayerStates(); // Temporarily commented out to prevent game freeze
+
     handleHumanPlayerControls();
     updateAIPlayers();
-    updatePlayerAnimations();
     updateParticles();
 }
 
@@ -624,12 +597,7 @@ function getCurrentSunColor() {
 
 // Update spectators animation
 function updateSpectators() {
-    spectators.forEach(spectator => {
-        spectator.animation += 0.1;
-        if (Math.random() < 0.001) { // Occasional wave
-            spectator.animation = 0;
-        }
-    });
+    // Simplified - no spectators
 }
 
 // Menu input function removed - game starts directly
@@ -730,155 +698,49 @@ function handleHumanPlayerControls() {
 }
 
 
-// Advanced AI System
-const AI_STATES = {
-    DEFENDING: 'defending',
-    ATTACKING: 'attacking',
-    INTERCEPTING: 'intercepting',
-    EMERGENCY_DEFENSE: 'emergency_defense',
-    POSITIONING: 'positioning',
-    CHALLENGING: 'challenging'
-};
-
-const AI_FORMATION = {
-    DEFENSIVE: { homeX: 0.8, aggressiveness: 0.3, riskTolerance: 0.2 },
-    BALANCED: { homeX: 0.7, aggressiveness: 0.6, riskTolerance: 0.5 },
-    ATTACKING: { homeX: 0.6, aggressiveness: 0.8, riskTolerance: 0.7 },
-    DESPERATE: { homeX: 0.5, aggressiveness: 1.0, riskTolerance: 0.9 }
-};
-
 function updateAIPlayers() {
     players.forEach((player) => {
         if (player.isAI) {
             if (player.actionCooldown > 0) player.actionCooldown--;
-            
-            // Initialize AI brain if not exists
-            if (!player.aiBrain) {
-                initializeAIBrain(player);
-            }
-            
-            // Update AI brain and execute advanced logic
-            updateAIBrain(player);
-            executeAdvancedAILogic(player);
+            executeSimpleAI(player);
         }
     });
 }
 
-function initializeAIBrain(player) {
-    player.aiBrain = {
-        currentState: AI_STATES.POSITIONING,
-        formation: AI_FORMATION.BALANCED,
-        lastDecisionTime: 0,
-        decisionInterval: 100,
-        threatLevel: 0,
-        confidence: 0.5,
-        lastBallPosition: { x: 0, y: 0 },
-        predictedBallPosition: { x: 0, y: 0 },
-        riskAssessment: 0.5,
-        strategicTarget: null,
-        emergencyMode: false,
-        reactionTime: 150 + Math.random() * 100
-    };
-}
+function executeSimpleAI(player) {
+    if (!ball) return;
 
-function updateAIBrain(player) {
-    if (!ball || !player.aiBrain) return;
-    
-    const brain = player.aiBrain;
-    const now = Date.now();
-    
-    // Update ball prediction
-    brain.predictedBallPosition = {
-        x: ball.position.x + ball.velocity.x * 10,
-        y: ball.position.y + ball.velocity.y * 10
-    };
-    
-    // Assess threat level
-    const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ball.position, player.playerBody.position));
-    const ballToAIGoal = Math.abs(ball.position.x - (CANVAS_WIDTH - 30));
-    brain.threatLevel = Math.max(0, 1 - (ballToAIGoal / CANVAS_WIDTH));
-    
-    // Consider ball velocity towards AI goal
-    if (ball.velocity.x > 0 && ball.position.x > CANVAS_WIDTH * 0.5) {
-        brain.threatLevel = Math.min(1, brain.threatLevel + 0.3);
-    }
-    
-    // Choose formation based on game state
-    const scoreDiff = team2Score - team1Score;
-    const timeLeft = gameTimeRemaining / ROUND_DURATION_SECONDS;
-    
-    if (scoreDiff < 0 && timeLeft < 0.3) {
-        brain.formation = AI_FORMATION.DESPERATE;
-    } else if (brain.threatLevel > 0.7) {
-        brain.formation = AI_FORMATION.DEFENSIVE;
-    } else if (scoreDiff > 0) {
-        brain.formation = AI_FORMATION.DEFENSIVE;
-    } else {
-        brain.formation = AI_FORMATION.BALANCED;
-    }
-}
-
-function executeAdvancedAILogic(player) {
-    if (!ball || !player.aiBrain) return;
-    
-    const brain = player.aiBrain;
     const ballPos = ball.position;
     const playerPos = player.playerBody.position;
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
     
-    // AI positioning logic
-    const aiGoalX = CANVAS_WIDTH - 30;
-    const opponentGoalX = 30;
-    const idealX = aiGoalX - (CANVAS_WIDTH * brain.formation.homeX);
+    // Simple AI: move towards ball if it's close, otherwise defend goal
+    const aiGoalX = CANVAS_WIDTH - 50;
+    let targetX;
     
-    let targetX = idealX;
-    let moveDirection = 0;
-    
-    // Emergency defense
-    if (ballPos.x > CANVAS_WIDTH * 0.8 && ball.velocity.x > 0) {
-        targetX = Math.max(aiGoalX - 60, ballPos.x - 40);
-        brain.currentState = AI_STATES.EMERGENCY_DEFENSE;
-    }
-    // Ball in AI half - defend
-    else if (ballPos.x > CANVAS_WIDTH * 0.6) {
-        targetX = Math.min(ballPos.x + 30, aiGoalX - 50);
-        brain.currentState = AI_STATES.DEFENDING;
-    }
-    // Ball in opponent half - attack or return
-    else if (ballPos.x < CANVAS_WIDTH * 0.4) {
-        if (distanceToBall < 80 && brain.formation.aggressiveness > 0.6) {
-            targetX = ballPos.x;
-            brain.currentState = AI_STATES.ATTACKING;
-        } else {
-            targetX = idealX;
-            brain.currentState = AI_STATES.POSITIONING;
-        }
-    }
-    // Middle field
-    else {
-        if (distanceToBall < 60) {
-            targetX = ballPos.x;
-            brain.currentState = AI_STATES.INTERCEPTING;
-        } else {
-            targetX = idealX;
-            brain.currentState = AI_STATES.POSITIONING;
-        }
+    if (ballPos.x > CANVAS_WIDTH * 0.7) {
+        // Ball in AI's half - defend
+        targetX = Math.max(aiGoalX - 80, ballPos.x - 30);
+    } else if (distanceToBall < 100) {
+        // Ball is close - go for it
+        targetX = ballPos.x;
+    } else {
+        // Default position
+        targetX = CANVAS_WIDTH * 0.75;
     }
     
-    // Calculate movement
     const directionToTarget = targetX - playerPos.x;
     if (Math.abs(directionToTarget) > PLAYER_RECT_SIZE / 2) {
-        moveDirection = Math.sign(directionToTarget);
-    }
-    
-    // Execute movement
-    if (moveDirection !== 0 && !player.isRotating && player.isGrounded) {
-        player.isRotating = true;
-        player.rollDirection = moveDirection;
-        const currentAngle = player.playerBody.angle;
-        const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-        player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-        Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
+        const moveDirection = Math.sign(directionToTarget);
+        
+        if (moveDirection !== 0 && !player.isRotating && player.isGrounded) {
+            player.isRotating = true;
+            player.rollDirection = moveDirection;
+            const currentAngle = player.playerBody.angle;
+            const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
+            player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
+            Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
+        }
     }
 }
 
@@ -1870,292 +1732,61 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 
 
 function customRenderAll() {
-    // Always render the game without menu checks
 
-    // Draw white background
     pixelCtx.fillStyle = '#FFFFFF';
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     
-    // Draw stadium background elements
-    drawStadiumBackground();
+    // Simple grass field
+    pixelCtx.fillStyle = '#228B22';
+    pixelCtx.fillRect(0, PIXEL_CANVAS_HEIGHT * 0.6, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT * 0.4);
     
-    // Draw stadium lights first (background lighting)
-    stadiumLights.forEach(light => drawStadiumLight(light));
+    // Draw players
+    players.forEach(player => {
+        if (player.playerBody) {
+            const x = player.playerBody.position.x / PIXEL_SCALE;
+            const y = player.playerBody.position.y / PIXEL_SCALE;
+            const size = PLAYER_RECT_SIZE / PIXEL_SCALE;
+            
+            pixelCtx.fillStyle = player.color;
+            pixelCtx.fillRect(x - size/2, y - size/2, size, size);
+        }
+    });
     
-    // Draw moving clouds
-    if (clouds && clouds.length > 0) {
-        clouds.forEach(cloud => drawCloud(cloud));
+    // Draw ball
+    if (ball) {
+        const x = ball.position.x / PIXEL_SCALE;
+        const y = ball.position.y / PIXEL_SCALE;
+        const radius = BALL_RADIUS / PIXEL_SCALE;
+        
+        pixelCtx.fillStyle = '#FFFFFF';
+        pixelCtx.beginPath();
+        pixelCtx.arc(x, y, radius, 0, Math.PI * 2);
+        pixelCtx.fill();
     }
     
-    // Draw sun/moon with dynamic color
-    const currentSunColor = getCurrentSunColor();
-    const sunSize = Math.max(6, Math.round(8 / PIXEL_SCALE));
-    const sunGlow = Math.max(10, Math.round(14 / PIXEL_SCALE));
+    // Draw simple goals
+    pixelCtx.fillStyle = '#FFFFFF';
+    const goalY = PIXEL_CANVAS_HEIGHT - 30;
+    const goalHeight = 25;
     
-    // Sun glow
-    const sunGradient = pixelCtx.createRadialGradient(
-        sunPosition.x, sunPosition.y, 0,
-        sunPosition.x, sunPosition.y, sunGlow
-    );
-    sunGradient.addColorStop(0, currentSunColor + '80');
-    sunGradient.addColorStop(1, currentSunColor + '00');
-    pixelCtx.fillStyle = sunGradient;
-    pixelCtx.fillRect(
-        sunPosition.x - sunGlow, sunPosition.y - sunGlow,
-        sunGlow * 2, sunGlow * 2
-    );
+    // Left goal
+    pixelCtx.fillRect(0, goalY - goalHeight, 5, goalHeight);
+    pixelCtx.fillRect(15, goalY - goalHeight, 5, goalHeight);
+    pixelCtx.fillRect(0, goalY - goalHeight, 20, 5);
     
-    // Sun body (pixelated)
-    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
-    pixelCtx.fillStyle = currentSunColor;
-    for (let x = 0; x < sunSize; x += pixelSize) {
-        for (let y = 0; y < sunSize; y += pixelSize) {
-            const distance = Math.sqrt((x - sunSize/2) ** 2 + (y - sunSize/2) ** 2);
-            if (distance < sunSize/2) {
-                pixelCtx.fillRect(
-                    sunPosition.x - sunSize/2 + x,
-                    sunPosition.y - sunSize/2 + y,
-                    pixelSize, pixelSize
-                );
-            }
-        }
-    }
-
-    const bodiesToRender = [];
-    players.forEach(p => {
-        bodiesToRender.push(p.playerBody);
-    });
-    if(ball) bodiesToRender.push(ball);
-
-    const staticBodies = Composite.allBodies(world).filter(b => b.isStatic && !b.isSensor);
-    bodiesToRender.push(...staticBodies);
-
-
-    particles.forEach(particle => {
-        pixelCtx.fillStyle = particle.color;
-        pixelCtx.fillRect(
-            Math.round(particle.x - particle.size / 2),
-            Math.round(particle.y - particle.size / 2),
-            Math.max(1, particle.size),
-            Math.max(1, particle.size)
-        );
-    });
-
-
-    bodiesToRender.forEach(body => {
-        if (body.label === 'ball') {
-            drawPixelIsoCircle(pixelCtx, body, BALL_PANEL_COLOR_PRIMARY);
-        } else if (body.label && body.label.includes('player-t')) {
-            const playerObject = players.find(p => p.playerBody === body);
-            if (playerObject) {
-                drawPlayer(pixelCtx, playerObject.playerBody, playerObject.color);
-            }
-        }
-         else if (body.isStatic) {
-             drawPixelIsoRectangle(pixelCtx, body, body.render.fillStyle);
-        }
-    });
+    // Right goal
+    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 20, goalY - goalHeight, 5, goalHeight);
+    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 5, goalY - goalHeight, 5, goalHeight);
+    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 20, goalY - goalHeight, 20, 5);
     
-    // Draw in-game scoreboard
-    drawInGameScoreboard();
+    // Draw simple scoreboard
+    pixelCtx.fillStyle = '#000000';
+    pixelCtx.font = '16px Arial';
+    pixelCtx.fillText(`Score: ${team1Score} - ${team2Score}`, 10, 20);
+    pixelCtx.fillText(`Time: ${gameTimeRemaining}`, 10, 40);
     
-    // Draw in-canvas control buttons
+    // Draw control buttons
     drawControlButtons();
-
-    const goalPostColor = '#FFFFFF';
-    const netColor = '#CCCCCC';
-    const postPixelThickness = Math.max(1, Math.round(8 / PIXEL_SCALE));
-    const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
-    const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
-    const goalBaseY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
-    const goalTopActualY = goalBaseY - goalPixelHeight;
-
-    const isoDepth = postPixelThickness * ISOMETRIC_DEPTH_FACTOR * 1.5;
-
-    pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
-
-    // Left Goal (3D isometric)
-    const leftGoalMouthX = 10;
-
-    // Goal post depth/shadow
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.3);
-    pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, goalMouthPixelWidth, postPixelThickness);
-
-    // Main goal posts
-    pixelCtx.fillStyle = goalPostColor;
-    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness);
-
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.1);
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalMouthX + postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness + isoDepth, goalBaseY - isoDepth * 0.5);
-    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalBaseY - isoDepth*0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(leftGoalMouthX, goalTopActualY);
-    pixelCtx.lineTo(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth, goalTopActualY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-
-    pixelCtx.strokeStyle = netColor;
-    const netTopFrontY = goalTopActualY + postPixelThickness;
-    const netBottomFrontY = goalBaseY -1;
-    const netFrontLeftX = leftGoalMouthX + postPixelThickness;
-    const netFrontRightX = leftGoalMouthX + goalMouthPixelWidth - postPixelThickness;
-
-    const netTopBackY = goalTopActualY - isoDepth * 0.5 + postPixelThickness;
-    const netBottomBackY = goalBaseY - isoDepth * 0.5 -1;
-    const netBackLeftX = leftGoalMouthX + isoDepth + postPixelThickness;
-    const netBackRightX = leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth;
-
-    for (let i = 0; i <= 4; i++) {
-        const tFront = i / 4;
-        const yFrontLine = netTopFrontY + (netBottomFrontY - netTopFrontY) * tFront;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(netFrontLeftX, yFrontLine);
-        pixelCtx.lineTo(netFrontRightX, yFrontLine);
-        pixelCtx.stroke();
-
-        const tBack = i / 4;
-        const yBackLine = netTopBackY + (netBottomBackY - netTopBackY) * tBack;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(netBackLeftX, yBackLine);
-        pixelCtx.lineTo(netBackRightX, yBackLine);
-        pixelCtx.stroke();
-    }
-
-    for (let i = 0; i <= 6; i++) {
-        const tFront = i / 6;
-        const xFrontLine = netFrontLeftX + (netFrontRightX - netFrontLeftX) * tFront;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xFrontLine, netBottomFrontY);
-        pixelCtx.stroke();
-
-        const tBack = i / 6;
-        const xBackLine = netBackLeftX + (netBackRightX - netBackLeftX) * tBack;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xBackLine, netTopBackY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
-        pixelCtx.stroke();
-
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xBackLine, netTopBackY);
-        pixelCtx.stroke();
-
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netBottomFrontY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
-        pixelCtx.stroke();
-    }
-
-
-    // Right Goal (3D isometric)
-    const rightGoalMouthX = PIXEL_CANVAS_WIDTH - goalMouthPixelWidth - 10;
-    
-    // Goal post depth/shadow
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.3);
-    pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, goalMouthPixelWidth, postPixelThickness);
-
-    // Main goal posts
-    pixelCtx.fillStyle = goalPostColor;
-    pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
-    pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness);
-
-    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.1);
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalMouthX + postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness + isoDepth, goalBaseY - isoDepth * 0.5);
-    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalBaseY - isoDepth*0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalBaseY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(rightGoalMouthX, goalTopActualY);
-    pixelCtx.lineTo(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth + isoDepth, goalTopActualY - isoDepth*0.5);
-    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth, goalTopActualY);
-    pixelCtx.closePath();
-    pixelCtx.fill();
-
-    pixelCtx.strokeStyle = netColor;
-    const rgNetFrontLeftX = rightGoalMouthX + postPixelThickness;
-    const rgNetFrontRightX = rightGoalMouthX + goalMouthPixelWidth - postPixelThickness;
-    const rgNetBackLeftX = rightGoalMouthX + isoDepth + postPixelThickness;
-    const rgNetBackRightX = rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth;
-
-    for (let i = 0; i <= 4; i++) {
-        const tFront = i / 4;
-        const yFrontLine = netTopFrontY + (netBottomFrontY - netTopFrontY) * tFront;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(rgNetFrontLeftX, yFrontLine);
-        pixelCtx.lineTo(rgNetFrontRightX, yFrontLine);
-        pixelCtx.stroke();
-
-        const tBack = i / 4;
-        const yBackLine = netTopBackY + (netBottomBackY - netTopBackY) * tBack;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(rgNetBackLeftX, yBackLine);
-        pixelCtx.lineTo(rgNetBackRightX, yBackLine);
-        pixelCtx.stroke();
-    }
-
-    for (let i = 0; i <= 6; i++) {
-        const tFront = i / 6;
-        const xFrontLine = rgNetFrontLeftX + (rgNetFrontRightX - rgNetFrontLeftX) * tFront;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xFrontLine, netBottomFrontY);
-        pixelCtx.stroke();
-
-        const tBack = i / 6;
-        const xBackLine = rgNetBackLeftX + (rgNetBackRightX - rgNetBackLeftX) * tBack;
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xBackLine, netTopBackY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
-        pixelCtx.stroke();
-
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netTopFrontY);
-        pixelCtx.lineTo(xBackLine, netTopBackY);
-        pixelCtx.stroke();
-
-        pixelCtx.beginPath();
-        pixelCtx.moveTo(xFrontLine, netBottomFrontY);
-        pixelCtx.lineTo(xBackLine, netBottomBackY);
-        pixelCtx.stroke();
-    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
