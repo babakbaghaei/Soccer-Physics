@@ -629,7 +629,7 @@ function executeAIPlayerLogic(player) {
         player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * 2;
         player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * 2;
 
-        Body.applyForce(player.mainBody, playerPos, { x: 0, y: -PLAYER_JUMP_FORCE * 0.8 });
+        Body.applyForce(player.mainBody, playerPos, { x: 0, y: -PLAYER_MAX_JUMP_IMPULSE * 0.8 });
 
         const rotForceMag = 0.0025; // Slightly increased
         const bodyAngle = player.mainBody.angle;
@@ -687,7 +687,7 @@ function executeAIPlayerLogic(player) {
             const ballIsHigh = ballPos.y < playerPos.y - HEAD_RADIUS * 0.3;
             const ballIsVeryLowAndFast = ballPos.y > playerPos.y + BODY_HEIGHT * 0.25 && Math.abs(ball.velocity.x) > 2.5;
 
-            if (willCrouch && player.isGrounded) {
+            if (player.isGrounded && Math.random() < AI_CROUCH_CHANCE && distanceToBall < AI_ACTION_RANGE * 0.8 && !ballIsHigh) {
                 player.isCrouching = true;
                 setPlayerAnimation(player, 'crouching', 10);
                 player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES * 0.4;
@@ -704,7 +704,7 @@ function executeAIPlayerLogic(player) {
                     horizontalActionForceDirection = (playerPos.x < opponentGoalX + 100) ? 0.0002 : -0.0002;
                 }
                 const jumpStrengthFactor = (intent === 'defend_goal_line') ? 1.25 : 0.95;
-                const verticalJumpForce = -PLAYER_JUMP_FORCE * jumpStrengthFactor * (0.75 + Math.random() * 0.4) ;
+                const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.75 + Math.random() * 0.4) ;
                 Body.applyForce(player.mainBody, playerPos, { x: horizontalActionForceDirection, y: verticalJumpForce });
             }
         }
@@ -1608,4 +1608,6 @@ function updateParticles() {
     }
 }
 
-[end of game.js]
+// [end of game.js] // This line was the culprit from the previous read
+// Removing the actual problematic line if it was the very last one.
+// The content provided to overwrite_file_with_block should NOT include this.
