@@ -111,6 +111,23 @@ let activeTheme = themes[0];
 let clouds = [];
 let sunPosition = { x: 0, y: 0 };
 let gameTime = 0;
+let gameStartTime = 0;
+let spectators = [];
+let stadiumLights = [];
+
+// --- Game States ---
+let gameState = 'menu'; // 'menu', 'playing', 'paused', 'gameOver'
+let menuButtons = [];
+
+// --- Dynamic Sun System ---
+const SUN_COLORS = {
+    dawn: '#FF6B6B',     // Red sunrise
+    morning: '#FFD93D',  // Yellow morning
+    noon: '#FFD700',     // Golden noon
+    afternoon: '#FFA500', // Orange afternoon
+    evening: '#FF4500',  // Red evening
+    night: '#F0F8FF'     // Moon white
+};
 const BALL_PANEL_COLOR_PRIMARY = '#FFFFFF';
 const BALL_PANEL_COLOR_SECONDARY = '#333333';
 
@@ -219,20 +236,81 @@ function playSound(soundFileName) {
 // Initialize clouds
 function initClouds() {
     clouds = [];
-    const numClouds = 4;
+    const numClouds = 6; // More clouds
     for (let i = 0; i < numClouds; i++) {
         clouds.push({
-            x: Math.random() * (PIXEL_CANVAS_WIDTH + 40) - 20,
-            y: Math.random() * (PIXEL_CANVAS_HEIGHT * 0.4) + 5,
-            size: Math.random() * 15 + 10,
-            speed: Math.random() * 0.3 + 0.1,
-            opacity: Math.random() * 0.4 + 0.3
+            x: Math.random() * (PIXEL_CANVAS_WIDTH + 60) - 30,
+            y: Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5,
+            size: Math.random() * 20 + 8,
+            speed: Math.random() * 0.4 + 0.05,
+            opacity: Math.random() * 0.5 + 0.2,
+            type: Math.floor(Math.random() * 3) // Different cloud types
         });
     }
     
-    // Initialize sun position
-    sunPosition.x = PIXEL_CANVAS_WIDTH * 0.8;
-    sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.15;
+    // Initialize sun at dawn position
+    sunPosition.x = PIXEL_CANVAS_WIDTH * 0.1; // Start from left (sunrise)
+    sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.3;
+}
+
+// Initialize spectators
+function initSpectators() {
+    spectators = [];
+    const stadiumSections = [
+        // Left stand
+        { startX: 2, endX: 25, y: PIXEL_CANVAS_HEIGHT * 0.2, rows: 4 },
+        // Right stand  
+        { startX: PIXEL_CANVAS_WIDTH - 25, endX: PIXEL_CANVAS_WIDTH - 2, y: PIXEL_CANVAS_HEIGHT * 0.2, rows: 4 },
+        // Top stand
+        { startX: PIXEL_CANVAS_WIDTH * 0.3, endX: PIXEL_CANVAS_WIDTH * 0.7, y: 5, rows: 3 }
+    ];
+    
+    stadiumSections.forEach(section => {
+        for (let row = 0; row < section.rows; row++) {
+            for (let x = section.startX; x < section.endX; x += 3) {
+                if (Math.random() > 0.3) { // 70% chance of spectator
+                    spectators.push({
+                        x: x + Math.random() * 2,
+                        y: section.y + row * 4,
+                        color: `hsl(${Math.random() * 360}, 60%, ${40 + Math.random() * 30}%)`,
+                        animation: Math.random() * 100,
+                        type: Math.floor(Math.random() * 3)
+                    });
+                }
+            }
+        }
+    });
+}
+
+// Initialize stadium lights
+function initStadiumLights() {
+    stadiumLights = [
+        { x: PIXEL_CANVAS_WIDTH * 0.2, y: PIXEL_CANVAS_HEIGHT * 0.1, intensity: 0.8 },
+        { x: PIXEL_CANVAS_WIDTH * 0.5, y: PIXEL_CANVAS_HEIGHT * 0.05, intensity: 1.0 },
+        { x: PIXEL_CANVAS_WIDTH * 0.8, y: PIXEL_CANVAS_HEIGHT * 0.1, intensity: 0.8 }
+    ];
+}
+
+// Initialize menu
+function initMenu() {
+    menuButtons = [
+        {
+            x: PIXEL_CANVAS_WIDTH / 2 - 30,
+            y: PIXEL_CANVAS_HEIGHT / 2 - 10,
+            width: 60,
+            height: 12,
+            text: 'START GAME',
+            action: 'start'
+        },
+        {
+            x: PIXEL_CANVAS_WIDTH / 2 - 25,
+            y: PIXEL_CANVAS_HEIGHT / 2 + 8,
+            width: 50,
+            height: 10,
+            text: 'SETTINGS',
+            action: 'settings'
+        }
+    ];
 }
 
 // --- Initialization Function ---
@@ -247,12 +325,17 @@ function setup() {
     actualGoalOpeningHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
     particles = [];
     gameTime = 0;
+    gameStartTime = Date.now();
+    gameState = 'menu';
 
     // Initialize audio and visual elements
     if (!audioContext) {
         initAudioContext();
     }
     initClouds();
+    initSpectators();
+    initStadiumLights();
+    initMenu();
 
     if (roundTimerId) {
         clearInterval(roundTimerId);
@@ -460,6 +543,16 @@ function updatePlayerAnimations() {
 }
 
 function updateGame() {
+    // Always update visual elements
+    updateClouds();
+    updateSun();
+    updateSpectators();
+    
+    if (gameState === 'menu') {
+        handleMenuInput();
+        return;
+    }
+    
     if (!isGameStarted || isGameOver) return;
 
     gameTime++;
@@ -468,18 +561,74 @@ function updateGame() {
     updateAIPlayers();
     updatePlayerAnimations();
     updateParticles();
-    updateClouds();
 }
 
 // Update cloud positions
 function updateClouds() {
     clouds.forEach(cloud => {
         cloud.x += cloud.speed;
-        if (cloud.x > PIXEL_CANVAS_WIDTH + 20) {
-            cloud.x = -20;
-            cloud.y = Math.random() * (PIXEL_CANVAS_HEIGHT * 0.4) + 5;
+        if (cloud.x > PIXEL_CANVAS_WIDTH + 30) {
+            cloud.x = -30;
+            cloud.y = Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5;
         }
     });
+}
+
+// Update sun position based on game time
+function updateSun() {
+    const elapsedTime = (Date.now() - gameStartTime) / 1000; // seconds
+    const dayDuration = 180; // 3 minutes for full day cycle
+    const progress = (elapsedTime % dayDuration) / dayDuration;
+    
+    // Sun moves in an arc across the sky
+    const angle = progress * Math.PI; // 0 to PI (sunrise to sunset)
+    sunPosition.x = PIXEL_CANVAS_WIDTH * 0.1 + Math.cos(Math.PI - angle) * PIXEL_CANVAS_WIDTH * 0.8;
+    sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.05 + Math.sin(angle) * PIXEL_CANVAS_HEIGHT * 0.3;
+}
+
+// Get current sun color based on position
+function getCurrentSunColor() {
+    const elapsedTime = (Date.now() - gameStartTime) / 1000;
+    const dayDuration = 180;
+    const progress = (elapsedTime % dayDuration) / dayDuration;
+    
+    if (progress < 0.15) return SUN_COLORS.dawn;
+    if (progress < 0.3) return SUN_COLORS.morning;
+    if (progress < 0.5) return SUN_COLORS.noon;
+    if (progress < 0.7) return SUN_COLORS.afternoon;
+    if (progress < 0.85) return SUN_COLORS.evening;
+    return SUN_COLORS.night;
+}
+
+// Update spectators animation
+function updateSpectators() {
+    spectators.forEach(spectator => {
+        spectator.animation += 0.1;
+        if (Math.random() < 0.001) { // Occasional wave
+            spectator.animation = 0;
+        }
+    });
+}
+
+// Handle menu input
+function handleMenuInput() {
+    if (keysPressed['KeyW'] || keysPressed['Enter']) {
+        gameState = 'playing';
+        isGameStarted = true;
+        showGameMessage('');
+        if (runner) {
+            Runner.run(runner, engine);
+            console.log("RENDER_LOOP: Matter.js Runner started.");
+        }
+        startGameTimer();
+        keysPressed['KeyW'] = false;
+        keysPressed['Enter'] = false;
+        
+        // Initialize audio context on user interaction
+        if (!audioContext) {
+            initAudioContext();
+        }
+    }
 }
 
 function updatePlayerStates() {
@@ -976,31 +1125,12 @@ function showGameMessage(message) {
 
 // --- Custom Pixel Art Rendering ---
 function gameRenderLoop() {
-    if (!isGameStarted && !isGameOver) {
-        if (keysPressed['KeyW']) {
-            console.log("RENDER_LOOP: Key 'W' pressed, starting game.");
-            
-            // Initialize audio context on user interaction
-            if (!audioContext) {
-                initAudioContext();
-            }
-            
-            isGameStarted = true;
-            showGameMessage('');
-            if (runner) {
-                Runner.run(runner, engine);
-                console.log("RENDER_LOOP: Matter.js Runner started.");
-            } else {
-                console.error("RENDER_LOOP: Runner not initialized when trying to start game!");
-            }
-            startGameTimer();
-            keysPressed['KeyW'] = false;
-        }
-        const mainCtx = canvas.getContext('2d');
-        mainCtx.fillStyle = activeTheme.background;
-        mainCtx.fillRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT);
-    } else if (isGameOver) {
-        const restartKey = 'W';
+    // Always render the game
+    customRenderAll();
+    
+    // Handle game over state
+    if (isGameOver && gameState === 'playing') {
+        const restartKey = 'KeyW';
         if (keysPressed[restartKey]) {
             if (!restartDebounce) {
                 console.log("RENDER_LOOP: Key pressed, restarting game.");
@@ -1012,10 +1142,14 @@ function gameRenderLoop() {
                 return;
             }
         }
-        customRenderAll();
-    } else {
-        customRenderAll();
     }
+    
+    // Render to main canvas
+    const mainCtx = canvas.getContext('2d');
+    mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    mainCtx.imageSmoothingEnabled = false;
+    mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
     gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
 }
 
@@ -1024,6 +1158,68 @@ function gameRenderLoop() {
 const ISOMETRIC_ANGLE = Math.PI / 6;
 const ISOMETRIC_DEPTH_FACTOR = 0.5;
 
+function drawPlayer(pCtx, body, playerColor) {
+    const x = body.position.x / PIXEL_SCALE;
+    const y = body.position.y / PIXEL_SCALE;
+    const size = PLAYER_RECT_SIZE / PIXEL_SCALE;
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    
+    pCtx.save();
+    pCtx.translate(x, y);
+    pCtx.rotate(body.angle);
+    
+    // Draw player body (3D-ish rectangle)
+    const bodyWidth = size * 0.7;
+    const bodyHeight = size * 0.9;
+    
+    // Body shadow/depth
+    pCtx.fillStyle = shadeColor(playerColor, -0.3);
+    pCtx.fillRect(-bodyWidth/2 + pixelSize, -bodyHeight/2 + pixelSize, bodyWidth, bodyHeight);
+    
+    // Main body
+    pCtx.fillStyle = playerColor;
+    pCtx.fillRect(-bodyWidth/2, -bodyHeight/2, bodyWidth, bodyHeight);
+    
+    // Player details
+    const headSize = size * 0.25;
+    const headY = -bodyHeight/2 - headSize/2;
+    
+    // Head shadow
+    pCtx.fillStyle = shadeColor('#FFDBAC', -0.2);
+    pCtx.fillRect(-headSize/2 + pixelSize/2, headY + pixelSize/2, headSize, headSize);
+    
+    // Head
+    pCtx.fillStyle = '#FFDBAC'; // Skin color
+    pCtx.fillRect(-headSize/2, headY, headSize, headSize);
+    
+    // Jersey number
+    pCtx.fillStyle = shadeColor(playerColor, 0.4);
+    const numberSize = pixelSize * 2;
+    pCtx.fillRect(-numberSize/2, -bodyHeight/4, numberSize, numberSize);
+    
+    // Legs
+    const legWidth = size * 0.15;
+    const legHeight = size * 0.3;
+    const legY = bodyHeight/2 - legHeight/2;
+    
+    // Leg shadows
+    pCtx.fillStyle = shadeColor(playerColor, -0.3);
+    pCtx.fillRect(-legWidth + pixelSize/2, legY + pixelSize/2, legWidth, legHeight);
+    pCtx.fillRect(pixelSize/2, legY + pixelSize/2, legWidth, legHeight);
+    
+    // Legs
+    pCtx.fillStyle = playerColor;
+    pCtx.fillRect(-legWidth, legY, legWidth, legHeight);
+    pCtx.fillRect(0, legY, legWidth, legHeight);
+    
+    // Feet
+    pCtx.fillStyle = '#000000';
+    pCtx.fillRect(-legWidth, legY + legHeight - pixelSize, legWidth + pixelSize, pixelSize * 2);
+    pCtx.fillRect(0, legY + legHeight - pixelSize, legWidth + pixelSize, pixelSize * 2);
+    
+    pCtx.restore();
+}
+
 function drawPixelIsoRectangle(pCtx, body, colorOverride = null) {
     const x = body.position.x / PIXEL_SCALE;
     const y = body.position.y / PIXEL_SCALE;
@@ -1031,8 +1227,8 @@ function drawPixelIsoRectangle(pCtx, body, colorOverride = null) {
     const label = body.label || '';
 
     if (label.includes('player-t')) {
-        pWidth = PLAYER_RECT_SIZE / PIXEL_SCALE;
-        pHeight = PLAYER_RECT_SIZE / PIXEL_SCALE;
+        // Players are now drawn with drawPlayer function
+        return;
     }
     else if (label === 'ground') { pWidth = CANVAS_WIDTH / PIXEL_SCALE; pHeight = GROUND_THICKNESS / PIXEL_SCALE; }
     else if (label.includes('wall-left')) { pWidth = WALL_THICKNESS / PIXEL_SCALE; pHeight = CANVAS_HEIGHT / PIXEL_SCALE; }
@@ -1176,30 +1372,46 @@ function shadeColor(color, percent) {
 
 function drawCloud(cloud) {
     const cloudSize = Math.max(3, Math.round(cloud.size / PIXEL_SCALE));
-    const pixelSize = Math.max(1, Math.round(2 / PIXEL_SCALE));
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
     
     pixelCtx.globalAlpha = cloud.opacity;
     pixelCtx.fillStyle = activeTheme.cloudColor;
     
-    // Draw cloud with pixelated appearance
-    const cloudParts = [
-        { x: -cloudSize * 0.3, y: 0, size: cloudSize * 0.6 },
-        { x: cloudSize * 0.2, y: -cloudSize * 0.2, size: cloudSize * 0.5 },
-        { x: cloudSize * 0.4, y: cloudSize * 0.1, size: cloudSize * 0.4 },
-        { x: -cloudSize * 0.1, y: -cloudSize * 0.3, size: cloudSize * 0.3 },
-        { x: cloudSize * 0.1, y: cloudSize * 0.3, size: cloudSize * 0.25 }
+    // Different cloud types
+    const cloudPatterns = [
+        // Type 0: Fluffy cloud
+        [
+            { x: -cloudSize * 0.3, y: 0, size: cloudSize * 0.6 },
+            { x: cloudSize * 0.2, y: -cloudSize * 0.2, size: cloudSize * 0.5 },
+            { x: cloudSize * 0.4, y: cloudSize * 0.1, size: cloudSize * 0.4 },
+            { x: -cloudSize * 0.1, y: -cloudSize * 0.3, size: cloudSize * 0.3 }
+        ],
+        // Type 1: Stretched cloud
+        [
+            { x: -cloudSize * 0.4, y: 0, size: cloudSize * 0.8 },
+            { x: cloudSize * 0.1, y: -cloudSize * 0.1, size: cloudSize * 0.4 },
+            { x: cloudSize * 0.3, y: cloudSize * 0.1, size: cloudSize * 0.3 }
+        ],
+        // Type 2: Small puffy cloud
+        [
+            { x: 0, y: 0, size: cloudSize * 0.7 },
+            { x: -cloudSize * 0.2, y: -cloudSize * 0.1, size: cloudSize * 0.4 },
+            { x: cloudSize * 0.2, y: cloudSize * 0.1, size: cloudSize * 0.3 }
+        ]
     ];
     
-    cloudParts.forEach(part => {
+    const pattern = cloudPatterns[cloud.type] || cloudPatterns[0];
+    
+    pattern.forEach(part => {
         const partX = Math.round(cloud.x + part.x);
         const partY = Math.round(cloud.y + part.y);
-        const partSize = Math.max(pixelSize, Math.round(part.size));
+        const partSize = Math.max(pixelSize * 2, Math.round(part.size));
         
-        // Draw pixelated cloud part
+        // Draw more pixelated cloud part
         for (let x = 0; x < partSize; x += pixelSize) {
             for (let y = 0; y < partSize; y += pixelSize) {
                 const distance = Math.sqrt((x - partSize/2) ** 2 + (y - partSize/2) ** 2);
-                if (distance < partSize/2 && Math.random() > 0.1) {
+                if (distance < partSize/2 && Math.random() > 0.15) {
                     pixelCtx.fillRect(partX + x - partSize/2, partY + y - partSize/2, pixelSize, pixelSize);
                 }
             }
@@ -1207,6 +1419,177 @@ function drawCloud(cloud) {
     });
     
     pixelCtx.globalAlpha = 1.0;
+}
+
+function drawSpectator(spectator) {
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    const size = pixelSize * 2;
+    
+    // Body
+    pixelCtx.fillStyle = spectator.color;
+    pixelCtx.fillRect(spectator.x, spectator.y, size, size);
+    
+    // Head
+    pixelCtx.fillStyle = '#FFDBAC';
+    pixelCtx.fillRect(spectator.x, spectator.y - size, size, size);
+    
+    // Animation (occasional wave)
+    if (Math.sin(spectator.animation) > 0.8) {
+        pixelCtx.fillStyle = spectator.color;
+        pixelCtx.fillRect(spectator.x + size, spectator.y - size/2, size/2, size/2);
+    }
+}
+
+function drawStadiumLight(light) {
+    const pixelSize = Math.max(1, Math.round(2 / PIXEL_SCALE));
+    const lightSize = pixelSize * 3;
+    
+    // Light pole
+    pixelCtx.fillStyle = '#444444';
+    pixelCtx.fillRect(light.x - pixelSize/2, light.y, pixelSize, lightSize * 2);
+    
+    // Light fixture
+    pixelCtx.fillStyle = '#CCCCCC';
+    pixelCtx.fillRect(light.x - lightSize/2, light.y, lightSize, pixelSize);
+    
+    // Light glow
+    const glowSize = lightSize * 2;
+    const glowGradient = pixelCtx.createRadialGradient(
+        light.x, light.y, 0,
+        light.x, light.y, glowSize
+    );
+    glowGradient.addColorStop(0, `rgba(255, 255, 200, ${light.intensity * 0.3})`);
+    glowGradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
+    
+    pixelCtx.fillStyle = glowGradient;
+    pixelCtx.fillRect(light.x - glowSize, light.y - glowSize/2, glowSize * 2, glowSize);
+}
+
+function drawInGameScoreboard() {
+    if (gameState !== 'playing') return;
+    
+    const scoreboardX = PIXEL_CANVAS_WIDTH / 2 - 25;
+    const scoreboardY = 8;
+    const scoreboardWidth = 50;
+    const scoreboardHeight = 20;
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    
+    // Scoreboard background
+    pixelCtx.fillStyle = '#000000';
+    pixelCtx.fillRect(scoreboardX, scoreboardY, scoreboardWidth, scoreboardHeight);
+    
+    // Border
+    pixelCtx.fillStyle = '#00FF00';
+    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY - pixelSize, scoreboardWidth + pixelSize * 2, pixelSize);
+    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY + scoreboardHeight, scoreboardWidth + pixelSize * 2, pixelSize);
+    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY, pixelSize, scoreboardHeight);
+    pixelCtx.fillRect(scoreboardX + scoreboardWidth, scoreboardY, pixelSize, scoreboardHeight);
+    
+    // Team scores
+    pixelCtx.fillStyle = '#FF6B6B';
+    drawPixelText(scoreboardX + 3, scoreboardY + 3, team1Score.toString(), pixelSize);
+    
+    pixelCtx.fillStyle = '#6B9BD2';
+    drawPixelText(scoreboardX + scoreboardWidth - 8, scoreboardY + 3, team2Score.toString(), pixelSize);
+    
+    // Timer
+    pixelCtx.fillStyle = '#FFFFFF';
+    const timeText = gameTimeRemaining.toString().padStart(2, '0');
+    drawPixelText(scoreboardX + scoreboardWidth/2 - 4, scoreboardY + 12, timeText, pixelSize);
+}
+
+function drawPixelText(x, y, text, pixelSize) {
+    // Simple pixel font for numbers and letters
+    const fontMap = {
+        '0': [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+        '1': [[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
+        '2': [[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
+        '3': [[1,1,1],[0,0,1],[1,1,1],[0,0,1],[1,1,1]],
+        '4': [[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],
+        '5': [[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
+        '6': [[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]],
+        '7': [[1,1,1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]],
+        '8': [[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]],
+        '9': [[1,1,1],[1,0,1],[1,1,1],[0,0,1],[1,1,1]],
+        'A': [[0,1,0],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
+        'B': [[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,1,0]],
+        'C': [[0,1,1],[1,0,0],[1,0,0],[1,0,0],[0,1,1]],
+        'D': [[1,1,0],[1,0,1],[1,0,1],[1,0,1],[1,1,0]],
+        'E': [[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,1,1]],
+        'F': [[1,1,1],[1,0,0],[1,1,0],[1,0,0],[1,0,0]],
+        'G': [[0,1,1],[1,0,0],[1,0,1],[1,0,1],[0,1,1]],
+        'H': [[1,0,1],[1,0,1],[1,1,1],[1,0,1],[1,0,1]],
+        'I': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[1,1,1]],
+        'L': [[1,0,0],[1,0,0],[1,0,0],[1,0,0],[1,1,1]],
+        'M': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
+        'N': [[1,0,1],[1,1,1],[1,1,1],[1,0,1],[1,0,1]],
+        'O': [[0,1,0],[1,0,1],[1,0,1],[1,0,1],[0,1,0]],
+        'P': [[1,1,1],[1,0,1],[1,1,1],[1,0,0],[1,0,0]],
+        'R': [[1,1,0],[1,0,1],[1,1,0],[1,0,1],[1,0,1]],
+        'S': [[0,1,1],[1,0,0],[0,1,0],[0,0,1],[1,1,0]],
+        'T': [[1,1,1],[0,1,0],[0,1,0],[0,1,0],[0,1,0]],
+        'U': [[1,0,1],[1,0,1],[1,0,1],[1,0,1],[0,1,0]],
+        'X': [[1,0,1],[1,0,1],[0,1,0],[1,0,1],[1,0,1]],
+        ' ': [[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
+    };
+    
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i].toUpperCase();
+        const pattern = fontMap[char];
+        if (pattern) {
+            for (let row = 0; row < pattern.length; row++) {
+                for (let col = 0; col < pattern[row].length; col++) {
+                    if (pattern[row][col]) {
+                        pixelCtx.fillRect(
+                            x + i * 4 * pixelSize + col * pixelSize,
+                            y + row * pixelSize,
+                            pixelSize,
+                            pixelSize
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+function drawMenu() {
+    // Menu background
+    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(0.5, '#16213e');
+    gradient.addColorStop(1, '#0f0f23');
+    pixelCtx.fillStyle = gradient;
+    pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
+    
+    // Title
+    const titleX = PIXEL_CANVAS_WIDTH / 2 - 40;
+    const titleY = PIXEL_CANVAS_HEIGHT / 3;
+    pixelCtx.fillStyle = '#00FF00';
+    drawPixelText(titleX, titleY, 'PIXEL', 2);
+    drawPixelText(titleX, titleY + 15, 'SOCCER', 2);
+    
+    // Buttons
+    menuButtons.forEach(button => {
+        // Button background
+        pixelCtx.fillStyle = '#333333';
+        pixelCtx.fillRect(button.x, button.y, button.width, button.height);
+        
+        // Button border
+        pixelCtx.fillStyle = '#00FF00';
+        pixelCtx.fillRect(button.x - 1, button.y - 1, button.width + 2, 1);
+        pixelCtx.fillRect(button.x - 1, button.y + button.height, button.width + 2, 1);
+        pixelCtx.fillRect(button.x - 1, button.y, 1, button.height);
+        pixelCtx.fillRect(button.x + button.width, button.y, 1, button.height);
+        
+        // Button text
+        pixelCtx.fillStyle = '#FFFFFF';
+        drawPixelText(button.x + 2, button.y + 2, button.text, 1);
+    });
+    
+    // Instructions
+    pixelCtx.fillStyle = '#AAAAAA';
+    drawPixelText(PIXEL_CANVAS_WIDTH / 2 - 25, PIXEL_CANVAS_HEIGHT - 20, 'PRESS W TO START', 1);
 }
 
 function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
@@ -1270,42 +1653,80 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 
 
 function customRenderAll() {
+    if (gameState === 'menu') {
+        drawMenu();
+        // Still draw animated background elements
+        clouds.forEach(cloud => drawCloud(cloud));
+        return;
+    }
+    
     // Draw sky gradient background
+    const currentSunColor = getCurrentSunColor();
     const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
-    gradient.addColorStop(0, shadeColor(activeTheme.skyColor, 0.2));
-    gradient.addColorStop(0.7, activeTheme.skyColor);
-    gradient.addColorStop(1, shadeColor(activeTheme.skyColor, -0.3));
+    
+    // Dynamic sky colors based on sun
+    let skyTop, skyMid, skyBottom;
+    if (currentSunColor === SUN_COLORS.dawn || currentSunColor === SUN_COLORS.evening) {
+        skyTop = '#FF6B6B';
+        skyMid = '#FFD93D'; 
+        skyBottom = '#87CEEB';
+    } else if (currentSunColor === SUN_COLORS.night) {
+        skyTop = '#191970';
+        skyMid = '#000033';
+        skyBottom = '#191970';
+    } else {
+        skyTop = shadeColor(activeTheme.skyColor, 0.2);
+        skyMid = activeTheme.skyColor;
+        skyBottom = shadeColor(activeTheme.skyColor, -0.3);
+    }
+    
+    gradient.addColorStop(0, skyTop);
+    gradient.addColorStop(0.6, skyMid);
+    gradient.addColorStop(1, skyBottom);
     pixelCtx.fillStyle = gradient;
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     
-    // Draw sun/moon
-    const sunSize = Math.max(8, Math.round(12 / PIXEL_SCALE));
-    const sunGlow = Math.max(12, Math.round(18 / PIXEL_SCALE));
+    // Draw stadium lights first (background lighting)
+    stadiumLights.forEach(light => drawStadiumLight(light));
+    
+    // Draw spectators
+    spectators.forEach(spectator => drawSpectator(spectator));
+    
+    // Draw clouds
+    clouds.forEach(cloud => drawCloud(cloud));
+    
+    // Draw sun/moon with dynamic color
+    const sunSize = Math.max(6, Math.round(8 / PIXEL_SCALE));
+    const sunGlow = Math.max(10, Math.round(14 / PIXEL_SCALE));
     
     // Sun glow
     const sunGradient = pixelCtx.createRadialGradient(
         sunPosition.x, sunPosition.y, 0,
         sunPosition.x, sunPosition.y, sunGlow
     );
-    sunGradient.addColorStop(0, activeTheme.sunColor + '80');
-    sunGradient.addColorStop(1, activeTheme.sunColor + '00');
+    sunGradient.addColorStop(0, currentSunColor + '80');
+    sunGradient.addColorStop(1, currentSunColor + '00');
     pixelCtx.fillStyle = sunGradient;
     pixelCtx.fillRect(
         sunPosition.x - sunGlow, sunPosition.y - sunGlow,
         sunGlow * 2, sunGlow * 2
     );
     
-    // Sun body
-    pixelCtx.fillStyle = activeTheme.sunColor;
-    pixelCtx.fillRect(
-        sunPosition.x - sunSize/2, sunPosition.y - sunSize/2,
-        sunSize, sunSize
-    );
-    
-    // Draw clouds
-    clouds.forEach(cloud => {
-        drawCloud(cloud);
-    });
+    // Sun body (pixelated)
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    pixelCtx.fillStyle = currentSunColor;
+    for (let x = 0; x < sunSize; x += pixelSize) {
+        for (let y = 0; y < sunSize; y += pixelSize) {
+            const distance = Math.sqrt((x - sunSize/2) ** 2 + (y - sunSize/2) ** 2);
+            if (distance < sunSize/2) {
+                pixelCtx.fillRect(
+                    sunPosition.x - sunSize/2 + x,
+                    sunPosition.y - sunSize/2 + y,
+                    pixelSize, pixelSize
+                );
+            }
+        }
+    }
 
     const bodiesToRender = [];
     players.forEach(p => {
@@ -1334,13 +1755,16 @@ function customRenderAll() {
         } else if (body.label && body.label.includes('player-t')) {
             const playerObject = players.find(p => p.playerBody === body);
             if (playerObject) {
-                 drawPixelIsoRectangle(pixelCtx, playerObject.playerBody, playerObject.color);
+                drawPlayer(pixelCtx, playerObject.playerBody, playerObject.color);
             }
         }
          else if (body.isStatic) {
              drawPixelIsoRectangle(pixelCtx, body, body.render.fillStyle);
         }
     });
+    
+    // Draw in-game scoreboard
+    drawInGameScoreboard();
 
     const goalPostColor = '#FFFFFF';
     const netColor = activeTheme.net;
@@ -1532,12 +1956,6 @@ function customRenderAll() {
         pixelCtx.lineTo(xBackLine, netBottomBackY);
         pixelCtx.stroke();
     }
-
-
-    const mainCtx = canvas.getContext('2d');
-    mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    mainCtx.imageSmoothingEnabled = false;
-    mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 }
 
 document.addEventListener('DOMContentLoaded', setup);
