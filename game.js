@@ -112,7 +112,7 @@ let clouds = [];
 let sunPosition = { x: 0, y: 0 };
 let gameTime = 0;
 let gameStartTime = 0;
-// let spectators = []; // Removed
+let spectators = [];
 let stadiumLights = [];
 
 // --- Game States ---
@@ -253,6 +253,35 @@ function initClouds() {
     sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.3;
 }
 
+// Initialize spectators
+function initSpectators() {
+    spectators = [];
+    const stadiumSections = [
+        // Left stand
+        { startX: 2, endX: 25, y: PIXEL_CANVAS_HEIGHT * 0.2, rows: 4 },
+        // Right stand  
+        { startX: PIXEL_CANVAS_WIDTH - 25, endX: PIXEL_CANVAS_WIDTH - 2, y: PIXEL_CANVAS_HEIGHT * 0.2, rows: 4 },
+        // Top stand
+        { startX: PIXEL_CANVAS_WIDTH * 0.3, endX: PIXEL_CANVAS_WIDTH * 0.7, y: 5, rows: 3 }
+    ];
+    
+    stadiumSections.forEach(section => {
+        for (let row = 0; row < section.rows; row++) {
+            for (let x = section.startX; x < section.endX; x += 3) {
+                if (Math.random() > 0.3) { // 70% chance of spectator
+                    spectators.push({
+                        x: x + Math.random() * 2,
+                        y: section.y + row * 4,
+                        color: `hsl(${Math.random() * 360}, 60%, ${40 + Math.random() * 30}%)`,
+                        animation: Math.random() * 100,
+                        type: Math.floor(Math.random() * 3)
+                    });
+                }
+            }
+        }
+    });
+}
+
 // Initialize stadium lights
 function initStadiumLights() {
     stadiumLights = [
@@ -289,6 +318,7 @@ function setup() {
         initAudioContext();
     }
     initClouds();
+    initSpectators();
     initStadiumLights();
 
     if (roundTimerId) {
@@ -370,17 +400,9 @@ function setup() {
 
     updateScoreDisplay();
     updateTimerDisplay();
-    showGameMessage("Game Started! Controls: A/D Move");
-
-    // Play game start sound
-    createTone(440, 100, 'sine', 0.15);
-    setTimeout(() => createTone(554, 100, 'sine', 0.15), 100);
-    setTimeout(() => createTone(659, 200, 'sine', 0.15), 200);
-
+    showGameMessage("Game Started! Controls: A/D Move, W Jump");
+    
     console.log("SETUP: Game started immediately!");
-    console.log("Players:", players.length);
-    console.log("Ball:", ball ? "Created" : "Missing");
-    console.log("Clouds:", clouds ? clouds.length : 0);
 }
 
 // --- Timer Functions ---
@@ -417,25 +439,22 @@ function getFieldDerivedConstants() {
 }
 
 function createField() {
-    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: '#228B22' } });
-    
-    // Create invisible walls for ball physics only
-    const leftWall = Bodies.rectangle(-WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { visible: false } });
-    const rightWall = Bodies.rectangle(CANVAS_WIDTH + WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { visible: false } });
-    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, -WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { visible: false } });
+    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - GROUND_THICKNESS / 2, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, label: 'ground', render: { fillStyle: activeTheme.ground } });
+    const leftWall = Bodies.rectangle(WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-left', render: { fillStyle: activeTheme.walls } });
+    const rightWall = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, label: 'wall-right', render: { fillStyle: activeTheme.walls } });
+    const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, label: 'ceiling', render: { fillStyle: activeTheme.walls } });
 
     const { actualGoalOpeningHeight: localActualGoalOpeningHeight } = getFieldDerivedConstants();
     const goalSensorY = CANVAS_HEIGHT - GROUND_THICKNESS - localActualGoalOpeningHeight / 2;
 
     const goalSensorRenderInvisible = { visible: false };
-    const leftGoalSensor = Bodies.rectangle(30, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderInvisible });
-    const rightGoalSensor = Bodies.rectangle(CANVAS_WIDTH - 30, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-right', render: goalSensorRenderInvisible });
+    const leftGoalSensor = Bodies.rectangle(WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-left', render: goalSensorRenderInvisible });
+    const rightGoalSensor = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2, goalSensorY, GOAL_SENSOR_DEPTH, localActualGoalOpeningHeight, { isStatic: true, isSensor: true, label: 'goal-right', render: goalSensorRenderInvisible });
 
     const goalPostRenderStyle = { fillStyle: '#FFFFFF' };
     const crossbarY = CANVAS_HEIGHT - GROUND_THICKNESS - GOAL_HEIGHT + CROSSBAR_THICKNESS / 2;
-    const leftCrossbar = Bodies.rectangle(50, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-left', render: goalPostRenderStyle });
-    const rightCrossbar = Bodies.rectangle(CANVAS_WIDTH - 50, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-right', render: goalPostRenderStyle });
-    
+    const leftCrossbar = Bodies.rectangle(WALL_THICKNESS + GOAL_MOUTH_VISUAL_WIDTH / 2, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-left', render: goalPostRenderStyle });
+    const rightCrossbar = Bodies.rectangle(CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH / 2, crossbarY, GOAL_MOUTH_VISUAL_WIDTH, CROSSBAR_THICKNESS, { isStatic: true, label: 'crossbar-right', render: goalPostRenderStyle });
     World.add(world, [ ground, leftWall, rightWall, ceiling, leftGoalSensor, rightGoalSensor, leftCrossbar, rightCrossbar ]);
 }
 
@@ -525,7 +544,11 @@ function updatePlayerAnimations() {
 }
 
 function updateGame() {
-
+    // Always update visual elements
+    updateClouds();
+    updateSun();
+    updateSpectators();
+    
     if (gameState === 'gameOver') {
         // Game over state - restart game
         if (keysPressed['KeyW']) {
@@ -535,13 +558,14 @@ function updateGame() {
         }
         return;
     }
-
+    
     if (!isGameStarted || isGameOver) return;
 
     gameTime++;
-
+    updatePlayerStates();
     handleHumanPlayerControls();
     updateAIPlayers();
+    updatePlayerAnimations();
     updateParticles();
 }
 
@@ -554,13 +578,6 @@ function updateClouds() {
             cloud.y = Math.random() * (PIXEL_CANVAS_HEIGHT * 0.5) + 5;
         }
     });
-    
-    // Update background clouds animation
-    if (window.backgroundClouds) {
-        window.backgroundClouds.forEach(cloud => {
-            // This is handled in drawBackgroundClouds now for better performance
-        });
-    }
 }
 
 // Update sun position based on game time
@@ -587,6 +604,16 @@ function getCurrentSunColor() {
     if (progress < 0.7) return SUN_COLORS.afternoon;
     if (progress < 0.85) return SUN_COLORS.evening;
     return SUN_COLORS.night;
+}
+
+// Update spectators animation
+function updateSpectators() {
+    spectators.forEach(spectator => {
+        spectator.animation += 0.1;
+        if (Math.random() < 0.001) { // Occasional wave
+            spectator.animation = 0;
+        }
+    });
 }
 
 // Menu input function removed - game starts directly
@@ -666,6 +693,8 @@ function handleHumanPlayerControls() {
     const player = players[0];
     if (!player || player.isAI) return;
 
+    if (player.jumpCooldown > 0) player.jumpCooldown--;
+
     if (!player.isRotating && player.isGrounded) {
         let roll = 0;
         if (keysPressed['KeyA']) {
@@ -684,6 +713,63 @@ function handleHumanPlayerControls() {
             Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
         }
     }
+
+    const canStartNewJumpAttempt = (player.isGrounded || player.coyoteTimeFramesRemaining > 0);
+    const commonJumpConditionsMet = player.jumpCooldown === 0;
+
+    if (keysPressed['KeyW'] && commonJumpConditionsMet) {
+        if (!player.isAttemptingVariableJump && canStartNewJumpAttempt && !player.isRotating) {
+            player.isGrounded = false;
+            player.coyoteTimeFramesRemaining = 0;
+            player.jumpInputBuffered = false;
+            player.isAttemptingVariableJump = true;
+            player.variableJumpForceAppliedDuration = 0;
+            player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
+
+            Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
+
+            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
+            player.lastJumpTime = Date.now();
+            playSound('jump.wav');
+
+        } else if (player.isAttemptingVariableJump) {
+            if (player.variableJumpForceAppliedDuration < PLAYER_VARIABLE_JUMP_MAX_HOLD_FRAMES &&
+                player.totalJumpImpulseThisJump < PLAYER_MAX_JUMP_IMPULSE) {
+
+                let forceToApply = PLAYER_VARIABLE_JUMP_SUSTAINED_FORCE;
+                if (player.totalJumpImpulseThisJump + forceToApply > PLAYER_MAX_JUMP_IMPULSE) {
+                    forceToApply = PLAYER_MAX_JUMP_IMPULSE - player.totalJumpImpulseThisJump;
+                }
+
+                if (forceToApply > 0) {
+                    Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -forceToApply });
+                    player.totalJumpImpulseThisJump += forceToApply;
+                }
+                player.variableJumpForceAppliedDuration++;
+            } else {
+                player.isAttemptingVariableJump = false;
+            }
+        }
+    }
+
+    if (player.jumpInputBuffered && player.isGrounded && commonJumpConditionsMet && !player.isAttemptingVariableJump && !player.isRotating) {
+        player.isGrounded = false;
+        player.coyoteTimeFramesRemaining = 0;
+        player.jumpInputBuffered = false;
+        player.isAttemptingVariableJump = true;
+        player.variableJumpForceAppliedDuration = 0;
+        player.totalJumpImpulseThisJump = PLAYER_VARIABLE_JUMP_INITIAL_FORCE;
+
+        Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -PLAYER_VARIABLE_JUMP_INITIAL_FORCE });
+
+        player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
+        player.lastJumpTime = Date.now();
+        playSound('jump.wav');
+    }
+
+    if (player.jumpInputBuffered && (!player.isGrounded || player.isAttemptingVariableJump || !commonJumpConditionsMet) ) {
+         player.jumpInputBuffered = false;
+    }
 }
 
 
@@ -691,184 +777,120 @@ function updateAIPlayers() {
     players.forEach((player) => {
         if (player.isAI) {
             if (player.actionCooldown > 0) player.actionCooldown--;
-            executeAdvancedAI(player); // Changed to executeAdvancedAI
+            if (player.jumpCooldown > 0) player.jumpCooldown--;
+
+            executeAIPlayerLogic(player);
         }
     });
 }
 
-function executeSimpleAI(player) {
+function executeAIPlayerLogic(player) {
     if (!ball) return;
 
     const ballPos = ball.position;
     const playerPos = player.playerBody.position;
     const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
+    let AImoveDirection = 0; // -1 for left, 1 for right, 0 for no move
     
-    // Simple AI: move towards ball if it's close, otherwise defend goal
-    const aiGoalX = CANVAS_WIDTH - 50;
-    let targetX;
+    // AI is Team 2 (right side)
+    const aiGoalX = CANVAS_WIDTH - WALL_THICKNESS; // AI's own goal (right)
+    const opponentGoalX = WALL_THICKNESS; // Player's goal (left) - AI should attack this
+    const { actualGoalOpeningHeight } = getFieldDerivedConstants();
+
+    const isBallInAIHalf = ballPos.x > CANVAS_WIDTH / 2;
+    const isBallNearAIGoal = ballPos.x > CANVAS_WIDTH * 0.8;
+    const isBallMovingTowardsAIGoal = ball.velocity.x > 0;
     
-    if (ballPos.x > CANVAS_WIDTH * 0.7) {
-        // Ball in AI's half - defend
-        targetX = Math.max(aiGoalX - 80, ballPos.x - 30);
-    } else if (distanceToBall < 100) {
-        // Ball is close - go for it
-        targetX = ballPos.x;
-    } else {
-        // Default position
-        targetX = CANVAS_WIDTH * 0.75;
+    let intent = 'pursue_ball';
+
+    // Emergency defense - ball very close to AI goal
+    if (isBallNearAIGoal && isBallMovingTowardsAIGoal) {
+        intent = 'emergency_defense';
+    } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE * 1.2 && ballPos.x > CANVAS_WIDTH * 0.7) {
+        intent = 'defend_goal_line';
+    } else if (isBallInAIHalf && distanceToBall > AI_ACTION_RANGE) {
+        intent = 'defensive_positioning';
+    } else if (!isBallInAIHalf && playerPos.x > CANVAS_WIDTH * 0.6) {
+        intent = 'advance_to_attack';
     }
-    
-    const directionToTarget = targetX - playerPos.x;
-    if (Math.abs(directionToTarget) > PLAYER_RECT_SIZE / 2) {
-        const moveDirection = Math.sign(directionToTarget);
-        
-        // Prevent AI from moving into its own goal with the ball
-        const ownGoalX = (player.playerTeam === 1) ? 0 : CANVAS_WIDTH;
-        const distanceToOwnGoal = Math.abs(playerPos.x - ownGoalX);
-        const ballDistanceToOwnGoal = Math.abs(ballPos.x - ownGoalX);
 
-        if (distanceToBall < PLAYER_RECT_SIZE && ballDistanceToOwnGoal < PLAYER_RECT_SIZE * 2) {
-            // If AI is close to the ball and the ball is very close to its own goal
-            if ((player.playerTeam === 1 && ballPos.x < playerPos.x) || (player.playerTeam === 2 && ballPos.x > playerPos.x)) {
-                // If ball is between AI and its own goal, try to move away from goal
-                const awayFromGoalDirection = (player.playerTeam === 1) ? 1 : -1;
-                if (awayFromGoalDirection !== 0 && !player.isRotating && player.isGrounded) {
-                    player.isRotating = true;
-                    player.rollDirection = awayFromGoalDirection;
-                    const currentAngle = player.playerBody.angle;
-                    const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-                    player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-                    Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
-                    return; // Prioritize moving away from own goal
-                }
+    switch (intent) {
+        case 'emergency_defense':
+            // Get between ball and goal, closer to goal
+            const emergencyDefenseX = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.2;
+            const directionToEmergencyPos = emergencyDefenseX - playerPos.x;
+            if (Math.abs(directionToEmergencyPos) > PLAYER_RECT_SIZE / 2) {
+                AImoveDirection = Math.sign(directionToEmergencyPos);
             }
-        }
+            break;
+        case 'defend_goal_line':
+            const defensiveTargetXGoalLine = aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.0;
+            const directionToTargetXGoalLine = defensiveTargetXGoalLine - playerPos.x;
+            if (Math.abs(directionToTargetXGoalLine) > PLAYER_RECT_SIZE / 2) {
+                AImoveDirection = Math.sign(directionToTargetXGoalLine);
+            }
+            break;
+        case 'defensive_positioning':
+            // Position between ball and own goal, but not too close to goal
+            const idealDefensiveX = Math.min(ballPos.x + 50, aiGoalX - GOAL_MOUTH_VISUAL_WIDTH * 1.5);
+            const finalDefensiveTargetX = Math.max(CANVAS_WIDTH / 2 + WALL_THICKNESS, Math.min(aiGoalX - WALL_THICKNESS - PLAYER_RECT_SIZE, idealDefensiveX));
+            const dirToDefTarget = finalDefensiveTargetX - playerPos.x;
+            if (Math.abs(dirToDefTarget) > PLAYER_RECT_SIZE / 2) {
+                AImoveDirection = Math.sign(dirToDefTarget);
+            }
+            break;
+        case 'advance_to_attack':
+            // Move towards opponent's half
+            const offensiveMidfieldTargetX = CANVAS_WIDTH * 0.3 + (Math.random() - 0.5) * (CANVAS_WIDTH * 0.1);
+            const dirToAdvanceTarget = offensiveMidfieldTargetX - playerPos.x;
+            if (Math.abs(dirToAdvanceTarget) > PLAYER_RECT_SIZE) {
+                AImoveDirection = Math.sign(dirToAdvanceTarget);
+            }
+            break;
+        case 'pursue_ball':
+        default:
+            const dirToBallX = ballPos.x - playerPos.x;
+            if (Math.abs(dirToBallX) > BALL_RADIUS + PLAYER_RECT_SIZE / 2 * 0.5 ) {
+                AImoveDirection = Math.sign(dirToBallX);
+            }
+            break;
+    }
 
-        if (moveDirection !== 0 && !player.isRotating && player.isGrounded) {
-            player.isRotating = true;
-            player.rollDirection = moveDirection;
-            const currentAngle = player.playerBody.angle;
-            const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-            player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-            Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
+    if (AImoveDirection !== 0 && !player.isRotating && player.isGrounded) {
+        player.isRotating = true;
+        player.rollDirection = AImoveDirection;
+        const currentAngle = player.playerBody.angle;
+        const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
+        player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
+        Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
+    }
+
+    if (player.jumpCooldown === 0 && distanceToBall < AI_ACTION_RANGE * 1.2 && !player.isRotating) {
+        const ballIsHigh = ballPos.y < playerPos.y - PLAYER_RECT_SIZE / 2 * 0.7;
+        const shouldJump = ballIsHigh || distanceToBall < AI_KICK_BALL_RANGE * 0.7 || intent === 'emergency_defense' || intent === 'defend_goal_line';
+
+        if (shouldJump && player.isGrounded) {
+            player.isGrounded = false;
+            player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES * (1.1 + Math.random() * 0.4);
+            player.lastJumpTime = Date.now();
+            playSound('jump.wav');
+
+            let horizontalActionForceDirection = 0;
+            
+            if (intent === 'emergency_defense' || intent === 'defend_goal_line') {
+                // When defending, jump towards the ball to clear it away from goal
+                horizontalActionForceDirection = (ballPos.x > playerPos.x) ? -0.003 : 0.003;
+            } else {
+                // When attacking, move towards opponent goal
+                horizontalActionForceDirection = (playerPos.x > opponentGoalX) ? -0.001 : 0.001;
+            }
+            
+            const jumpStrengthFactor = (intent === 'emergency_defense') ? 1.3 : 0.95;
+            const verticalJumpForce = -PLAYER_MAX_JUMP_IMPULSE * jumpStrengthFactor * (0.75 + Math.random() * 0.4);
+            Body.applyForce(player.playerBody, playerPos, { x: horizontalActionForceDirection, y: verticalJumpForce });
         }
     }
 }
-
-function executeAdvancedAI(player) {
-    if (!ball || !player || !player.playerBody) return;
-
-    const ballPos = ball.position;
-    const playerPos = player.playerBody.position;
-    const playerVel = player.playerBody.velocity;
-    const distanceToBall = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, playerPos));
-
-    const ownGoalX = player.playerTeam === 1 ? WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2 : CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2;
-    const opponentGoalX = player.playerTeam === 1 ? CANVAS_WIDTH - WALL_THICKNESS - GOAL_SENSOR_DEPTH / 2 : WALL_THICKNESS + GOAL_SENSOR_DEPTH / 2;
-    const goalY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
-
-    let targetX = playerPos.x;
-    let action = 'none'; // 'move', 'kick', 'jump_kick', 'defend'
-
-    // --- Strategic Positioning ---
-    const isDefensiveStance = (player.playerTeam === 1 && ballPos.x < CANVAS_WIDTH / 3) || (player.playerTeam === 2 && ballPos.x > CANVAS_WIDTH * 2 / 3);
-    const isOffensiveStance = (player.playerTeam === 1 && ballPos.x > CANVAS_WIDTH / 2) || (player.playerTeam === 2 && ballPos.x < CANVAS_WIDTH / 2);
-
-    // Time and score considerations (simple version)
-    const timeRatio = gameTimeRemaining / ROUND_DURATION_SECONDS;
-    const scoreDifference = player.playerTeam === 1 ? team1Score - team2Score : team2Score - team1Score;
-
-    if (distanceToBall < AI_ACTION_RANGE * 1.5) {
-        // --- Ball is relatively close ---
-        if (scoreDifference < 0 && timeRatio < 0.3) { // Losing and time running out
-            targetX = ballPos.x; // Aggressive pursuit
-            action = 'kick';
-        } else if (isDefensiveStance && Math.abs(ballPos.x - ownGoalX) < CANVAS_WIDTH / 4) {
-            // Ball is near own goal, prioritize clearing
-            targetX = ballPos.x + (playerPos.x > ballPos.x ? 10 : -10); // Get slightly behind ball to clear
-            action = 'kick'; // Or a defensive clear
-        } else {
-            targetX = ballPos.x; // General ball pursuit
-            action = 'kick';
-        }
-    } else {
-        // --- Ball is further away ---
-        if (scoreDifference > 0 && timeRatio < 0.4) { // Winning and time running out
-            // Defensive positioning between ball and own goal
-            targetX = ownGoalX + (player.playerTeam === 1 ? 70 : -70); // Stay closer to own goal
-            action = 'defend';
-        } else if (isOffensiveStance) {
-            // Support attack, move towards opponent's half
-            targetX = opponentGoalX - (player.playerTeam === 1 ? CANVAS_WIDTH / 3 : -CANVAS_WIDTH / 3);
-            action = 'move';
-        }
-        else {
-            // Default defensive position if ball is far
-            targetX = ownGoalX + (player.playerTeam === 1 ? 100 : -100); // Mid-defensive position
-            action = 'defend';
-        }
-    }
-
-    // Safety check: Don't get too close to own goal if not necessary
-    if (Math.abs(targetX - ownGoalX) < PLAYER_RECT_SIZE * 1.5 && Math.abs(ballPos.x - ownGoalX) > PLAYER_RECT_SIZE * 3) {
-        targetX = ownGoalX + (player.playerTeam === 1 ? PLAYER_RECT_SIZE * 1.5 : -PLAYER_RECT_SIZE * 1.5);
-    }
-
-
-    // --- Movement Execution ---
-    const directionToTarget = targetX - playerPos.x;
-    if (Math.abs(directionToTarget) > PLAYER_RECT_SIZE / 3 && player.isGrounded && !player.isRotating) {
-        const moveDirection = Math.sign(directionToTarget);
-
-        // Check for immediate own goal risk before moving
-        const nextPotentialBallPos = { x: ballPos.x, y: ballPos.y }; // Simplified
-        const playerToOwnGoalVec = { x: ownGoalX - playerPos.x, y: goalY - playerPos.y };
-        const playerToBallVec = { x: ballPos.x - playerPos.x, y: ballPos.y - playerPos.y };
-        const dotProduct = playerToOwnGoalVec.x * playerToBallVec.x + playerToOwnGoalVec.y * playerToBallVec.y;
-        const ballDistToOwnGoal = Math.abs(ballPos.x - ownGoalX);
-
-        if (distanceToBall < PLAYER_RECT_SIZE * 1.5 && ballDistToOwnGoal < PLAYER_RECT_SIZE * 2 && dotProduct > 0) {
-            // AI is between ball and own goal, and ball is close to own goal.
-            // This indicates a high risk of own goal if AI moves towards the ball.
-            // Instead, try to move to the side of the ball or away from own goal.
-            const clearDirection = (player.playerTeam === 1) ? 1 : -1; // Move towards opponent goal side
-             if (!player.isRotating && player.isGrounded) {
-                player.isRotating = true;
-                player.rollDirection = clearDirection;
-                const currentAngle = player.playerBody.angle;
-                const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-                player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-                Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
-                return;
-            }
-        } else if (moveDirection !== 0 ) {
-             player.isRotating = true;
-             player.rollDirection = moveDirection;
-             const currentAngle = player.playerBody.angle;
-             const snappedCurrentAngle = Math.round(currentAngle / (Math.PI / 2)) * (Math.PI / 2);
-             player.targetAngle = snappedCurrentAngle + player.rollDirection * (Math.PI / 2);
-             Body.setAngularVelocity(player.playerBody, player.rollDirection * PLAYER_ROLL_ANGULAR_VELOCITY_TARGET);
-        }
-    }
-
-    // --- Action Execution (Kicking/Jumping) ---
-    // This part is mostly handled by handleCollisions for AI kicks.
-    // We can add proactive jumping here if needed.
-    // For example, if ball is high and AI is below it.
-    if (action === 'kick' && distanceToBall < AI_KICK_BALL_RANGE && player.actionCooldown === 0) {
-        // The actual kick is triggered by collision, but we can prepare for a jump kick.
-        if (ballPos.y < playerPos.y - PLAYER_RECT_SIZE / 2 && player.isGrounded && player.jumpCooldown === 0) {
-            // Attempt a jump if ball is significantly above
-            // Body.applyForce(player.playerBody, playerPos, { x: 0, y: -PLAYER_MAX_JUMP_IMPULSE * 0.7 });
-            // player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
-            // player.lastJumpTime = Date.now();
-            // player.isGrounded = false;
-            // This jump logic needs to be compatible with the new square player jump.
-            // For now, AI relies on collision-based kicks.
-        }
-    }
-}
-
 
 function perpDistToLine(p1, p2, p3) {
     const dx = p2.x - p1.x;
@@ -887,12 +909,7 @@ let goalScoredRecently = false;
 function handleGoalScored(scoringTeam) {
     if (isGameOver || goalScoredRecently) return;
     goalScoredRecently = true;
-    
-    // Play goal sound melody
-    createTone(523, 150, 'square', 0.2); // C5
-    setTimeout(() => createTone(659, 150, 'square', 0.2), 150); // E5
-    setTimeout(() => createTone(784, 300, 'square', 0.2), 300); // G5
-    
+    playSound('goal.wav');
     if (scoringTeam === 1) team1Score++; else if (scoringTeam === 2) team2Score++;
     updateScoreDisplay();
 
@@ -904,32 +921,24 @@ function handleGoalScored(scoringTeam) {
     gameMessageDisplay.style.color = 'gold';
     gameMessageDisplay.style.textShadow = '2px 2px #000';
 
-    // Check win condition, but don't let it interfere with goalScoredRecently logic here
-    const gameHasEnded = checkWinCondition();
-
-    if (gameHasEnded) {
-        // If game ended, the game over message from checkWinCondition will take precedence.
-        // We still need to allow the goal effects to play out if desired.
-        // goalScoredRecently will be reset by its own timer or by setup() if game restarts.
+    if (checkWinCondition()) {
+        goalScoredRecently = false;
+        gameMessageDisplay.style.fontSize = '';
+        gameMessageDisplay.style.color = '';
+        gameMessageDisplay.style.textShadow = '';
+        return;
     }
 
     setTimeout(() => {
-        // Only clear goal message if game hasn't ended with a different message
-        if (!isGameOver && gameMessageDisplay.textContent === `GOAL!!! TEAM ${scoringTeam}!`) {
+        if (gameMessageDisplay.textContent === `GOAL!!! TEAM ${scoringTeam}!`) {
             showGameMessage('');
         }
-        // Reset visual styles for game message if it was a goal message
-        if (gameMessageDisplay.textContent === '' || gameMessageDisplay.textContent === `GOAL!!! TEAM ${scoringTeam}!`) {
-            gameMessageDisplay.style.fontSize = '';
-            gameMessageDisplay.style.color = '';
-            gameMessageDisplay.style.textShadow = '';
-        }
-        goalScoredRecently = false; // This is the primary place to reset this flag
+        gameMessageDisplay.style.fontSize = '';
+        gameMessageDisplay.style.color = '';
+        gameMessageDisplay.style.textShadow = '';
+        goalScoredRecently = false;
     }, 2200);
-
-    if (!gameHasEnded) { // Only reset positions if the game is continuing after this goal
-        resetPositions();
-    }
+    resetPositions();
 }
 
 function checkWinCondition() {
@@ -955,26 +964,22 @@ function checkWinCondition() {
         gameState = 'gameOver';
         const restartKey = 'W';
 
-        // Play game end sound
-        if (winner === 0) {
-            // Draw sound
-            createTone(330, 200, 'sine', 0.2);
-            setTimeout(() => createTone(294, 200, 'sine', 0.2), 200);
-            setTimeout(() => createTone(262, 400, 'sine', 0.2), 400);
-        } else {
-            // Win sound
-            createTone(523, 150, 'square', 0.2);
-            setTimeout(() => createTone(659, 150, 'square', 0.2), 150);
-            setTimeout(() => createTone(784, 150, 'square', 0.2), 300);
-            setTimeout(() => createTone(1047, 300, 'square', 0.2), 450);
-        }
-
-        showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${restartKey}' to restart.`);
+        showGameMessage(`${reason} Final Score: ${team1Score}-${team2Score}. Press '${restartKey}' to return to menu.`);
         if (runner) Runner.stop(runner);
         if (roundTimerId) {
             clearInterval(roundTimerId);
             roundTimerId = null;
         }
+        
+        // Auto return to menu after 5 seconds
+        setTimeout(() => {
+            if (gameState === 'gameOver') {
+                gameState = 'menu';
+                isGameOver = false;
+                isGameStarted = false;
+                showGameMessage('');
+            }
+        }, 5000);
         
         return true;
     }
@@ -1036,10 +1041,8 @@ function resetPositions() {
 }
 
 function handleCollisions(event) {
-    // Allow collisions to be processed if game has started,
-    // even if isGameOver is true, as a goal might occur simultaneously with game ending.
-    // handleGoalScored and checkWinCondition will manage the game state.
-    if (!isGameStarted) return;
+    if (!isGameStarted && !isGameOver) return;
+    if (isGameOver && !goalScoredRecently) return;
 
     const pairs = event.pairs;
     const { actualGoalOpeningHeight } = getFieldDerivedConstants();
@@ -1092,49 +1095,21 @@ function handleCollisions(event) {
                 let kickTargetPos = { x: opponentGoalX, y: goalCenterY };
                 
                 if (playerCollidedObject.isAI) {
-                    const ballToOwnGoalDist = Math.abs(ballBody.position.x - ownGoalX);
-                    const playerToOwnGoalDist = Math.abs(playerPhysicsBodyCollided.position.x - ownGoalX);
-
-                    // Priority 1: Avoid immediate own goal.
-                    // If AI is very close to its own goal and ball is also very close, try to clear it safely.
-                    if (playerToOwnGoalDist < PLAYER_RECT_SIZE * 2 && ballToOwnGoalDist < PLAYER_RECT_SIZE * 2.5) {
-                        // Check if the ball is between the player and the own goal line
-                        const playerIsBetweenBallAndOwnGoal = (playerCollidedObject.playerTeam === 1 && ballBody.position.x < playerPhysicsBodyCollided.position.x) ||
-                                                              (playerCollidedObject.playerTeam === 2 && ballBody.position.x > playerPhysicsBodyCollided.position.x);
-
-                        if (playerIsBetweenBallAndOwnGoal) {
-                             // Kick towards the side, away from own goal center.
-                            kickTargetPos.x = playerPhysicsBodyCollided.position.x + (playerCollidedObject.playerTeam === 1 ? 100 : -100); // Kick sideways strongly
-                            kickTargetPos.y = playerPhysicsBodyCollided.position.y - 50; // Kick slightly upwards
-                            kickAngleFactorY = -0.8; // More upward lift for clearance
-                            kickForce *= 1.1; // Slightly stronger kick to clear
-                        } else {
-                            // Player is not directly between ball and own goal, but still very defensive.
-                            // Kick towards opponent's side, but aim wide to be safe.
-                            kickTargetPos.x = opponentGoalX;
-                            kickTargetPos.y = goalCenterY + (Math.random() > 0.5 ? actualGoalOpeningHeight * 0.7 : -actualGoalOpeningHeight * 0.7); // Aim wide
-                            kickAngleFactorY = -0.6;
-                        }
+                    // AI is smarter about kick direction
+                    const ballToOwnGoal = Math.abs(ballBody.position.x - ownGoalX);
+                    const ballToOpponentGoal = Math.abs(ballBody.position.x - opponentGoalX);
+                    
+                    // If ball is closer to own goal, kick it away from own goal
+                    if (ballToOwnGoal < ballToOpponentGoal * 0.7) {
+                        kickTargetPos.x = opponentGoalX;
+                        kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.3;
+                    } else {
+                        // Normal attack towards opponent goal
+                        kickTargetPos.x = opponentGoalX;
+                        kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.6;
                     }
-                    // Priority 2: General play - aim for opponent goal, but with awareness.
-                    else {
-                        const ballToOpponentGoalDist = Math.abs(ballBody.position.x - opponentGoalX);
-                        // If ball is generally closer to own goal than opponent's goal, or AI is in defensive half.
-                        if (ballToOwnGoalDist < ballToOpponentGoalDist * 1.2 ||
-                            (playerCollidedObject.playerTeam === 1 && playerPhysicsBodyCollided.position.x < CANVAS_WIDTH / 2) ||
-                            (playerCollidedObject.playerTeam === 2 && playerPhysicsBodyCollided.position.x > CANVAS_WIDTH / 2) ) {
-                            // More controlled kick, possibly aiming for corners or less direct.
-                            kickTargetPos.x = opponentGoalX;
-                            kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.4; // Less centered
-                            kickAngleFactorY = -0.5 - Math.random() * 0.3; // Vary loft
-                        } else {
-                            // Offensive situation: More direct shot.
-                            kickTargetPos.x = opponentGoalX;
-                            kickTargetPos.y = goalCenterY + (Math.random() - 0.5) * actualGoalOpeningHeight * 0.7; // Aim more centrally
-                            kickAngleFactorY = -0.4 - Math.random() * 0.4; // More aggressive loft/power
-                        }
-                    }
-                } else { // Human player
+                } else {
+                    // Human player - normal targeting
                     if(isTimedShot){
                          kickTargetPos.y = goalCenterY - (actualGoalOpeningHeight * 0.05) + (Math.random() * actualGoalOpeningHeight * 0.1);
                     } else {
@@ -1144,71 +1119,38 @@ function handleCollisions(event) {
 
                 const kickOrigin = playerPhysicsBodyCollided.position;
                 let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
-
-                // Prevent AI from kicking directly backwards if target is somehow behind it (should be rare with new logic)
-                if (playerCollidedObject.isAI) {
-                    const intendedKickDirection = Math.sign(opponentGoalX - kickOrigin.x);
-                    if (Math.sign(kickVector.x) !== intendedKickDirection && intendedKickDirection !== 0) {
-                         // If kick vector is going the wrong way (e.g. directly backwards)
-                         // Re-evaluate or default to a safe forward/sideways kick
-                         kickVector.x = intendedKickDirection * Math.abs(kickVector.x); // Force correct general direction
-                         if (Math.abs(kickVector.x) < 0.1) kickVector.x = intendedKickDirection * 0.1; // Ensure some forward component
-                         kickVector.y = -0.5 + (Math.random() * -0.3); // Default to a slightly lofted forward kick
-                    }
-                }
-
                 kickVector = Matter.Vector.normalise(kickVector);
 
-                // Adjust y-component for loft, apply timed shot bonus if applicable
-                const baseKickXSign = Math.sign(kickVector.x) || (playerCollidedObject.playerTeam === 1 ? 1 : -1); // Ensure a direction if vector is purely vertical
-                kickVector.y = Math.min(kickAngleFactorY * (isTimedShot && !playerCollidedObject.isAI ? JUMP_SHOT_LOFT_FACTOR : 1), kickVector.y * Math.sign(kickAngleFactorY));
-
-                // Ensure X component has a reasonable magnitude, especially for AI
-                let kickStrengthXFactor = (isTimedShot && !playerCollidedObject.isAI ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4));
-                if (playerCollidedObject.isAI) {
-                    kickStrengthXFactor = 0.5 + Math.random() * 0.4; // AI has more consistent side power
+                // Ensure kick direction is correct
+                const expectedDirection = Math.sign(opponentGoalX - kickOrigin.x);
+                if (Math.sign(kickVector.x) !== expectedDirection && playerCollidedObject.isAI) {
+                    // Force correct direction for AI
+                    kickVector.x = expectedDirection * Math.abs(kickVector.x);
                 }
-                kickVector.x = baseKickXSign * kickStrengthXFactor;
 
-                kickVector = Matter.Vector.normalise(kickVector); // Re-normalize after adjustments
+                const baseKickXSign = Math.sign(kickVector.x);
+                kickVector.y = Math.min(kickAngleFactorY, kickVector.y * Math.sign(kickAngleFactorY));
+                kickVector.x = baseKickXSign * (isTimedShot ? (0.8 + Math.random()*0.2) : (0.4 + Math.random()*0.4) );
+                kickVector = Matter.Vector.normalise(kickVector);
 
-                // Play kick sound based on force
-                const kickPitch = 150 + (kickForce * 50);
-                createTone(kickPitch, 100, 'sawtooth', 0.2);
-                setTimeout(() => createTone(kickPitch * 0.7, 50, 'square', 0.1), 50);
-                
+                playSound('kick.wav');
                 Body.applyForce(ballBody, ballBody.position, { x: kickVector.x * kickForce, y: kickVector.y * kickForce });
 
             } else if (otherBody) {
                 if (isGameStarted && !isGameOver) {
-                    // Check goal scoring with better detection
-                    if (otherBody.label === 'goal-left') {
-                        console.log("Ball hit left goal sensor - Team 2 scores!");
-                        handleGoalScored(2);
-                    } else if (otherBody.label === 'goal-right') {
-                        console.log("Ball hit right goal sensor - Team 1 scores!");
-                        handleGoalScored(1);
-                    }
+                    if (otherBody.label === 'goal-left') handleGoalScored(2);
+                    else if (otherBody.label === 'goal-right') handleGoalScored(1);
                 }
                 if (otherBody.label.includes('wall') || otherBody.label.includes('ceiling') || otherBody.label.includes('crossbar')) {
-                    const ballSpeed = Matter.Vector.magnitude(ballBody.velocity);
-                    if (ballSpeed > 1.5) {
-                        // Play wall hit sound based on speed
-                        const hitPitch = 250 + (ballSpeed * 30);
-                        createTone(hitPitch, 80, 'square', 0.15);
-                        
+                    if (Matter.Vector.magnitude(ballBody.velocity) > 1.5) {
+                        playSound('ball_hit_wall.wav');
                         let particleColor = '#DDDDDD';
-                        if (otherBody.label.includes('crossbar')) {
-                            particleColor = '#FFFF88';
-                            // Special crossbar sound
-                            createTone(800, 100, 'sine', 0.1);
-                        }
-                        
+                        if (otherBody.label.includes('crossbar')) particleColor = '#EEEEEE';
                         const collisionPoint = pair.collision.supports && pair.collision.supports.length > 0 ? pair.collision.supports[0] : ballBody.position;
                         const collisionNormal = pair.collision.normal;
                         const particleBaseVelX = collisionNormal.x * 0.5;
                         const particleBaseVelY = collisionNormal.y * 0.5;
-                        spawnParticles(collisionPoint.x, collisionPoint.y, 6, particleColor, particleBaseVelX, particleBaseVelY, 2, 20, 1);
+                        spawnParticles(collisionPoint.x, collisionPoint.y, 4, particleColor, particleBaseVelX, particleBaseVelY, 1.5, 15, 1);
                     }
                 }
             }
@@ -1220,47 +1162,6 @@ function handleCollisions(event) {
                     player.isGrounded = true;
                 }
             });
-            
-            // Player vs Player collisions
-            let player1 = null, player2 = null;
-            if (bodyA.label && bodyA.label.includes('player-t') && bodyB.label && bodyB.label.includes('player-t')) {
-                player1 = players.find(p => p.playerBody === bodyA);
-                player2 = players.find(p => p.playerBody === bodyB);
-            }
-            
-            if (player1 && player2) {
-                // Calculate collision force
-                const velocityA = Matter.Vector.magnitude(bodyA.velocity);
-                const velocityB = Matter.Vector.magnitude(bodyB.velocity);
-                const totalVelocity = velocityA + velocityB;
-                
-                if (totalVelocity > 2) {
-                    // Play collision sound
-                    createTone(200 + Math.random() * 100, 150, 'sawtooth', 0.15);
-                    
-                    // Add collision particles
-                    const collisionPoint = {
-                        x: (bodyA.position.x + bodyB.position.x) / 2,
-                        y: (bodyA.position.y + bodyB.position.y) / 2
-                    };
-                    spawnParticles(collisionPoint.x, collisionPoint.y, 8, '#FFFF00', 0, -1, 3, 15, 2);
-                    
-                    // Apply bounce effect
-                    const forceMultiplier = Math.min(totalVelocity * 0.3, 0.8);
-                    const direction1 = Matter.Vector.normalise(Matter.Vector.sub(bodyA.position, bodyB.position));
-                    const direction2 = Matter.Vector.normalise(Matter.Vector.sub(bodyB.position, bodyA.position));
-                    
-                    Body.applyForce(bodyA, bodyA.position, {
-                        x: direction1.x * forceMultiplier,
-                        y: direction1.y * forceMultiplier * 0.5
-                    });
-                    
-                    Body.applyForce(bodyB, bodyB.position, {
-                        x: direction2.x * forceMultiplier,
-                        y: direction2.y * forceMultiplier * 0.5
-                    });
-                }
-            }
         }
     }
 }
@@ -1279,13 +1180,13 @@ function showGameMessage(message) {
 function gameRenderLoop() {
     // Always render the game
     customRenderAll();
-
+    
     // Render to main canvas
     const mainCtx = canvas.getContext('2d');
     mainCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     mainCtx.imageSmoothingEnabled = false;
     mainCtx.drawImage(pixelCanvas, 0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
+    
     gameRenderLoopId = requestAnimationFrame(gameRenderLoop);
 }
 
@@ -1396,11 +1297,39 @@ function drawPixelIsoRectangle(pCtx, body, colorOverride = null) {
     const depthY = pHeight * ISOMETRIC_DEPTH_FACTOR * Math.sin(ISOMETRIC_ANGLE) * 0.5;
 
     if (label === 'ground') {
-        // Skip rendering - grass is drawn in stadium background
-        return;
+        // Create grass pattern
+        const grassSecondary = activeTheme.groundSecondary || shadeColor(color, 0.2);
+        const stripeHeight = Math.max(1, Math.round(3 / PIXEL_SCALE));
+        const grassBlade = Math.max(1, Math.round(1 / PIXEL_SCALE));
+        
+        // Draw grass base
+        pCtx.fillStyle = color;
+        pCtx.fillRect(-pWidth / 2, -pHeight / 2, pWidth, pHeight);
+        
+        // Draw grass stripes for field pattern
+        for (let i = -pHeight / 2; i < pHeight / 2; i += stripeHeight * 3) {
+            pCtx.fillStyle = grassSecondary;
+            pCtx.fillRect(-pWidth / 2, i, pWidth, stripeHeight);
+        }
+        
+        // Add grass blade texture
+        pCtx.fillStyle = shadeColor(color, 0.1);
+        for (let x = -pWidth / 2; x < pWidth / 2; x += grassBlade * 2) {
+            for (let y = -pHeight / 2; y < pHeight / 2; y += grassBlade * 3) {
+                if (Math.random() > 0.7) {
+                    pCtx.fillRect(x, y, grassBlade, grassBlade);
+                }
+            }
+        }
     } else if (label.includes('wall-left') || label.includes('wall-right')) {
-        // Skip rendering walls - they're invisible
-        return;
+        const darkerWall = shadeColor(color, -0.15);
+        const stripeWidth = Math.max(1, Math.round(5 / PIXEL_SCALE));
+        for (let i = -pWidth / 2; i < pWidth / 2; i += stripeWidth * 2) {
+            pCtx.fillStyle = color;
+            pCtx.fillRect(i, -pHeight / 2, stripeWidth, pHeight);
+            pCtx.fillStyle = darkerWall;
+            pCtx.fillRect(i + stripeWidth, -pHeight / 2, stripeWidth, pHeight);
+        }
     }
      else {
         pCtx.beginPath();
@@ -1477,164 +1406,6 @@ function shadeColor(color, percent) {
     return "#" + RR + GG + BB;
 }
 
-function drawStadiumBackground() {
-    // Sky background
-    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT * 0.4);
-    gradient.addColorStop(0, '#87CEEB');
-    gradient.addColorStop(1, '#E0F6FF');
-    pixelCtx.fillStyle = gradient;
-    pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT * 0.4);
-    
-    // Draw clouds
-    drawBackgroundClouds();
-    
-    // Draw stadium stands/seating
-    const standHeight = PIXEL_CANVAS_HEIGHT * 0.4;
-    const standDepth = 35;
-    
-    // Stadium structure
-    pixelCtx.fillStyle = '#A0A0A0';
-    pixelCtx.fillRect(0, 0, standDepth, standHeight);
-    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - standDepth, 0, standDepth, standHeight);
-    pixelCtx.fillRect(standDepth, 0, PIXEL_CANVAS_WIDTH - standDepth * 2, standDepth);
-    
-    // Stadium seats with better pattern
-    for (let tier = 0; tier < 3; tier++) {
-        const tierY = tier * (standHeight / 3) + 10;
-        const tierHeight = standHeight / 3 - 5;
-        
-        // Left stand seats
-        for (let x = 3; x < standDepth - 3; x += 2) {
-            for (let y = tierY; y < tierY + tierHeight - 5; y += 3) {
-                const seatColor = Math.random() > 0.6 ? 
-                    (Math.random() > 0.5 ? '#FF4444' : '#4444FF') : 
-                    (Math.random() > 0.5 ? '#44FF44' : '#FFFF44');
-                pixelCtx.fillStyle = seatColor;
-                pixelCtx.fillRect(x, y, 1, 2);
-            }
-        }
-        
-        // Right stand seats
-        for (let x = PIXEL_CANVAS_WIDTH - standDepth + 3; x < PIXEL_CANVAS_WIDTH - 3; x += 2) {
-            for (let y = tierY; y < tierY + tierHeight - 5; y += 3) {
-                const seatColor = Math.random() > 0.6 ? 
-                    (Math.random() > 0.5 ? '#FF4444' : '#4444FF') : 
-                    (Math.random() > 0.5 ? '#44FF44' : '#FFFF44');
-                pixelCtx.fillStyle = seatColor;
-                pixelCtx.fillRect(x, y, 1, 2);
-            }
-        }
-    }
-    
-    // Top stand seats
-    for (let x = standDepth + 5; x < PIXEL_CANVAS_WIDTH - standDepth - 5; x += 3) {
-        for (let y = 5; y < standDepth - 5; y += 2) {
-            const seatColor = Math.random() > 0.7 ? '#00FF00' : '#FFFF00';
-            pixelCtx.fillStyle = seatColor;
-            pixelCtx.fillRect(x, y, 2, 1);
-        }
-    }
-    
-    // Floodlights
-    drawFloodlights();
-    
-    // Draw soccer field with proper grass pattern
-    drawSoccerField();
-}
-
-function drawBackgroundClouds() {
-    // Moving clouds for background
-    if (!window.backgroundClouds) {
-        window.backgroundClouds = [
-            {x: 30, y: 15, size: 8, speed: 0.2},
-            {x: 80, y: 10, size: 6, speed: 0.15},
-            {x: 140, y: 20, size: 10, speed: 0.3},
-            {x: 200, y: 12, size: 7, speed: 0.25},
-            {x: 260, y: 18, size: 9, speed: 0.18}
-        ];
-    }
-    
-    pixelCtx.fillStyle = '#FFFFFF';
-    window.backgroundClouds.forEach(cloud => {
-        // Update cloud position
-        cloud.x += cloud.speed;
-        if (cloud.x > PIXEL_CANVAS_WIDTH + 20) {
-            cloud.x = -20;
-        }
-        
-        // Simple cloud shape
-        for (let i = 0; i < 5; i++) {
-            const offsetX = (i - 2) * 3;
-            const offsetY = Math.sin(i) * 2;
-            pixelCtx.fillRect(cloud.x + offsetX, cloud.y + offsetY, cloud.size, cloud.size * 0.6);
-        }
-    });
-}
-
-function drawFloodlights() {
-    // Stadium floodlight towers
-    const lightPositions = [
-        {x: 15, y: 5},
-        {x: PIXEL_CANVAS_WIDTH - 25, y: 5},
-        {x: PIXEL_CANVAS_WIDTH / 2 - 15, y: 2},
-        {x: PIXEL_CANVAS_WIDTH / 2 + 15, y: 2}
-    ];
-    
-    lightPositions.forEach(light => {
-        // Tower
-        pixelCtx.fillStyle = '#666666';
-        pixelCtx.fillRect(light.x, light.y, 2, 15);
-        
-        // Light fixture
-        pixelCtx.fillStyle = '#FFFF88';
-        pixelCtx.fillRect(light.x - 1, light.y, 4, 3);
-        
-        // Light beam (subtle)
-        pixelCtx.fillStyle = 'rgba(255, 255, 200, 0.1)';
-        pixelCtx.fillRect(light.x - 5, light.y + 3, 12, 25);
-    });
-}
-
-function drawSoccerField() {
-    const fieldStartY = PIXEL_CANVAS_HEIGHT * 0.4;
-    const fieldHeight = PIXEL_CANVAS_HEIGHT - fieldStartY;
-    
-    // Base grass color
-    pixelCtx.fillStyle = '#228B22';
-    pixelCtx.fillRect(0, fieldStartY, PIXEL_CANVAS_WIDTH, fieldHeight);
-    
-    // Grass stripes (static pattern)
-    const stripeWidth = 8;
-    pixelCtx.fillStyle = '#32CD32';
-    for (let x = 0; x < PIXEL_CANVAS_WIDTH; x += stripeWidth * 2) {
-        pixelCtx.fillRect(x, fieldStartY, stripeWidth, fieldHeight);
-    }
-    
-    // Center circle
-    pixelCtx.strokeStyle = '#FFFFFF';
-    pixelCtx.lineWidth = 2;
-    pixelCtx.beginPath();
-    pixelCtx.arc(PIXEL_CANVAS_WIDTH / 2, fieldStartY + fieldHeight / 2, 20, 0, Math.PI * 2);
-    pixelCtx.stroke();
-    
-    // Center line
-    pixelCtx.beginPath();
-    pixelCtx.moveTo(PIXEL_CANVAS_WIDTH / 2, fieldStartY);
-    pixelCtx.lineTo(PIXEL_CANVAS_WIDTH / 2, PIXEL_CANVAS_HEIGHT);
-    pixelCtx.stroke();
-    
-    // Goal areas
-    const goalAreaWidth = 40;
-    const goalAreaHeight = 25;
-    const goalY = PIXEL_CANVAS_HEIGHT - 30;
-    
-    // Left goal area
-    pixelCtx.strokeRect(0, goalY - goalAreaHeight, goalAreaWidth, goalAreaHeight);
-    
-    // Right goal area  
-    pixelCtx.strokeRect(PIXEL_CANVAS_WIDTH - goalAreaWidth, goalY - goalAreaHeight, goalAreaWidth, goalAreaHeight);
-}
-
 
 function drawCloud(cloud) {
     const cloudSize = Math.max(3, Math.round(cloud.size / PIXEL_SCALE));
@@ -1687,6 +1458,25 @@ function drawCloud(cloud) {
     pixelCtx.globalAlpha = 1.0;
 }
 
+function drawSpectator(spectator) {
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    const size = pixelSize * 2;
+    
+    // Body
+    pixelCtx.fillStyle = spectator.color;
+    pixelCtx.fillRect(spectator.x, spectator.y, size, size);
+    
+    // Head
+    pixelCtx.fillStyle = '#FFDBAC';
+    pixelCtx.fillRect(spectator.x, spectator.y - size, size, size);
+    
+    // Animation (occasional wave)
+    if (Math.sin(spectator.animation) > 0.8) {
+        pixelCtx.fillStyle = spectator.color;
+        pixelCtx.fillRect(spectator.x + size, spectator.y - size/2, size/2, size/2);
+    }
+}
+
 function drawStadiumLight(light) {
     const pixelSize = Math.max(1, Math.round(2 / PIXEL_SCALE));
     const lightSize = pixelSize * 3;
@@ -1715,60 +1505,34 @@ function drawStadiumLight(light) {
 function drawInGameScoreboard() {
     if (gameState !== 'playing') return;
     
-    const scoreboardX = 5;
-    const scoreboardY = 5;
-    const scoreboardWidth = 80;
-    const scoreboardHeight = 25;
+    const scoreboardX = PIXEL_CANVAS_WIDTH / 2 - 25;
+    const scoreboardY = 8;
+    const scoreboardWidth = 50;
+    const scoreboardHeight = 20;
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
     
-    // TV-style scoreboard background with gradient
-    const gradient = pixelCtx.createLinearGradient(scoreboardX, scoreboardY, scoreboardX, scoreboardY + scoreboardHeight);
-    gradient.addColorStop(0, '#2C3E50');
-    gradient.addColorStop(0.5, '#34495E');
-    gradient.addColorStop(1, '#2C3E50');
-    pixelCtx.fillStyle = gradient;
+    // Scoreboard background
+    pixelCtx.fillStyle = '#000000';
     pixelCtx.fillRect(scoreboardX, scoreboardY, scoreboardWidth, scoreboardHeight);
     
     // Border
-    pixelCtx.strokeStyle = '#ECF0F1';
-    pixelCtx.lineWidth = 1;
-    pixelCtx.strokeRect(scoreboardX, scoreboardY, scoreboardWidth, scoreboardHeight);
+    pixelCtx.fillStyle = '#00FF00';
+    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY - pixelSize, scoreboardWidth + pixelSize * 2, pixelSize);
+    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY + scoreboardHeight, scoreboardWidth + pixelSize * 2, pixelSize);
+    pixelCtx.fillRect(scoreboardX - pixelSize, scoreboardY, pixelSize, scoreboardHeight);
+    pixelCtx.fillRect(scoreboardX + scoreboardWidth, scoreboardY, pixelSize, scoreboardHeight);
     
-    // Team 1 section (Red)
-    pixelCtx.fillStyle = '#E74C3C';
-    pixelCtx.fillRect(scoreboardX + 2, scoreboardY + 2, 25, 21);
+    // Team scores
+    pixelCtx.fillStyle = '#FF6B6B';
+    drawPixelText(scoreboardX + 3, scoreboardY + 3, team1Score.toString(), pixelSize);
     
-    // Team 2 section (Blue)  
-    pixelCtx.fillStyle = '#3498DB';
-    pixelCtx.fillRect(scoreboardX + scoreboardWidth - 27, scoreboardY + 2, 25, 21);
+    pixelCtx.fillStyle = '#6B9BD2';
+    drawPixelText(scoreboardX + scoreboardWidth - 8, scoreboardY + 3, team2Score.toString(), pixelSize);
     
-    // Team labels
+    // Timer
     pixelCtx.fillStyle = '#FFFFFF';
-    drawPixelText(scoreboardX + 4, scoreboardY + 4, 'RED', 1);
-    drawPixelText(scoreboardX + scoreboardWidth - 25, scoreboardY + 4, 'BLU', 1);
-    
-    // Team scores (larger)
-    pixelCtx.fillStyle = '#FFFFFF';
-    drawPixelText(scoreboardX + 12, scoreboardY + 13, team1Score.toString(), 2);
-    drawPixelText(scoreboardX + scoreboardWidth - 17, scoreboardY + 13, team2Score.toString(), 2);
-    
-    // Separator
-    pixelCtx.fillStyle = '#BDC3C7';
-    pixelCtx.fillRect(scoreboardX + 30, scoreboardY + 2, 20, 21);
-    
-    // Timer section
-    pixelCtx.fillStyle = '#000000';
-    const minutes = Math.floor(gameTimeRemaining / 60);
-    const seconds = gameTimeRemaining % 60;
-    const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    drawPixelText(scoreboardX + 32, scoreboardY + 8, timeText, 1);
-    
-    // Live indicator
-    if (gameTimeRemaining % 2 === 0) {
-        pixelCtx.fillStyle = '#E74C3C';
-        pixelCtx.fillRect(scoreboardX + 32, scoreboardY + 17, 3, 3);
-        pixelCtx.fillStyle = '#FFFFFF';
-        drawPixelText(scoreboardX + 37, scoreboardY + 17, 'LIVE', 1);
-    }
+    const timeText = gameTimeRemaining.toString().padStart(2, '0');
+    drawPixelText(scoreboardX + scoreboardWidth/2 - 4, scoreboardY + 12, timeText, pixelSize);
 }
 
 function drawPixelText(x, y, text, pixelSize) {
@@ -1889,189 +1653,307 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 
 
 function customRenderAll() {
-
-    pixelCtx.fillStyle = '#FFFFFF';
+    // Always render the game without menu checks
+    
+    // Draw sky gradient background
+    const currentSunColor = getCurrentSunColor();
+    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
+    
+    // Dynamic sky colors based on sun
+    let skyTop, skyMid, skyBottom;
+    if (currentSunColor === SUN_COLORS.dawn || currentSunColor === SUN_COLORS.evening) {
+        skyTop = '#FF6B6B';
+        skyMid = '#FFD93D'; 
+        skyBottom = '#87CEEB';
+    } else if (currentSunColor === SUN_COLORS.night) {
+        skyTop = '#191970';
+        skyMid = '#000033';
+        skyBottom = '#191970';
+    } else {
+        skyTop = shadeColor(activeTheme.skyColor, 0.2);
+        skyMid = activeTheme.skyColor;
+        skyBottom = shadeColor(activeTheme.skyColor, -0.3);
+    }
+    
+    gradient.addColorStop(0, skyTop);
+    gradient.addColorStop(0.6, skyMid);
+    gradient.addColorStop(1, skyBottom);
+    pixelCtx.fillStyle = gradient;
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
     
-    // Simple grass field
-    pixelCtx.fillStyle = '#228B22';
-    pixelCtx.fillRect(0, PIXEL_CANVAS_HEIGHT * 0.6, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT * 0.4);
+    // Draw stadium lights first (background lighting)
+    stadiumLights.forEach(light => drawStadiumLight(light));
     
-    // Draw players
-    players.forEach(player => {
-        if (player.playerBody) {
-            const x = player.playerBody.position.x / PIXEL_SCALE;
-            const y = player.playerBody.position.y / PIXEL_SCALE;
-            const size = PLAYER_RECT_SIZE / PIXEL_SCALE;
-            
-            pixelCtx.fillStyle = player.color;
-            pixelCtx.fillRect(x - size/2, y - size/2, size, size);
+    // Draw spectators
+    spectators.forEach(spectator => drawSpectator(spectator));
+    
+    // Draw clouds
+    clouds.forEach(cloud => drawCloud(cloud));
+    
+    // Draw sun/moon with dynamic color
+    const sunSize = Math.max(6, Math.round(8 / PIXEL_SCALE));
+    const sunGlow = Math.max(10, Math.round(14 / PIXEL_SCALE));
+    
+    // Sun glow
+    const sunGradient = pixelCtx.createRadialGradient(
+        sunPosition.x, sunPosition.y, 0,
+        sunPosition.x, sunPosition.y, sunGlow
+    );
+    sunGradient.addColorStop(0, currentSunColor + '80');
+    sunGradient.addColorStop(1, currentSunColor + '00');
+    pixelCtx.fillStyle = sunGradient;
+    pixelCtx.fillRect(
+        sunPosition.x - sunGlow, sunPosition.y - sunGlow,
+        sunGlow * 2, sunGlow * 2
+    );
+    
+    // Sun body (pixelated)
+    const pixelSize = Math.max(1, Math.round(1 / PIXEL_SCALE));
+    pixelCtx.fillStyle = currentSunColor;
+    for (let x = 0; x < sunSize; x += pixelSize) {
+        for (let y = 0; y < sunSize; y += pixelSize) {
+            const distance = Math.sqrt((x - sunSize/2) ** 2 + (y - sunSize/2) ** 2);
+            if (distance < sunSize/2) {
+                pixelCtx.fillRect(
+                    sunPosition.x - sunSize/2 + x,
+                    sunPosition.y - sunSize/2 + y,
+                    pixelSize, pixelSize
+                );
+            }
+        }
+    }
+
+    const bodiesToRender = [];
+    players.forEach(p => {
+        bodiesToRender.push(p.playerBody);
+    });
+    if(ball) bodiesToRender.push(ball);
+
+    const staticBodies = Composite.allBodies(world).filter(b => b.isStatic && !b.isSensor);
+    bodiesToRender.push(...staticBodies);
+
+
+    particles.forEach(particle => {
+        pixelCtx.fillStyle = particle.color;
+        pixelCtx.fillRect(
+            Math.round(particle.x - particle.size / 2),
+            Math.round(particle.y - particle.size / 2),
+            Math.max(1, particle.size),
+            Math.max(1, particle.size)
+        );
+    });
+
+
+    bodiesToRender.forEach(body => {
+        if (body.label === 'ball') {
+            drawPixelIsoCircle(pixelCtx, body, BALL_PANEL_COLOR_PRIMARY);
+        } else if (body.label && body.label.includes('player-t')) {
+            const playerObject = players.find(p => p.playerBody === body);
+            if (playerObject) {
+                drawPlayer(pixelCtx, playerObject.playerBody, playerObject.color);
+            }
+        }
+         else if (body.isStatic) {
+             drawPixelIsoRectangle(pixelCtx, body, body.render.fillStyle);
         }
     });
     
-    // Draw ball
-    if (ball) {
-        const x = ball.position.x / PIXEL_SCALE;
-        const y = ball.position.y / PIXEL_SCALE;
-        const radius = BALL_RADIUS / PIXEL_SCALE;
-        
-        pixelCtx.fillStyle = '#FFFFFF';
+    // Draw in-game scoreboard
+    drawInGameScoreboard();
+
+    const goalPostColor = '#FFFFFF';
+    const netColor = activeTheme.net;
+    const postPixelThickness = Math.max(1, Math.round(8 / PIXEL_SCALE));
+    const goalPixelHeight = Math.round(GOAL_HEIGHT / PIXEL_SCALE);
+    const goalMouthPixelWidth = Math.round(GOAL_MOUTH_VISUAL_WIDTH / PIXEL_SCALE);
+    const goalBaseY = Math.round((CANVAS_HEIGHT - GROUND_THICKNESS) / PIXEL_SCALE);
+    const goalTopActualY = goalBaseY - goalPixelHeight;
+
+    const isoDepth = postPixelThickness * ISOMETRIC_DEPTH_FACTOR * 1.5;
+
+    pixelCtx.lineWidth = Math.max(1, Math.round(1 / PIXEL_SCALE));
+
+    // Left Goal
+    const leftGoalMouthX = Math.round(WALL_THICKNESS / PIXEL_SCALE);
+
+    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.15);
+    pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth * 0.5, goalMouthPixelWidth, postPixelThickness);
+
+
+    pixelCtx.fillStyle = goalPostColor;
+    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(leftGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness);
+
+    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.1);
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(leftGoalMouthX + postPixelThickness, goalTopActualY);
+    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
+    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness + isoDepth, goalBaseY - isoDepth * 0.5);
+    pixelCtx.lineTo(leftGoalMouthX + postPixelThickness, goalBaseY);
+    pixelCtx.closePath();
+    pixelCtx.fill();
+
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY);
+    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
+    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalBaseY - isoDepth*0.5);
+    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalBaseY);
+    pixelCtx.closePath();
+    pixelCtx.fill();
+
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(leftGoalMouthX, goalTopActualY);
+    pixelCtx.lineTo(leftGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5);
+    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth + isoDepth, goalTopActualY - isoDepth*0.5);
+    pixelCtx.lineTo(leftGoalMouthX + goalMouthPixelWidth, goalTopActualY);
+    pixelCtx.closePath();
+    pixelCtx.fill();
+
+
+    pixelCtx.strokeStyle = netColor;
+    const netTopFrontY = goalTopActualY + postPixelThickness;
+    const netBottomFrontY = goalBaseY -1;
+    const netFrontLeftX = leftGoalMouthX + postPixelThickness;
+    const netFrontRightX = leftGoalMouthX + goalMouthPixelWidth - postPixelThickness;
+
+    const netTopBackY = goalTopActualY - isoDepth * 0.5 + postPixelThickness;
+    const netBottomBackY = goalBaseY - isoDepth * 0.5 -1;
+    const netBackLeftX = leftGoalMouthX + isoDepth + postPixelThickness;
+    const netBackRightX = leftGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth;
+
+    for (let i = 0; i <= 4; i++) {
+        const tFront = i / 4;
+        const yFrontLine = netTopFrontY + (netBottomFrontY - netTopFrontY) * tFront;
         pixelCtx.beginPath();
-        pixelCtx.arc(x, y, radius, 0, Math.PI * 2);
-        pixelCtx.fill();
+        pixelCtx.moveTo(netFrontLeftX, yFrontLine);
+        pixelCtx.lineTo(netFrontRightX, yFrontLine);
+        pixelCtx.stroke();
+
+        const tBack = i / 4;
+        const yBackLine = netTopBackY + (netBottomBackY - netTopBackY) * tBack;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(netBackLeftX, yBackLine);
+        pixelCtx.lineTo(netBackRightX, yBackLine);
+        pixelCtx.stroke();
     }
-    
-    // Draw simple goals
-    pixelCtx.fillStyle = '#FFFFFF';
-    const goalY = PIXEL_CANVAS_HEIGHT - 30;
-    const goalHeight = 25;
-    
-    // Left goal
-    pixelCtx.fillRect(0, goalY - goalHeight, 5, goalHeight);
-    pixelCtx.fillRect(15, goalY - goalHeight, 5, goalHeight);
-    pixelCtx.fillRect(0, goalY - goalHeight, 20, 5);
-    
-    // Right goal
-    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 20, goalY - goalHeight, 5, goalHeight);
-    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 5, goalY - goalHeight, 5, goalHeight);
-    pixelCtx.fillRect(PIXEL_CANVAS_WIDTH - 20, goalY - goalHeight, 20, 5);
-    
-    // Draw simple scoreboard
-    pixelCtx.fillStyle = '#000000';
-    pixelCtx.font = '16px Arial';
-    pixelCtx.fillText(`Score: ${team1Score} - ${team2Score}`, 10, 20);
-    pixelCtx.fillText(`Time: ${gameTimeRemaining}`, 10, 40);
-    
-    // Draw control buttons
-    drawControlButtons();
-}
 
-document.addEventListener('DOMContentLoaded', () => {
-    setup();
-    setupControlButtons();
-});
+    for (let i = 0; i <= 6; i++) {
+        const tFront = i / 6;
+        const xFrontLine = netFrontLeftX + (netFrontRightX - netFrontLeftX) * tFront;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xFrontLine, netTopFrontY);
+        pixelCtx.lineTo(xFrontLine, netBottomFrontY);
+        pixelCtx.stroke();
 
-function drawControlButtons() {
-    const buttonSize = 40;
-    const buttonY = PIXEL_CANVAS_HEIGHT - buttonSize - 10;
-    const leftButtonX = 15;
-    const rightButtonX = leftButtonX + buttonSize + 10;
-    
-    // Store button positions for click detection
-    window.controlButtons = {
-        left: { x: leftButtonX, y: buttonY, width: buttonSize, height: buttonSize },
-        right: { x: rightButtonX, y: buttonY, width: buttonSize, height: buttonSize }
-    };
-    
-    // Left button
-    pixelCtx.fillStyle = keysPressed['KeyA'] ? '#45a049' : '#4CAF50';
-    pixelCtx.fillRect(leftButtonX, buttonY, buttonSize, buttonSize);
-    
-    // Button border
-    pixelCtx.strokeStyle = '#2e7d32';
-    pixelCtx.lineWidth = 2;
-    pixelCtx.strokeRect(leftButtonX, buttonY, buttonSize, buttonSize);
-    
-    // Left arrow
-    pixelCtx.fillStyle = '#FFFFFF';
-    const arrowSize = 12;
-    const centerX = leftButtonX + buttonSize / 2;
-    const centerY = buttonY + buttonSize / 2;
-    
-    // Draw left arrow
+        const tBack = i / 6;
+        const xBackLine = netBackLeftX + (netBackRightX - netBackLeftX) * tBack;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xBackLine, netTopBackY);
+        pixelCtx.lineTo(xBackLine, netBottomBackY);
+        pixelCtx.stroke();
+
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xFrontLine, netTopFrontY);
+        pixelCtx.lineTo(xBackLine, netTopBackY);
+        pixelCtx.stroke();
+
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xFrontLine, netBottomFrontY);
+        pixelCtx.lineTo(xBackLine, netBottomBackY);
+        pixelCtx.stroke();
+    }
+
+
+    const rightGoalMouthX = PIXEL_CANVAS_WIDTH - Math.round(WALL_THICKNESS / PIXEL_SCALE) - goalMouthPixelWidth;
+    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.15);
+    pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth*0.5, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5, goalMouthPixelWidth, postPixelThickness);
+
+
+    pixelCtx.fillStyle = goalPostColor;
+    pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY, postPixelThickness, goalPixelHeight);
+    pixelCtx.fillRect(rightGoalMouthX, goalTopActualY, goalMouthPixelWidth, postPixelThickness);
+
+    pixelCtx.fillStyle = shadeColor(goalPostColor, -0.1);
     pixelCtx.beginPath();
-    pixelCtx.moveTo(centerX - arrowSize/2, centerY);
-    pixelCtx.lineTo(centerX + arrowSize/2, centerY - arrowSize/2);
-    pixelCtx.lineTo(centerX + arrowSize/2, centerY + arrowSize/2);
+    pixelCtx.moveTo(rightGoalMouthX + postPixelThickness, goalTopActualY);
+    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
+    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness + isoDepth, goalBaseY - isoDepth * 0.5);
+    pixelCtx.lineTo(rightGoalMouthX + postPixelThickness, goalBaseY);
     pixelCtx.closePath();
     pixelCtx.fill();
-    
-    // Right button
-    pixelCtx.fillStyle = keysPressed['KeyD'] ? '#45a049' : '#4CAF50';
-    pixelCtx.fillRect(rightButtonX, buttonY, buttonSize, buttonSize);
-    
-    // Button border
-    pixelCtx.strokeRect(rightButtonX, buttonY, buttonSize, buttonSize);
-    
-    // Right arrow
-    const rightCenterX = rightButtonX + buttonSize / 2;
-    const rightCenterY = buttonY + buttonSize / 2;
-    
-    pixelCtx.fillStyle = '#FFFFFF';
+
     pixelCtx.beginPath();
-    pixelCtx.moveTo(rightCenterX + arrowSize/2, rightCenterY);
-    pixelCtx.lineTo(rightCenterX - arrowSize/2, rightCenterY - arrowSize/2);
-    pixelCtx.lineTo(rightCenterX - arrowSize/2, rightCenterY + arrowSize/2);
+    pixelCtx.moveTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalTopActualY);
+    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalTopActualY - isoDepth * 0.5);
+    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth, goalBaseY - isoDepth*0.5);
+    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth - postPixelThickness, goalBaseY);
     pixelCtx.closePath();
     pixelCtx.fill();
-}
 
-function setupControlButtons() {
-    const canvas = document.getElementById('gameCanvas');
-    
-    // Mouse events
-    canvas.addEventListener('mousedown', handleCanvasClick);
-    canvas.addEventListener('mouseup', handleCanvasRelease);
-    canvas.addEventListener('mouseleave', handleCanvasRelease);
-    
-    // Touch events
-    canvas.addEventListener('touchstart', handleCanvasTouch);
-    canvas.addEventListener('touchend', handleCanvasRelease);
-}
+    pixelCtx.beginPath();
+    pixelCtx.moveTo(rightGoalMouthX, goalTopActualY);
+    pixelCtx.lineTo(rightGoalMouthX + isoDepth, goalTopActualY - isoDepth*0.5);
+    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth + isoDepth, goalTopActualY - isoDepth*0.5);
+    pixelCtx.lineTo(rightGoalMouthX + goalMouthPixelWidth, goalTopActualY);
+    pixelCtx.closePath();
+    pixelCtx.fill();
 
-function handleCanvasClick(event) {
-    const rect = event.target.getBoundingClientRect();
-    const scaleX = PIXEL_CANVAS_WIDTH / rect.width;
-    const scaleY = PIXEL_CANVAS_HEIGHT / rect.height;
-    
-    const x = (event.clientX - rect.left) * scaleX;
-    const y = (event.clientY - rect.top) * scaleY;
-    
-    if (window.controlButtons) {
-        const { left, right } = window.controlButtons;
-        
-        if (x >= left.x && x <= left.x + left.width && y >= left.y && y <= left.y + left.height) {
-            keysPressed['KeyA'] = true;
-            createTone(300, 50, 'square', 0.1);
-        }
-        
-        if (x >= right.x && x <= right.x + right.width && y >= right.y && y <= right.y + right.height) {
-            keysPressed['KeyD'] = true;
-            createTone(350, 50, 'square', 0.1);
-        }
+    pixelCtx.strokeStyle = netColor;
+    const rgNetFrontLeftX = rightGoalMouthX + postPixelThickness;
+    const rgNetFrontRightX = rightGoalMouthX + goalMouthPixelWidth - postPixelThickness;
+    const rgNetBackLeftX = rightGoalMouthX + isoDepth + postPixelThickness;
+    const rgNetBackRightX = rightGoalMouthX + goalMouthPixelWidth - postPixelThickness + isoDepth;
+
+    for (let i = 0; i <= 4; i++) {
+        const tFront = i / 4;
+        const yFrontLine = netTopFrontY + (netBottomFrontY - netTopFrontY) * tFront;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(rgNetFrontLeftX, yFrontLine);
+        pixelCtx.lineTo(rgNetFrontRightX, yFrontLine);
+        pixelCtx.stroke();
+
+        const tBack = i / 4;
+        const yBackLine = netTopBackY + (netBottomBackY - netTopBackY) * tBack;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(rgNetBackLeftX, yBackLine);
+        pixelCtx.lineTo(rgNetBackRightX, yBackLine);
+        pixelCtx.stroke();
+    }
+
+    for (let i = 0; i <= 6; i++) {
+        const tFront = i / 6;
+        const xFrontLine = rgNetFrontLeftX + (rgNetFrontRightX - rgNetFrontLeftX) * tFront;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xFrontLine, netTopFrontY);
+        pixelCtx.lineTo(xFrontLine, netBottomFrontY);
+        pixelCtx.stroke();
+
+        const tBack = i / 6;
+        const xBackLine = rgNetBackLeftX + (rgNetBackRightX - rgNetBackLeftX) * tBack;
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xBackLine, netTopBackY);
+        pixelCtx.lineTo(xBackLine, netBottomBackY);
+        pixelCtx.stroke();
+
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xFrontLine, netTopFrontY);
+        pixelCtx.lineTo(xBackLine, netTopBackY);
+        pixelCtx.stroke();
+
+        pixelCtx.beginPath();
+        pixelCtx.moveTo(xFrontLine, netBottomFrontY);
+        pixelCtx.lineTo(xBackLine, netBottomBackY);
+        pixelCtx.stroke();
     }
 }
 
-function handleCanvasTouch(event) {
-    event.preventDefault();
-    const rect = event.target.getBoundingClientRect();
-    const scaleX = PIXEL_CANVAS_WIDTH / rect.width;
-    const scaleY = PIXEL_CANVAS_HEIGHT / rect.height;
-    
-    for (let touch of event.changedTouches) {
-        const x = (touch.clientX - rect.left) * scaleX;
-        const y = (touch.clientY - rect.top) * scaleY;
-        
-        if (window.controlButtons) {
-            const { left, right } = window.controlButtons;
-            
-            if (x >= left.x && x <= left.x + left.width && y >= left.y && y <= left.y + left.height) {
-                keysPressed['KeyA'] = true;
-                createTone(300, 50, 'square', 0.1);
-            }
-            
-            if (x >= right.x && x <= right.x + right.width && y >= right.y && y <= right.y + right.height) {
-                keysPressed['KeyD'] = true;
-                createTone(350, 50, 'square', 0.1);
-            }
-        }
-    }
-}
-
-function handleCanvasRelease() {
-    keysPressed['KeyA'] = false;
-    keysPressed['KeyD'] = false;
-}
+document.addEventListener('DOMContentLoaded', setup);
 
 // --- Particle System ---
 function spawnParticles(x, y, count, color, baseVelocityX = 0, baseVelocityY = 0, spread = 2, life = 20, size = 1) {
