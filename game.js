@@ -720,13 +720,61 @@ function handleHumanPlayerControls() {
 }
 
 
+// Advanced AI System
+const AI_STATES = {
+    DEFENDING: 'defending',
+    ATTACKING: 'attacking',
+    INTERCEPTING: 'intercepting',
+    EMERGENCY_DEFENSE: 'emergency_defense',
+    POSITIONING: 'positioning',
+    CHALLENGING: 'challenging'
+};
+
+const AI_FORMATION = {
+    DEFENSIVE: { homeX: 0.8, aggressiveness: 0.3, riskTolerance: 0.2 },
+    BALANCED: { homeX: 0.7, aggressiveness: 0.6, riskTolerance: 0.5 },
+    ATTACKING: { homeX: 0.6, aggressiveness: 0.8, riskTolerance: 0.7 },
+    DESPERATE: { homeX: 0.5, aggressiveness: 1.0, riskTolerance: 0.9 }
+};
+
 function updateAIPlayers() {
     players.forEach((player) => {
         if (player.isAI) {
             if (player.actionCooldown > 0) player.actionCooldown--;
-            executeAIPlayerLogic(player);
+            
+            // Initialize AI brain if not exists
+            if (!player.aiBrain) {
+                initializeAIBrain(player);
+            }
+            
+            // Update AI brain and execute advanced logic
+            updateAIBrain(player);
+            executeAdvancedAILogic(player);
         }
     });
+}
+
+function initializeAIBrain(player) {
+    player.aiBrain = {
+        currentState: AI_STATES.POSITIONING,
+        formation: AI_FORMATION.BALANCED,
+        lastDecisionTime: 0,
+        decisionInterval: 100, // ms
+        threatLevel: 0,
+        confidence: 0.5,
+        lastBallPosition: { x: 0, y: 0 },
+        predictedBallPosition: { x: 0, y: 0 },
+        riskAssessment: 0.5,
+        strategicTarget: null,
+        emergencyMode: false,
+        reactionTime: 150 + Math.random() * 100, // Variable reaction time
+        memory: {
+            lastPlayerCollision: 0,
+            lastSuccessfulIntercept: 0,
+            lastGoalConceded: 0,
+            opponentPatterns: []
+        }
+    };
 }
 
 function executeAIPlayerLogic(player) {
