@@ -22,7 +22,7 @@ const CANVAS_HEIGHT = 600;
 const ROUND_DURATION_SECONDS = 90;
 const BALL_RADIUS = 15;
 
-const PIXEL_SCALE = 4;
+const PIXEL_SCALE = 6; // More pixelated
 const PIXEL_CANVAS_WIDTH = CANVAS_WIDTH / PIXEL_SCALE;
 const PIXEL_CANVAS_HEIGHT = CANVAS_HEIGHT / PIXEL_SCALE;
 
@@ -67,12 +67,50 @@ let currentColorPaletteIndex = -1;
 
 // --- Themes ---
 const themes = [
-    { name: "Grass Day", background: '#ACE1AF', ground: '#B8860B', walls: '#808080', ballThemeColor: '#FFFFFF', net: 'rgba(220, 220, 220, 0.6)' },
-    { name: "Night Sky", background: '#000033', ground: '#4A3B00', walls: '#555555', ballThemeColor: '#E0E0E0', net: 'rgba(180, 180, 200, 0.5)' },
-    { name: "Desert", background: '#FFDAB9', ground: '#D2B48C', walls: '#A0522D', ballThemeColor: '#FAFAFA', net: 'rgba(100, 100, 100, 0.5)' }
+    { 
+        name: "Grass Day", 
+        background: '#87CEEB', // Sky blue
+        ground: '#228B22', // Forest green grass
+        groundSecondary: '#32CD32', // Lime green for grass stripes
+        walls: '#8B4513', // Brown wooden walls
+        ballThemeColor: '#FFFFFF', 
+        net: 'rgba(220, 220, 220, 0.8)',
+        skyColor: '#87CEEB',
+        cloudColor: '#FFFFFF',
+        sunColor: '#FFD700'
+    },
+    { 
+        name: "Night Sky", 
+        background: '#191970', // Midnight blue
+        ground: '#006400', // Dark green
+        groundSecondary: '#228B22',
+        walls: '#2F4F4F', // Dark slate gray
+        ballThemeColor: '#E0E0E0', 
+        net: 'rgba(180, 180, 200, 0.5)',
+        skyColor: '#191970',
+        cloudColor: '#696969',
+        sunColor: '#F0F8FF' // Moon color
+    },
+    { 
+        name: "Desert", 
+        background: '#F4A460', // Sandy brown
+        ground: '#DEB887', // Burlywood
+        groundSecondary: '#D2B48C',
+        walls: '#A0522D', 
+        ballThemeColor: '#FAFAFA', 
+        net: 'rgba(100, 100, 100, 0.5)',
+        skyColor: '#F4A460',
+        cloudColor: '#F5DEB3',
+        sunColor: '#FF4500'
+    }
 ];
 let currentThemeIndex = -1;
 let activeTheme = themes[0];
+
+// --- Animated Elements ---
+let clouds = [];
+let sunPosition = { x: 0, y: 0 };
+let gameTime = 0;
 const BALL_PANEL_COLOR_PRIMARY = '#FFFFFF';
 const BALL_PANEL_COLOR_SECONDARY = '#333333';
 
@@ -113,32 +151,88 @@ const LANDING_DAMPING_FACTOR = 0.9;
 
 const keysPressed = {};
 
-// --- Sound Function ---
-const soundCache = new Map();
-const soundEnabled = false; // Set to true when you add sound files
+// --- Sound Functions ---
+const soundEnabled = true;
+let audioContext;
 
+// Initialize Web Audio API
+function initAudioContext() {
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+        console.warn('Web Audio API not supported:', e);
+    }
+}
+
+// Create simple tones for sound effects
+function createTone(frequency, duration, type = 'sine', volume = 0.1) {
+    if (!audioContext) return;
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    oscillator.type = type;
+    
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration);
+}
+
+// Sound effects
 function playSound(soundFileName) {
-    if (!soundEnabled) return; // Skip sound playing if disabled
+    if (!soundEnabled || !audioContext) return;
     
     try {
-        if (soundCache.has(soundFileName)) {
-            const audio = soundCache.get(soundFileName);
-            audio.currentTime = 0; // Reset to beginning
-            audio.play().catch(e => console.warn("Sound play failed for "+soundFileName+":", e));
-        } else {
-            const audio = new Audio('sounds/' + soundFileName);
-            audio.preload = 'auto';
-            audio.addEventListener('canplaythrough', () => {
-                soundCache.set(soundFileName, audio);
-                audio.play().catch(e => console.warn("Sound play failed for "+soundFileName+":", e));
-            });
-            audio.addEventListener('error', () => {
-                console.warn(`Audio file not found: ${soundFileName}`);
-            });
+        switch(soundFileName) {
+            case 'jump.wav':
+                createTone(440, 0.15, 'square', 0.08); // Jump sound
+                setTimeout(() => createTone(660, 0.1, 'sine', 0.06), 50);
+                break;
+            case 'kick.wav':
+                createTone(200, 0.1, 'square', 0.12); // Kick sound
+                setTimeout(() => createTone(150, 0.05, 'triangle', 0.08), 30);
+                break;
+            case 'goal.wav':
+                // Goal celebration sound
+                createTone(523, 0.2, 'sine', 0.1); // C
+                setTimeout(() => createTone(659, 0.2, 'sine', 0.1), 100); // E
+                setTimeout(() => createTone(784, 0.3, 'sine', 0.12), 200); // G
+                break;
+            case 'ball_hit_wall.wav':
+                createTone(300, 0.08, 'square', 0.06); // Wall hit
+                break;
+            default:
+                console.warn(`Unknown sound: ${soundFileName}`);
         }
     } catch (e) {
-        console.warn(`Could not create Audio for: ${soundFileName}`, e);
+        console.warn(`Sound generation failed for ${soundFileName}:`, e);
     }
+}
+
+// Initialize clouds
+function initClouds() {
+    clouds = [];
+    const numClouds = 4;
+    for (let i = 0; i < numClouds; i++) {
+        clouds.push({
+            x: Math.random() * (PIXEL_CANVAS_WIDTH + 40) - 20,
+            y: Math.random() * (PIXEL_CANVAS_HEIGHT * 0.4) + 5,
+            size: Math.random() * 15 + 10,
+            speed: Math.random() * 0.3 + 0.1,
+            opacity: Math.random() * 0.4 + 0.3
+        });
+    }
+    
+    // Initialize sun position
+    sunPosition.x = PIXEL_CANVAS_WIDTH * 0.8;
+    sunPosition.y = PIXEL_CANVAS_HEIGHT * 0.15;
 }
 
 // --- Initialization Function ---
@@ -152,6 +246,13 @@ function setup() {
     gameTimeRemaining = ROUND_DURATION_SECONDS;
     actualGoalOpeningHeight = GOAL_HEIGHT - CROSSBAR_THICKNESS;
     particles = [];
+    gameTime = 0;
+
+    // Initialize audio and visual elements
+    if (!audioContext) {
+        initAudioContext();
+    }
+    initClouds();
 
     if (roundTimerId) {
         clearInterval(roundTimerId);
@@ -361,11 +462,24 @@ function updatePlayerAnimations() {
 function updateGame() {
     if (!isGameStarted || isGameOver) return;
 
+    gameTime++;
     updatePlayerStates();
     handleHumanPlayerControls();
     updateAIPlayers();
     updatePlayerAnimations();
     updateParticles();
+    updateClouds();
+}
+
+// Update cloud positions
+function updateClouds() {
+    clouds.forEach(cloud => {
+        cloud.x += cloud.speed;
+        if (cloud.x > PIXEL_CANVAS_WIDTH + 20) {
+            cloud.x = -20;
+            cloud.y = Math.random() * (PIXEL_CANVAS_HEIGHT * 0.4) + 5;
+        }
+    });
 }
 
 function updatePlayerStates() {
@@ -865,6 +979,12 @@ function gameRenderLoop() {
     if (!isGameStarted && !isGameOver) {
         if (keysPressed['KeyW']) {
             console.log("RENDER_LOOP: Key 'W' pressed, starting game.");
+            
+            // Initialize audio context on user interaction
+            if (!audioContext) {
+                initAudioContext();
+            }
+            
             isGameStarted = true;
             showGameMessage('');
             if (runner) {
@@ -944,13 +1064,29 @@ function drawPixelIsoRectangle(pCtx, body, colorOverride = null) {
     const depthY = pHeight * ISOMETRIC_DEPTH_FACTOR * Math.sin(ISOMETRIC_ANGLE) * 0.5;
 
     if (label === 'ground') {
-        const darkerGround = shadeColor(color, -0.1);
-        const stripeHeight = Math.max(1, Math.round(4 / PIXEL_SCALE));
-        for (let i = -pHeight / 2; i < pHeight / 2; i += stripeHeight * 2) {
-            pCtx.fillStyle = color;
+        // Create grass pattern
+        const grassSecondary = activeTheme.groundSecondary || shadeColor(color, 0.2);
+        const stripeHeight = Math.max(1, Math.round(3 / PIXEL_SCALE));
+        const grassBlade = Math.max(1, Math.round(1 / PIXEL_SCALE));
+        
+        // Draw grass base
+        pCtx.fillStyle = color;
+        pCtx.fillRect(-pWidth / 2, -pHeight / 2, pWidth, pHeight);
+        
+        // Draw grass stripes for field pattern
+        for (let i = -pHeight / 2; i < pHeight / 2; i += stripeHeight * 3) {
+            pCtx.fillStyle = grassSecondary;
             pCtx.fillRect(-pWidth / 2, i, pWidth, stripeHeight);
-            pCtx.fillStyle = darkerGround;
-            pCtx.fillRect(-pWidth / 2, i + stripeHeight, pWidth, stripeHeight);
+        }
+        
+        // Add grass blade texture
+        pCtx.fillStyle = shadeColor(color, 0.1);
+        for (let x = -pWidth / 2; x < pWidth / 2; x += grassBlade * 2) {
+            for (let y = -pHeight / 2; y < pHeight / 2; y += grassBlade * 3) {
+                if (Math.random() > 0.7) {
+                    pCtx.fillRect(x, y, grassBlade, grassBlade);
+                }
+            }
         }
     } else if (label.includes('wall-left') || label.includes('wall-right')) {
         const darkerWall = shadeColor(color, -0.15);
@@ -1038,6 +1174,41 @@ function shadeColor(color, percent) {
 }
 
 
+function drawCloud(cloud) {
+    const cloudSize = Math.max(3, Math.round(cloud.size / PIXEL_SCALE));
+    const pixelSize = Math.max(1, Math.round(2 / PIXEL_SCALE));
+    
+    pixelCtx.globalAlpha = cloud.opacity;
+    pixelCtx.fillStyle = activeTheme.cloudColor;
+    
+    // Draw cloud with pixelated appearance
+    const cloudParts = [
+        { x: -cloudSize * 0.3, y: 0, size: cloudSize * 0.6 },
+        { x: cloudSize * 0.2, y: -cloudSize * 0.2, size: cloudSize * 0.5 },
+        { x: cloudSize * 0.4, y: cloudSize * 0.1, size: cloudSize * 0.4 },
+        { x: -cloudSize * 0.1, y: -cloudSize * 0.3, size: cloudSize * 0.3 },
+        { x: cloudSize * 0.1, y: cloudSize * 0.3, size: cloudSize * 0.25 }
+    ];
+    
+    cloudParts.forEach(part => {
+        const partX = Math.round(cloud.x + part.x);
+        const partY = Math.round(cloud.y + part.y);
+        const partSize = Math.max(pixelSize, Math.round(part.size));
+        
+        // Draw pixelated cloud part
+        for (let x = 0; x < partSize; x += pixelSize) {
+            for (let y = 0; y < partSize; y += pixelSize) {
+                const distance = Math.sqrt((x - partSize/2) ** 2 + (y - partSize/2) ** 2);
+                if (distance < partSize/2 && Math.random() > 0.1) {
+                    pixelCtx.fillRect(partX + x - partSize/2, partY + y - partSize/2, pixelSize, pixelSize);
+                }
+            }
+        }
+    });
+    
+    pixelCtx.globalAlpha = 1.0;
+}
+
 function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
     const x = body.position.x / PIXEL_SCALE;
     const y = body.position.y / PIXEL_SCALE;
@@ -1099,8 +1270,42 @@ function drawPixelIsoCircle(pCtx, body, colorOverride = null) {
 
 
 function customRenderAll() {
-    pixelCtx.fillStyle = activeTheme.background;
+    // Draw sky gradient background
+    const gradient = pixelCtx.createLinearGradient(0, 0, 0, PIXEL_CANVAS_HEIGHT);
+    gradient.addColorStop(0, shadeColor(activeTheme.skyColor, 0.2));
+    gradient.addColorStop(0.7, activeTheme.skyColor);
+    gradient.addColorStop(1, shadeColor(activeTheme.skyColor, -0.3));
+    pixelCtx.fillStyle = gradient;
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
+    
+    // Draw sun/moon
+    const sunSize = Math.max(8, Math.round(12 / PIXEL_SCALE));
+    const sunGlow = Math.max(12, Math.round(18 / PIXEL_SCALE));
+    
+    // Sun glow
+    const sunGradient = pixelCtx.createRadialGradient(
+        sunPosition.x, sunPosition.y, 0,
+        sunPosition.x, sunPosition.y, sunGlow
+    );
+    sunGradient.addColorStop(0, activeTheme.sunColor + '80');
+    sunGradient.addColorStop(1, activeTheme.sunColor + '00');
+    pixelCtx.fillStyle = sunGradient;
+    pixelCtx.fillRect(
+        sunPosition.x - sunGlow, sunPosition.y - sunGlow,
+        sunGlow * 2, sunGlow * 2
+    );
+    
+    // Sun body
+    pixelCtx.fillStyle = activeTheme.sunColor;
+    pixelCtx.fillRect(
+        sunPosition.x - sunSize/2, sunPosition.y - sunSize/2,
+        sunSize, sunSize
+    );
+    
+    // Draw clouds
+    clouds.forEach(cloud => {
+        drawCloud(cloud);
+    });
 
     const bodiesToRender = [];
     players.forEach(p => {
