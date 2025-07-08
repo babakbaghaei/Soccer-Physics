@@ -180,6 +180,174 @@ const PLAYER_ACTION_COOLDOWN_FRAMES = 20;
 const LANDING_DAMPING_FACTOR = 0.9;
 const keysPressed = {};
 
+// --- AI Intent Constants ---
+const INTENT_ATTACK = 'ATTACK';
+const INTENT_DEFEND = 'DEFEND';
+const INTENT_REPOSITION = 'REPOSITION';
+
+// --- AI Intent Definitions ---
+// gameState will be a simplified object passed to utility functions,
+// containing necessary info like ball position, player positions, goal positions etc.
+const aiIntents = {
+    [INTENT_ATTACK]: {
+        name: INTENT_ATTACK,
+        calculateUtility: function(gameState, player) {
+            let score = 0;
+            if (!gameState.ball || !player || !gameState.opponentGoalPosition || !gameState.humanPlayer) return 0;
+
+            const aiPos = player.playerBody.position;
+            const ballPos = gameState.ball.position;
+            const opponentGoalPos = gameState.opponentGoalPosition;
+            const humanPlayerPos = gameState.humanPlayer.playerBody.position;
+
+            // 1. Proximity of ball to opponent's goal
+            const ballToOpponentGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, opponentGoalPos));
+            score += (CANVAS_WIDTH - ballToOpponentGoalDist) / CANVAS_WIDTH * 70; // Max 70 points
+
+            // 2. Proximity of AI to ball
+            const aiToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
+            score += (AI_ACTION_RANGE * 2 - aiToBallDist) / (AI_ACTION_RANGE * 2) * 50; // Max 50 points if AI is very close
+
+            // 3. Is shot path to goal clear of human player?
+            const vecAiToGoal = Matter.Vector.sub(opponentGoalPos, aiPos);
+            const vecAiToHuman = Matter.Vector.sub(humanPlayerPos, aiPos);
+            // Check if human is between AI and Goal, and relatively close to the direct path
+            if (Matter.Vector.dot(vecAiToGoal, vecAiToHuman) > 0 && // Human is in the general direction of the goal
+                Matter.Vector.magnitudeSquared(vecAiToHuman) < Matter.Vector.magnitudeSquared(vecAiToGoal)) { // Human is closer than the goal
+                const distHumanToShotPath = perpDistToLine(aiPos, opponentGoalPos, humanPlayerPos);
+                if (distHumanToShotPath < PLAYER_RECT_SIZE * 1.5) { // Human is blocking the path
+                    score -= 40; // Penalty for blocked path
+                }
+            }
+
+            // 4. Angle for a good shot (AI is behind ball relative to opponent goal)
+            const vecBallToGoal = Matter.Vector.sub(opponentGoalPos, ballPos);
+            const vecBallToAi = Matter.Vector.sub(aiPos, ballPos);
+            const angleBetweenBallGoalAndBallAi = Matter.Vector.angle(vecBallToGoal, vecBallToAi);
+            // Ideal angle is Math.PI (AI is directly behind ball). Score higher as angle approaches PI.
+            // We use (Math.PI - abs(angle)) to score higher when AI is behind the ball.
+            // Normalize this to a positive score contribution.
+            const angleScoreFactor = (Math.PI - Math.abs(angleBetweenBallGoalAndBallAi)) / Math.PI; // 0 to 1
+            score += angleScoreFactor * 30; // Max 30 points for good angle
+
+            // 5. Bonus if AI is facing the opponent's goal
+            const aiAngle = player.playerBody.angle; // Assuming 0 is facing right
+            const directionToOpponentGoal = Math.sign(opponentGoalPos.x - aiPos.x);
+            // Simplified: if AI is facing generally towards opponent goal
+            if ((directionToOpponentGoal > 0 && Math.abs(aiAngle) < Math.PI / 2) ||
+                (directionToOpponentGoal < 0 && Math.abs(aiAngle) > Math.PI / 2)) {
+                score += 15;
+            }
+
+            // 6. Bonus if ball is moving towards opponent's goal
+            if (Matter.Vector.dot(gameState.ball.velocity, vecBallToGoal) > 0) {
+                score += Matter.Vector.magnitude(gameState.ball.velocity) * 3; // More score for faster ball
+            }
+
+
+            return Math.max(0, score); // Ensure score is not negative
+        }
+    },
+    [INTENT_DEFEND]: {
+        name: INTENT_DEFEND,
+        calculateUtility: function(gameState, player) {
+            let score = 0;
+            if (!gameState.ball || !player || !gameState.ownGoalPosition || !gameState.humanPlayer) return 0;
+
+            const aiPos = player.playerBody.position;
+            const ballPos = gameState.ball.position;
+            const ownGoalPos = gameState.ownGoalPosition;
+            const humanPlayerPos = gameState.humanPlayer.playerBody.position;
+
+            // 1. Proximity of ball to own goal
+            const ballToOwnGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, ownGoalPos));
+            score += (CANVAS_WIDTH - ballToOwnGoalDist) / CANVAS_WIDTH * 70; // Max 70 points
+
+            // 2. AI is between ball and own goal
+            // Check if AI's x-coordinate is between ball's x and own goal's x
+            const isAiBetweenBallAndGoalX = (ballPos.x < aiPos.x && aiPos.x < ownGoalPos.x) || (ownGoalPos.x < aiPos.x && aiPos.x < ballPos.x);
+            // Check if AI is also relatively aligned vertically or can intercept
+            const verticalAlignmentFactor = Math.max(0, 1 - (Math.abs(aiPos.y - ballPos.y) / (CANVAS_HEIGHT / 2)));
+            if (isAiBetweenBallAndGoalX) {
+                score += 50 * verticalAlignmentFactor; // Max 50 points for good positioning
+            }
+
+            // 3. Proximity of AI to human player (if human has ball or is near ball)
+            const humanToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(humanPlayerPos, ballPos));
+            if (humanToBallDist < AI_ACTION_RANGE * 1.5) { // If human is relevant to the ball
+                const aiToHumanDist = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, humanPlayerPos));
+                score += (AI_ACTION_RANGE * 2 - aiToHumanDist) / (AI_ACTION_RANGE * 2) * 40; // Max 40 points
+            }
+
+            // 4. Ball is moving towards own goal with significant speed
+            const vecBallToOwnGoal = Matter.Vector.sub(ownGoalPos, ballPos);
+            const ballSpeedTowardsGoal = Matter.Vector.dot(gameState.ball.velocity, Matter.Vector.normalise(vecBallToOwnGoal));
+            if (ballSpeedTowardsGoal > 2) { // Threshold for "significant speed"
+                score += ballSpeedTowardsGoal * 10; // Max ~50 points if ball is very fast (e.g. speed 5)
+            }
+
+            // 5. Penalty if AI is behind the ball (relative to own goal)
+            const vecOwnGoalToAi = Matter.Vector.sub(aiPos, ownGoalPos);
+            const vecOwnGoalToBall = Matter.Vector.sub(ballPos, ownGoalPos);
+            if (Matter.Vector.dot(vecOwnGoalToAi, vecOwnGoalToBall) > 0 && // Both are on the same side of goal
+                Matter.Vector.magnitudeSquared(vecOwnGoalToAi) > Matter.Vector.magnitudeSquared(vecOwnGoalToBall)) { // AI is further from goal than ball
+                score -= 30;
+            }
+
+            return Math.max(0, score);
+        }
+    },
+    [INTENT_REPOSITION]: {
+        name: INTENT_REPOSITION,
+        calculateUtility: function(gameState, player) {
+            let score = 20; // Base score to encourage repositioning if other intents are low
+            if (!player || !gameState.ball) return score;
+
+            const aiPos = player.playerBody.position;
+            const ballPos = gameState.ball.position;
+
+            // 1. Move to a strategic central position if ball is neutral or far
+            const distAiToCenter = Math.abs(aiPos.x - CANVAS_WIDTH / 2);
+            score += (CANVAS_WIDTH / 2 - distAiToCenter) / (CANVAS_WIDTH / 2) * 25; // Max 25 for being central
+
+            // 2. Maintain a moderate distance from the ball - not too close if not attacking/defending, not too far
+            const aiToBallDist = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
+            const optimalDistance = CANVAS_WIDTH / 3.5;
+            const distanceDifference = Math.abs(aiToBallDist - optimalDistance);
+            // Score higher if closer to optimal distance. Max score when at optimal distance.
+            score += (optimalDistance - distanceDifference) / optimalDistance * 20; // Max 20 points
+
+            // 3. Avoid being too close to walls unless necessary (e.g. ball is there)
+            const wallAvoidanceMargin = PLAYER_RECT_SIZE * 1.5;
+            if (aiPos.x < wallAvoidanceMargin || aiPos.x > CANVAS_WIDTH - wallAvoidanceMargin) {
+                score -= 15;
+            }
+            if (aiPos.y < wallAvoidanceMargin) { // Near ceiling
+                score -= 10;
+            }
+
+            // 4. If ball is far and AI is not in a good defensive or offensive setup, increase reposition score
+            const ballToOpponentGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, gameState.opponentGoalPosition));
+            const ballToOwnGoalDist = Matter.Vector.magnitude(Matter.Vector.sub(ballPos, gameState.ownGoalPosition));
+
+            if (aiToBallDist > CANVAS_WIDTH / 2.5 &&  // Ball is relatively far
+                ballToOpponentGoalDist > CANVAS_WIDTH / 3 && // Ball not immediately threatening opponent
+                ballToOwnGoalDist > CANVAS_WIDTH / 3) { // Ball not immediately threatening self
+                score += 20; // Bonus for proactive repositioning when ball is in neutral territory
+            }
+
+            // 5. Slight preference for being on own side of half if not clearly attacking
+            if (player.playerTeam === 1 && aiPos.x > CANVAS_WIDTH / 2 && gameState.currentIntent !== INTENT_ATTACK) { // Team 1 on right half
+                 score += 5;
+            } else if (player.playerTeam === 2 && aiPos.x < CANVAS_WIDTH / 2 && gameState.currentIntent !== INTENT_ATTACK) { // Team 2 on left half
+                 score += 5;
+            }
+
+            return Math.max(0, score);
+        }
+    }
+};
+
 // --- Sound Functions ---
 const soundEnabled = true;
 let audioContext;
@@ -488,7 +656,12 @@ function createPlayer(x, y, teamColor, isTeam1, isAI) {
         jumpCooldown: 0, isAI: isAI, isGrounded: false, lastJumpTime: 0, isAttemptingVariableJump: false,
         variableJumpForceAppliedDuration: 0, totalJumpImpulseThisJump: 0, coyoteTimeFramesRemaining: 0,
         jumpInputBuffered: false, wasGrounded: false, targetAngle: 0, isRotating: false, currentFace: 0,
-        rollDirection: 0
+        rollDirection: 0,
+        // AI-specific properties for utility-based system
+        currentIntent: null, // Stores the AI's current high-level goal (e.g., INTENT_ATTACK)
+        intentUtilityScores: {}, // Stores calculated scores for each intent like { ATTACK: 75, DEFEND: 30, REPOSITION: 40 }
+        aiDecisionTimer: 0, // Timer to control how often AI re-evaluates intents
+        aiDecisionInterval: 30 // Re-evaluate intents every 30 game ticks (approx 0.5 seconds)
     };
 }
 
@@ -509,9 +682,218 @@ function updateSpectators() { /* ... */ }
 function updatePlayerStates() { /* ... */ }
 // --- handleHumanPlayerControls (no changes from previous version with air control) ---
 function handleHumanPlayerControls() { /* ... */ }
-// --- updateAIPlayers, executeAIPlayerLogic (no changes from previous version with enhanced AI shooting) ---
-function updateAIPlayers() { /* ... */ }
-function executeAIPlayerLogic(player) { /* ... */ }
+// --- updateAIPlayers, executeAIPlayerLogic (MODIFIED for Utility AI) ---
+function updateAIPlayers() {
+    players.filter(p => p.isAI).forEach(player => {
+        player.aiDecisionTimer = (player.aiDecisionTimer || 0) + 1;
+        if (player.aiDecisionTimer >= player.aiDecisionInterval) {
+            player.aiDecisionTimer = 0;
+            // It's time to re-evaluate intents and decide the current one
+            const humanPlayer = players.find(p => !p.isAI);
+            const opponentGoalPosition = player.playerTeam === 1 ? // AI is Team 1, attacks Right Goal
+                { x: CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_THICKNESS - (GOAL_HEIGHT - CROSSBAR_THICKNESS) / 2 } :
+                { x: WALL_THICKNESS + GOAL_MOUTH_VISUAL_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_THICKNESS - (GOAL_HEIGHT - CROSSBAR_THICKNESS) / 2 };
+            const ownGoalPosition = player.playerTeam === 1 ? // AI is Team 1, defends Left Goal
+                { x: WALL_THICKNESS + GOAL_MOUTH_VISUAL_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_THICKNESS - (GOAL_HEIGHT - CROSSBAR_THICKNESS) / 2 } :
+                { x: CANVAS_WIDTH - WALL_THICKNESS - GOAL_MOUTH_VISUAL_WIDTH / 2, y: CANVAS_HEIGHT - GROUND_THICKNESS - (GOAL_HEIGHT - CROSSBAR_THICKNESS) / 2 };
+
+            const gameState = {
+                ball: ball, // The global ball object
+                humanPlayer: humanPlayer,
+                aiPlayer: player,
+                opponentGoalPosition: opponentGoalPosition,
+                ownGoalPosition: ownGoalPosition,
+                allPlayers: players,
+                gameTimeRemaining: gameTimeRemaining,
+                currentIntent: player.currentIntent // Pass current intent for context in utility functions if needed
+            };
+
+            let bestIntent = null;
+            let maxScore = -Infinity;
+
+            for (const intentKey in aiIntents) {
+                const intent = aiIntents[intentKey];
+                let utilityScore = intent.calculateUtility(gameState, player);
+
+                // Phase 2: Add small random factor
+                const randomFactor = (Math.random() - 0.5) * (utilityScore * 0.1); // +/- 5% of score
+                utilityScore += randomFactor;
+
+                player.intentUtilityScores[intent.name] = utilityScore;
+
+                if (utilityScore > maxScore) {
+                    maxScore = utilityScore;
+                    bestIntent = intent.name;
+                }
+            }
+            player.currentIntent = bestIntent;
+            /* // Debug log - can be removed after testing
+            if (player.playerTeam === 2) { // Assuming AI is player 2 for logging
+                console.log(`AI Team ${player.playerTeam} Intent: ${player.currentIntent} | Scores: A:${player.intentUtilityScores[INTENT_ATTACK]?.toFixed(0)}, D:${player.intentUtilityScores[INTENT_DEFEND]?.toFixed(0)}, R:${player.intentUtilityScores[INTENT_REPOSITION]?.toFixed(0)} | BallY: ${ball?.position.y.toFixed(0)} AiY: ${player.playerBody.position.y.toFixed(0)}`);
+            }
+            */
+        }
+
+        // Execute logic based on current intent (even if not re-evaluated this frame)
+        if (player.currentIntent) {
+            executeAIPlayerLogic(player);
+        }
+    });
+}
+
+function executeAIPlayerLogic(player) {
+    if (!ball || player.actionCooldown > 0) {
+        if (player.actionCooldown > 0) player.actionCooldown--;
+        return;
+    }
+
+    const aiPos = player.playerBody.position;
+    const ballPos = ball.position;
+    const humanPlayer = players.find(p => !p.isAI);
+    const opponentGoalX = player.playerTeam === 1 ? CANVAS_WIDTH - WALL_THICKNESS : WALL_THICKNESS;
+    const ownGoalX = player.playerTeam === 1 ? WALL_THICKNESS : CANVAS_WIDTH - WALL_THICKNESS;
+    const { actualGoalOpeningHeight } = getFieldDerivedConstants();
+    const goalCenterY = CANVAS_HEIGHT - GROUND_THICKNESS - actualGoalOpeningHeight / 2;
+
+    let targetX = aiPos.x;
+    let targetY = aiPos.y; // AI will try to maintain some Y position unless specific action dictates otherwise
+    let shouldJump = false;
+    let shouldKick = false;
+
+    // --- Logic based on Current Intent ---
+    switch (player.currentIntent) {
+        case INTENT_ATTACK:
+            targetX = ballPos.x;
+            // Try to position slightly behind the ball relative to opponent goal
+            if (opponentGoalX > ballPos.x) { // Attacking right goal
+                targetX = ballPos.x - PLAYER_RECT_SIZE * 0.6;
+            } else { // Attacking left goal
+                targetX = ballPos.x + PLAYER_RECT_SIZE * 0.6;
+            }
+            targetY = ballPos.y - PLAYER_RECT_SIZE * 0.3; // Try to be slightly above the ball's center
+
+            // Simple jump logic for attack: if ball is higher and AI is grounded
+            if (ballPos.y < aiPos.y - PLAYER_RECT_SIZE * 0.5 && player.isGrounded && player.jumpCooldown === 0) {
+                shouldJump = true;
+            }
+            // Kick if in range
+            const distToBall = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
+            if (distToBall < AI_KICK_BALL_RANGE) {
+                shouldKick = true;
+            }
+            break;
+
+        case INTENT_DEFEND:
+            // Try to position between ball and own goal
+            targetX = (ballPos.x + ownGoalX) / 2;
+            targetY = ballPos.y - PLAYER_RECT_SIZE * 0.2; // Stay a bit above ball to intercept
+
+            // If human player has the ball and is moving towards goal, try to intercept human
+            if (humanPlayer) {
+                const humanPlayerPos = humanPlayer.playerBody.position;
+                const distHumanToBall = Matter.Vector.magnitude(Matter.Vector.sub(humanPlayerPos, ballPos));
+                if (distHumanToBall < PLAYER_RECT_SIZE * 2) { // If human is close to ball
+                    // Intercept human path to goal
+                     targetX = (humanPlayerPos.x + ownGoalX) / 2;
+                     targetY = humanPlayerPos.y;
+                }
+            }
+            // Defensive jump if ball is high and near goal
+            if (ballPos.y < aiPos.y - PLAYER_RECT_SIZE * 0.3 &&
+                Math.abs(ballPos.x - ownGoalX) < CANVAS_WIDTH / 3 && // Ball is in defensive third
+                player.isGrounded && player.jumpCooldown === 0) {
+                shouldJump = true;
+            }
+             // Defensive kick/clearance if near ball and facing away from own goal
+            const distToBallDef = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
+            if (distToBallDef < AI_KICK_BALL_RANGE * 1.2) { // Slightly larger range for defensive clearance
+                 const向OpponentGoal = Math.sign(opponentGoalX - aiPos.x);
+                 const currentFacing = Math.sign(player.playerBody.velocity.x) || (player.currentFace === 0 ? 1 : -1) * (player.playerTeam === 1 ? 1 : -1); // Simplified facing
+                 if (向OpponentGoal === currentFacing || player.isGrounded) { // Kick if facing opponent or on ground
+                    shouldKick = true;
+                 }
+            }
+            break;
+
+        case INTENT_REPOSITION:
+            // Move towards a general central field position, or slightly biased to own half.
+            targetX = CANVAS_WIDTH / 2;
+            if (player.playerTeam === 1) { // Team 1 (left side)
+                targetX = CANVAS_WIDTH * 0.4;
+            } else { // Team 2 (right side)
+                targetX = CANVAS_WIDTH * 0.6;
+            }
+            // Maintain a certain height, e.g., ground level or slightly above
+            targetY = CANVAS_HEIGHT - GROUND_THICKNESS - PLAYER_RECT_SIZE / 2 - 10;
+
+            // If ball is slowly rolling towards AI, might consider a gentle touch or just position
+            const ballSpeed = Matter.Vector.magnitude(ball.velocity);
+            const distToBallRepo = Matter.Vector.magnitude(Matter.Vector.sub(aiPos, ballPos));
+            if(distToBallRepo < AI_KICK_BALL_RANGE * 1.5 && ballSpeed < 3 && ballSpeed > 0.5) {
+                // Potentially a very light kick or just let it come
+                // For now, no kick action in reposition, focus on movement
+            }
+            break;
+        default: // No intent, or unknown intent
+            targetX = aiPos.x; // Stay put
+            break;
+    }
+
+    // --- Execute Actions ---
+    // Movement
+    const moveDirection = Math.sign(targetX - aiPos.x);
+    if (moveDirection !== 0) {
+        const force = moveDirection * AI_MOVE_FORCE * (player.isGrounded ? 1 : PLAYER_AIR_CONTROL_FACTOR * 0.7);
+        Body.applyForce(player.playerBody, player.playerBody.position, { x: force, y: 0 });
+        player.currentFace = moveDirection > 0 ? 0 : 1; // 0 for right, 1 for left
+    }
+
+    // Jumping
+    if (shouldJump && player.isGrounded && player.jumpCooldown === 0) {
+        const jumpForce = PLAYER_MAX_JUMP_IMPULSE * 0.85; // AI jumps slightly less than max human
+        Body.applyForce(player.playerBody, player.playerBody.position, { x: 0, y: -jumpForce });
+        player.isGrounded = false;
+        player.jumpCooldown = PLAYER_JUMP_COOLDOWN_FRAMES;
+        player.lastJumpTime = Date.now();
+        playSound('jump.wav');
+    }
+    if (player.jumpCooldown > 0) player.jumpCooldown--;
+
+
+    // Kicking (using existing advanced kick logic for now, but triggered by intent)
+    if (shouldKick && player.actionCooldown === 0) {
+        const kickOrigin = player.playerBody.position;
+        let kickForceMagnitude = AI_KICK_ATTEMPT_STRENGTH;
+        let kickTargetPos = { x: opponentGoalX, y: goalCenterY - actualGoalOpeningHeight * 0.1 + (Math.random() * actualGoalOpeningHeight * 0.3) };
+
+        // Simplified kick direction based on intent for now
+        // More advanced kicking (dribbling, smart jump shots) will be in Phase 2
+        if (player.currentIntent === INTENT_DEFEND) {
+            // Defensive clear: aim towards center field or opponent side, high up
+            kickTargetPos.x = CANVAS_WIDTH / 2 + (opponentGoalX - CANVAS_WIDTH/2) * 0.5; // Mid of opponent half
+            kickTargetPos.y = CANVAS_HEIGHT / 4; // High clearance
+            kickForceMagnitude *= 0.9;
+        }
+
+        let kickVector = Matter.Vector.sub(kickTargetPos, kickOrigin);
+        kickVector = Matter.Vector.normalise(kickVector);
+
+        // Loft adjustment for AI kicks, less extreme than human jump shots initially
+        if (!player.isGrounded) { // Air shot
+            kickVector.y = Math.min(kickVector.y, -0.6 - Math.random() * 0.2);
+            kickForceMagnitude *= 1.1;
+        } else { // Ground shot
+            kickVector.y = Math.min(kickVector.y, -0.4 - Math.random() * 0.2);
+        }
+        kickVector = Matter.Vector.normalise(kickVector);
+
+        Body.applyForce(ball, kickOrigin, { x: kickVector.x * kickForceMagnitude, y: kickVector.y * kickForceMagnitude });
+        playSound('kick.wav');
+        player.actionCooldown = PLAYER_ACTION_COOLDOWN_FRAMES;
+    }
+    if (player.actionCooldown > 0) player.actionCooldown--;
+}
+
 
 // --- perpDistToLine (ensure this helper function exists) ---
 function perpDistToLine(p1, p2, p3) {
