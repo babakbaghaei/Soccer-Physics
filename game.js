@@ -568,6 +568,30 @@ function setup() {
 function startGameTimer() { /* ... */ }
 function updateRoundTimer() { /* ... */ }
 
+// Variable to keep track of the timeout for hiding messages
+let gameMessageTimeoutId = null;
+
+function showGameMessage(message, duration = 3000, color = '#FFFFFF') {
+    if (gameMessageDisplay) {
+        gameMessageDisplay.textContent = message;
+        gameMessageDisplay.style.color = color;
+        gameMessageDisplay.style.display = 'block'; // Show the message element
+
+        // Clear any existing timeout to prevent premature hiding if called again quickly
+        if (gameMessageTimeoutId) {
+            clearTimeout(gameMessageTimeoutId);
+        }
+
+        // Set a timeout to hide the message after the specified duration
+        gameMessageTimeoutId = setTimeout(() => {
+            gameMessageDisplay.style.display = 'none'; // Hide the message element
+            gameMessageTimeoutId = null; // Reset the timeout ID
+        }, duration);
+    } else {
+        console.warn("gameMessageDisplay element not found in the DOM.");
+    }
+}
+
 // Function to update the score display in the HTML
 function updateScoreDisplay() {
     if (team1ScoreDisplay && team2ScoreDisplay) {
