@@ -333,14 +333,7 @@ function setup() {
         }
     }, 100); // هر 100ms یک ذره آب و هوا
 
-    // تغییر تصادفی آب و هوا
-    setInterval(() => {
-        if (!isGameOver && Math.random() < 0.3) { // 30% احتمال تغییر
-            const weathers = Object.keys(weatherEffects);
-            const randomWeather = weathers[Math.floor(Math.random() * weathers.length)];
-            setWeather(randomWeather);
-        }
-    }, 15000); // هر 15 ثانیه بررسی
+    // ایجاد power-up های تصادفی
 }
 
 // ===================================================================================
@@ -1225,44 +1218,6 @@ function handleGoalScored(scoringTeam) {
             specialType = 'راه دور';
             isSpecialGoal = true;
         }
-    }
-
-    // Probabilistic "Near Miss Post Effect" (20% chance)
-    if (Math.random() < 0.20) {
-        triggerScreenShake(5, 15); // Use existing shake magnitude and duration
-
-        // Determine ball's bounce direction based on which goal it was heading for
-        let bounceXVelocity;
-        if (scoringTeam === 1) { // Team 1 scored, ball was heading towards goal 2 (right side)
-            bounceXVelocity = -(3 + Math.random() * 2); // Bounce left
-        } else { // Team 2 scored, ball was heading towards goal 1 (left side)
-            bounceXVelocity = (3 + Math.random() * 2); // Bounce right
-        }
-        const bounceYVelocity = -(2 + Math.random() * 2); // Bounce slightly up
-
-        Body.setVelocity(ball, { x: bounceXVelocity, y: bounceYVelocity });
-
-        // Apply a bit of spin for more dynamic bounce
-        Body.setAngularVelocity(ball, (Math.random() - 0.5) * 0.2);
-
-
-        gameMessageDisplay.textContent = "تیرک!"; // "Post!"
-        gameMessageDisplay.classList.add('has-text');
-
-        // Clear "Post!" message after a short delay, but don't reset positions
-        setTimeout(() => {
-            if (gameMessageDisplay.textContent === "تیرک!") { // Only clear if it's still the post message
-                gameMessageDisplay.textContent = "";
-                gameMessageDisplay.classList.remove('has-text');
-            }
-        }, 1000); // Keep post message for 1 second
-
-        // Reset goalScoredThisTick after a very short delay to allow ball to clear sensor
-        setTimeout(() => {
-            goalScoredThisTick = false;
-        }, 50);
-        // Note: The original goalScoredThisTick reset (for actual goals) is now part of the 'else' block.
-        return; // Do not proceed to score the goal
     }
 
     // --- Special Goal Scoring ---
