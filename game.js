@@ -739,9 +739,11 @@ function handleGoalScored(scoringTeam) {
     // --- Special Goal Scoring ---
     let loserIndex = scoringTeam === 1 ? 1 : 0;
     let loserPlayer = players[loserIndex];
-    // افکت طنزآمیز: بازیکن گل‌خورده به هوا و کمی به طرفین پرتاب شود و پیام خنده‌دار نمایش داده شود
-    const forceX = loserIndex === 0 ? 0.3 : -0.3;
-    Body.applyForce(loserPlayer.body, loserPlayer.body.position, { x: forceX, y: -1 });
+    // افکت طنزآمیز: بازیکن گل‌خورده به هوا و طرفین پرتاب شود (تضمینی)
+    const forceX = loserIndex === 0 ? 1.5 : -1.5;
+    Body.setStatic(loserPlayer.body, false);
+    if (loserPlayer.body.isSleeping) Matter.Sleeping.set(loserPlayer.body, false);
+    Body.setVelocity(loserPlayer.body, { x: forceX * 10, y: -18 });
     setTimeout(() => {
         gameMessageDisplay.textContent = "اوه نه! بازیکن پرت شد! 😂";
         gameMessageDisplay.classList.add('has-text');
