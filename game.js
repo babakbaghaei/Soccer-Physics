@@ -356,7 +356,7 @@ function createField() {
     });
     // Sensor remains wider to define scoring area
     const goal1Sensor = Bodies.rectangle(GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, render: { fillStyle: 'transparent' }, label: "goal1",
+        isStatic: true, isSensor: true, render: { fillStyle: 'transparent' }, label: "goal1",
         collisionFilter: { category: goalPostCategory, mask: ballCategory }
     });
 
@@ -365,7 +365,7 @@ function createField() {
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
     const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, render: { fillStyle: 'transparent' }, label: "goal2",
+        isStatic: true, isSensor: true, render: { fillStyle: 'transparent' }, label: "goal2",
         collisionFilter: { category: goalPostCategory, mask: ballCategory }
     });
 
@@ -1023,15 +1023,19 @@ function setupCollisions() {
 
             // Goal scoring
             if (bodyA.label === 'ball' && bodyB.label === 'goal2') {
+                console.log("Goal scored by Team 1! Ball hit goal2");
                 handleGoalScored(1);
                 audioManager.playSound('goal');
             } else if (bodyB.label === 'ball' && bodyA.label === 'goal2') {
+                console.log("Goal scored by Team 1! Ball hit goal2");
                 handleGoalScored(1);
                 audioManager.playSound('goal');
             } else if (bodyA.label === 'ball' && bodyB.label === 'goal1') {
+                console.log("Goal scored by Team 2! Ball hit goal1");
                 handleGoalScored(2);
                 audioManager.playSound('goal');
             } else if (bodyB.label === 'ball' && bodyA.label === 'goal1') {
+                console.log("Goal scored by Team 2! Ball hit goal1");
                 handleGoalScored(2);
                 audioManager.playSound('goal');
             }
@@ -1196,6 +1200,8 @@ function handlePlayerControls() {
 
 let goalScoredThisTick = false;
 function handleGoalScored(scoringTeam) {
+    console.log(`handleGoalScored called with team: ${scoringTeam}, isGameOver: ${isGameOver}, goalScoredThisTick: ${goalScoredThisTick}`);
+    
     if (isGameOver || goalScoredThisTick) return;
     goalScoredThisTick = true; // Prevent immediate re-triggering
 
