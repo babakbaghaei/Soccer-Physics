@@ -607,6 +607,17 @@ function setupCollisions() {
                     Body.setVelocity(ball, { x: 0, y: -18 });
                     Body.setAngularVelocity(ball, 0);
                 }
+                // برای AI: اگر توپ نزدیک دروازه حریف یا مانع جلوی توپ بود، توپ را به بالا پرتاب کن
+                if (playerIndex === 1) {
+                    // مثال: اگر توپ نزدیک دروازه تیم 1 (سمت چپ) یا بازیکن حریف نزدیک توپ بود
+                    const nearGoal = ball.position.x < 120;
+                    const opponent = players[0];
+                    const opponentNear = Math.abs(opponent.body.position.x - ball.position.x) < 40;
+                    if (nearGoal || opponentNear) {
+                        Body.setVelocity(ball, { x: 0, y: -18 });
+                        Body.setAngularVelocity(ball, 0);
+                    }
+                }
                 // جلوگیری از override چیپ
                 if (ball.isChipped) return;
                 const playerIndex = playerBody.label === 'player1' ? 0 : 1;
