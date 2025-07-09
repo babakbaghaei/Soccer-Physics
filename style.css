@@ -101,11 +101,10 @@ body {
     /* border and border-radius removed, handled by tv-screen */
     background-color: lightgray; /* Initial background, game draws over this */
     image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges;
-    image-rendering: crisp-edges;
-    image-rendering: optimize-contrast;
-    -webkit-image-rendering: pixelated;
-    -ms-interpolation-mode: nearest-neighbor;
+    image-rendering: -moz-crisp-edges; /* Fallback for older Firefox */
+    image-rendering: crisp-edges;    /* Fallback */
+    -webkit-image-rendering: pixelated; /* Fallback for older WebKit */
+    -ms-interpolation-mode: nearest-neighbor; /* IE */
     /* box-shadow removed, handled by tv-screen */
     /* transform and transition removed for a static TV screen appearance */
     display: block; /* Remove extra space below canvas */
