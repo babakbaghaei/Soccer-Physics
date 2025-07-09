@@ -612,9 +612,12 @@ function setupCollisions() {
                     isObstacleAhead = true;
                 }
                 // چیپ واقعی: اگر توپ نزدیک زمین است و بازیکن با سرعت عمودی منفی کافی از بالا روی توپ بپرد
+                const now = Date.now();
                 const isBallOnGround = Math.abs(ball.position.y + ball.circleRadius - GROUND_Y) < 25;
-                const isChipCondition = isBallOnGround;
-                console.log('CHIP DEBUG', {isChipCondition, isBallOnGround, vy: player.body.velocity.y, ballY: ball.position.y, playerY: player.body.position.y});
+                const isPlayerFalling = player.body.velocity.y < -0.2;
+                const hasRecentlyJumped = player.lastJumpTime && (now - player.lastJumpTime < 3000);
+                const isChipCondition = isBallOnGround && isPlayerFalling && hasRecentlyJumped;
+                console.log('CHIP DEBUG', {isChipCondition, isBallOnGround, isPlayerFalling, hasRecentlyJumped, vy: player.body.velocity.y, lastJump: now - player.lastJumpTime});
                 if (isChipCondition) {
                     console.log('CHIP EXECUTED!');
                     const chipVX = playerIndex === 0 ? 10 : -10;
@@ -729,6 +732,7 @@ function handlePlayerControls() {
         p1.isGrounded = false;
         audioManager.playSound('jump');
         gameStats.team1.jumps++;
+        p1.lastJumpTime = Date.now(); // ثبت زمان پرش
     } else if (keysPressed['w'] && !p1.isGrounded) {
         // Optional: sound for attempted jump in air? Probably not.
     }
