@@ -73,7 +73,11 @@ const keysPressed = {};
  * تابع اصلی برای راه‌اندازی کل بازی
  */
 function setup() {
-    // Set canvas dimensions correctly
+    // CRITICAL STEP: Set the canvas element's actual drawing surface dimensions.
+    // Without these lines, the canvas defaults to 300x150 pixels,
+    // and most game elements (designed for 800x600) will be drawn
+    // outside these bounds, making them invisible.
+    // This is ESSENTIAL for the game to render correctly.
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
 
