@@ -615,7 +615,7 @@ function setupCollisions() {
                 const player = players[playerIndex];
                 // پرتاب ساده توپ با S (یا توسط AI) با قدرت خیلی کم
                 if (playerIndex === 0 && keysPressed['s']) {
-                    Body.setVelocity(ball, { x: 0, y: -3 });
+                    Body.setVelocity(ball, { x: 0, y: -10 });
                     Body.setAngularVelocity(ball, 0);
                 }
                 if (playerIndex === 1) {
@@ -623,7 +623,7 @@ function setupCollisions() {
                     const opponent = players[0];
                     const opponentNear = Math.abs(opponent.body.position.x - ball.position.x) < 40;
                     if (nearGoal || opponentNear) {
-                        Body.setVelocity(ball, { x: 0, y: -3 });
+                        Body.setVelocity(ball, { x: 0, y: -10 });
                         Body.setAngularVelocity(ball, 0);
                     }
                 }
