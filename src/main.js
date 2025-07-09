@@ -1,4 +1,5 @@
 import { Game } from './Game.js';
+import { audioManager } from './utils/AudioManager.js';
 
 class GameApp {
     constructor() {
@@ -28,26 +29,6 @@ class GameApp {
     }
 
     setupUIControls() {
-        // Weather controls
-        const weatherButtons = document.querySelectorAll('[data-weather]');
-        weatherButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const weather = button.dataset.weather;
-                this.game.setWeather(weather);
-                this.showMessage(`آب و هوا: ${this.getWeatherName(weather)}`);
-            });
-        });
-
-        // Field type controls
-        const fieldButtons = document.querySelectorAll('[data-field]');
-        fieldButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const fieldType = button.dataset.field;
-                this.game.setFieldType(fieldType);
-                this.showMessage(`زمین: ${this.getFieldName(fieldType)}`);
-            });
-        });
-
         // Game controls
         const pauseButton = document.getElementById('pauseBtn');
         if (pauseButton) {
@@ -68,26 +49,14 @@ class GameApp {
                 this.restartGame();
             });
         }
-    }
 
-    getWeatherName(weather) {
-        const names = {
-            clear: 'صاف',
-            rain: 'باران',
-            snow: 'برف',
-            storm: 'طوفان'
-        };
-        return names[weather] || weather;
-    }
-
-    getFieldName(fieldType) {
-        const names = {
-            normal: 'معمولی',
-            ice: 'یخ',
-            sand: 'شن',
-            moon: 'ماه'
-        };
-        return names[fieldType] || fieldType;
+        // Music control
+        const musicButton = document.getElementById('musicToggle');
+        if (musicButton) {
+            musicButton.addEventListener('click', () => {
+                audioManager.toggleBackgroundMusic();
+            });
+        }
     }
 
     showMessage(message) {
