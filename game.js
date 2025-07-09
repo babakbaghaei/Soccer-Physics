@@ -35,6 +35,10 @@ const goalPostCategory = 0x0002;
 const ballCategory = 0x0004;
 const worldCategory = 0x0008;
 
+// --- Game Constants ---
+// ... (other constants)
+const AI_PLAYER_INDEX = 1; // Player 2 is at index 1 in the players array
+
 // --- Game Variables ---
 let engine;
 let world;
@@ -92,6 +96,15 @@ function setup() {
     createBall();
     setupControls();
     setupCollisions();
+
+    // Initialize AI for Player 2
+    // Ensure players array is populated and ball exists.
+    if (typeof initializeAI === "function" && players.length > 1 && ball) {
+        initializeAI(players[AI_PLAYER_INDEX], ball, engine); // AI_PLAYER_INDEX should be 1 for P2
+    } else {
+        console.error("AI could not be initialized. Ensure ai_player.js is loaded and initializeAI is defined.");
+    }
+
     startGame();
 }
 
@@ -141,6 +154,12 @@ function createPlayers() {
     players.push({ body: player2Body, team: 2, isGrounded: false, color: '#428BCA' });
     World.add(world, [player1Body, player2Body]);
 }
+
+// AI Player reference (from ai_player.js) - Ensure ai_player.js is loaded before game.js or functions are globally available
+// For example, in index.html:
+// <script src="ai_player.js"></script>
+// <script src="game.js"></script>
+
 
 function createBall() {
     ball = Bodies.circle(CANVAS_WIDTH / 2, 100, BALL_RADIUS, {
@@ -374,6 +393,12 @@ function draw() {
     );
 
     handlePlayerControls();
+
+    // Update AI Player
+    if (typeof updateAI === "function" && !isGameOver) {
+        updateAI();
+    }
+
     requestAnimationFrame(draw);
 }
 
@@ -435,23 +460,24 @@ function handlePlayerControls() {
         console.log("Player 1 (Red) Action: 'w' (Jump attempted in air). Was Grounded: false");
     }
 
-    const p2 = players[1];
-    const currentMoveForceP2 = p2.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
-    if (keysPressed['arrowleft']) {
-        Body.applyForce(p2.body, p2.body.position, { x: -currentMoveForceP2, y: 0 });
-        console.log("Player 2 (Blue) Action: 'ArrowLeft' (Move Left). Grounded: " + p2.isGrounded);
-    }
-    if (keysPressed['arrowright']) {
-        Body.applyForce(p2.body, p2.body.position, { x: currentMoveForceP2, y: 0 });
-        console.log("Player 2 (Blue) Action: 'ArrowRight' (Move Right). Grounded: " + p2.isGrounded);
-    }
-    if (keysPressed['arrowup'] && p2.isGrounded) {
-        Body.applyForce(p2.body, p2.body.position, { x: 0, y: -JUMP_FORCE });
-        p2.isGrounded = false;
-        console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump). Was Grounded: true");
-    } else if (keysPressed['arrowup'] && !p2.isGrounded) {
-        console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump attempted in air). Was Grounded: false");
-    }
+    // Player 2 (Blue Team) is now controlled by AI
+    // const p2 = players[1];
+    // const currentMoveForceP2 = p2.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
+    // if (keysPressed['arrowleft']) {
+    //     Body.applyForce(p2.body, p2.body.position, { x: -currentMoveForceP2, y: 0 });
+    //     console.log("Player 2 (Blue) Action: 'ArrowLeft' (Move Left). Grounded: " + p2.isGrounded);
+    // }
+    // if (keysPressed['arrowright']) {
+    //     Body.applyForce(p2.body, p2.body.position, { x: currentMoveForceP2, y: 0 });
+    //     console.log("Player 2 (Blue) Action: 'ArrowRight' (Move Right). Grounded: " + p2.isGrounded);
+    // }
+    // if (keysPressed['arrowup'] && p2.isGrounded) {
+    //     Body.applyForce(p2.body, p2.body.position, { x: 0, y: -JUMP_FORCE });
+    //     p2.isGrounded = false;
+    //     console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump). Was Grounded: true");
+    // } else if (keysPressed['arrowup'] && !p2.isGrounded) {
+    //     console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump attempted in air). Was Grounded: false");
+    // }
 }
 
 let goalScoredThisTick = false;
@@ -528,6 +554,10 @@ function resetPositions() {
     Body.setAngle(players[1].body, 0);
     Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 100 });
     Body.setVelocity(ball, { x: 0, y: 0 });
+
+    if (typeof resetAIState === "function") {
+        resetAIState();
+    }
 }
 
 function startGame() {
