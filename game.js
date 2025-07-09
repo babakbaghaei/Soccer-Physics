@@ -68,6 +68,41 @@ let gameStats = {
 // Possible values: 'normal', 'ice', 'sand', 'moon'
 let fieldType = 'normal';
 
+function setFieldType(type) {
+    fieldType = type;
+    // ضرایب فیزیکی بر اساس نوع زمین
+    let friction, frictionAir, gravityY;
+    switch (type) {
+        case 'ice':
+            friction = 0.01; frictionAir = 0.001; gravityY = 1.5;
+            break;
+        case 'sand':
+            friction = 0.5; frictionAir = 0.05; gravityY = 1.5;
+            break;
+        case 'moon':
+            friction = 0.1; frictionAir = 0.01; gravityY = 0.3;
+            break;
+        default:
+            friction = 0.05; frictionAir = 0.01; gravityY = 1.5;
+    }
+    // اعمال به توپ
+    if (ball) {
+        ball.friction = friction;
+        ball.frictionAir = frictionAir;
+    }
+    // اعمال به بازیکنان
+    players.forEach(p => {
+        p.body.friction = friction;
+        p.body.frictionAir = frictionAir;
+    });
+    // جاذبه
+    if (engine && engine.gravity) engine.gravity.y = gravityY;
+    // پیام نوع زمین
+    gameMessageDisplay.textContent = `زمین: ${type === 'ice' ? 'یخ' : type === 'sand' ? 'شن' : type === 'moon' ? 'ماه' : 'معمولی'}`;
+    gameMessageDisplay.classList.add('has-text');
+    setTimeout(() => { gameMessageDisplay.textContent = ''; gameMessageDisplay.classList.remove('has-text'); }, 1200);
+}
+
 // --- Field Constants ---
 const GROUND_Y = 580;
 const GROUND_THICKNESS = 40;
@@ -126,6 +161,17 @@ function setup() {
 
     startGame();
     console.log("Game setup completed!");
+
+    // Add quick test buttons for field types
+    const btns = document.createElement('div');
+    btns.style.position = 'fixed'; btns.style.top = '10px'; btns.style.left = '50%'; btns.style.transform = 'translateX(-50%)';
+    btns.style.zIndex = 1000;
+    btns.innerHTML = '<button id="btnNormal">معمولی</button> <button id="btnIce">یخ</button> <button id="btnSand">شن</button> <button id="btnMoon">ماه</button>';
+    document.body.appendChild(btns);
+    document.getElementById('btnNormal').onclick = () => setFieldType('normal');
+    document.getElementById('btnIce').onclick = () => setFieldType('ice');
+    document.getElementById('btnSand').onclick = () => setFieldType('sand');
+    document.getElementById('btnMoon').onclick = () => setFieldType('moon');
 }
 
 // ===================================================================================
