@@ -585,12 +585,14 @@ function setupCollisions() {
                 playerBody = bodyA;
             }
             if (playerBody) {
+                // جلوگیری از override چیپ
+                if (ball.isChipped) return;
                 const playerIndex = playerBody.label === 'player1' ? 0 : 1;
                 const player = players[playerIndex];
                 const ballPos = { ...ball.position };
                 const ballVel = { ...ball.velocity };
-                // تشخیص پرش: اگر بازیکن روی زمین نباشد
-                const isJump = !player.isGrounded;
+                // تشخیص پرش: اگر بازیکن روی زمین نباشد یا سرعت عمودی زیاد باشد
+                const isJump = !player.isGrounded || player.body.velocity.y < -1;
                 // تشخیص هد: اگر توپ بالاتر از سر بازیکن باشد
                 const isHeader = ball.position.y < player.body.position.y - PLAYER_HEIGHT * 0.5;
                 // تشخیص شوت از راه دور: اگر فاصله افقی بازیکن تا دروازه حریف زیاد باشد
@@ -601,24 +603,23 @@ function setupCollisions() {
                     isLongShot = ball.position.x < CANVAS_WIDTH * 0.3;
                 }
                 // --- منطق چیپ ---
-                let isNearCorner = (ball.position.x < 60 || ball.position.x > CANVAS_WIDTH - 60);
+                let isNearCorner = (ball.position.x < 100 || ball.position.x > CANVAS_WIDTH - 100);
                 let isObstacleAhead = false;
-                // بررسی وجود مانع جلوی بازیکن (بازیکن دیگر نزدیک توپ و بین توپ و دروازه)
                 const opponent = players[1 - playerIndex];
                 if (Math.abs(opponent.body.position.x - ball.position.x) < 40 &&
                     ((playerIndex === 0 && opponent.body.position.x > ball.position.x) ||
                      (playerIndex === 1 && opponent.body.position.x < ball.position.x))) {
                     isObstacleAhead = true;
                 }
-                // اگر پرش و گوشه یا مانع، چیپ بزن
                 if (isJump && (isNearCorner || isObstacleAhead)) {
-                    // چیپ: سرعت عمودی زیاد و افقی متوسط
                     const chipVX = playerIndex === 0 ? 6 : -6;
-                    Body.setVelocity(ball, { x: chipVX, y: -12 });
+                    Body.setVelocity(ball, { x: chipVX, y: -14 });
                     audioManager.playSound('kick');
                     gameMessageDisplay.textContent = 'چیپ!';
                     gameMessageDisplay.classList.add('has-text');
                     setTimeout(() => { gameMessageDisplay.textContent = ''; gameMessageDisplay.classList.remove('has-text'); }, 700);
+                    ball.isChipped = true;
+                    setTimeout(() => { ball.isChipped = false; }, 100);
                 }
                 lastBallHitInfo = {
                     team: player.team,
