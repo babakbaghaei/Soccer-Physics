@@ -213,8 +213,8 @@ function drawPixelatedSoccerBall(body) {
     const { x, y } = body.position;
     const radius = body.circleRadius; // BALL_RADIUS
     const segmentAngle = Math.PI / 3; // For a hexagon-like pattern base
-    // Increased pixelSize for a chunkier ball pattern
-    const pixelSize = Math.max(4, Math.floor(radius / 4));
+    // Further Increased pixelSize for a more aggressive pixelated ball pattern
+    const pixelSize = Math.max(5, Math.floor(radius / 3));
 
     // Draw white background first (or main color)
     ctx.beginPath();
@@ -575,11 +575,13 @@ function handleGoalScored(scoringTeam) {
     }
     
     gameMessageDisplay.textContent = "گل!";
+    gameMessageDisplay.classList.add('has-text');
     
     // برگرداندن بازیکنان و توپ به مکان اولیه پس از ۱ ثانیه
     setTimeout(() => {
         resetPositions();
-        gameMessageDisplay.textContent = ""; // Clear message quickly too
+        gameMessageDisplay.textContent = "";
+        gameMessageDisplay.classList.remove('has-text');
         goalScoredThisTick = false; // Reset flag
     }, 50); // Reduced delay from 1000ms to 50ms for near-instant reset
 }
@@ -632,6 +634,7 @@ function endGame() {
     if (team1Score > team2Score) winnerMessage = "تیم قرمز برنده شد!";
     if (team2Score > team1Score) winnerMessage = "تیم آبی برنده شد!";
     gameMessageDisplay.textContent = `پایان بازی! ${winnerMessage}`;
+    gameMessageDisplay.classList.add('has-text');
 }
 
 // --- نقطه شروع اصلی برنامه ---
