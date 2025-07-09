@@ -615,9 +615,8 @@ function setupCollisions() {
                 const now = Date.now();
                 const isBallOnGround = Math.abs(ball.position.y + ball.circleRadius - GROUND_Y) < 25;
                 const isPlayerFalling = player.body.velocity.y < -0.2;
-                const hasRecentlyJumped = player.lastJumpTime && (now - player.lastJumpTime < 3000);
-                const isChipCondition = isBallOnGround && isPlayerFalling && hasRecentlyJumped;
-                console.log('CHIP DEBUG', {isChipCondition, isBallOnGround, isPlayerFalling, hasRecentlyJumped, vy: player.body.velocity.y, lastJump: now - player.lastJumpTime});
+                const isChipCondition = isBallOnGround && isPlayerFalling && player.hasJumped;
+                console.log('CHIP DEBUG', {isChipCondition, isBallOnGround, isPlayerFalling, hasJumped: player.hasJumped, vy: player.body.velocity.y});
                 if (isChipCondition) {
                     console.log('CHIP EXECUTED!');
                     const chipVX = playerIndex === 0 ? 10 : -10;
@@ -671,6 +670,7 @@ function setupCollisions() {
             players.forEach(p => {
                  if ((bodyA === p.body && bodyB.label === 'Rectangle Body') || (bodyB === p.body && bodyA.label === 'Rectangle Body')) {
                      p.isGrounded = true;
+                     p.hasJumped = false; // وقتی روی زمین آمد، پرچم پرش را ریست کن
                  }
             });
 
@@ -732,7 +732,7 @@ function handlePlayerControls() {
         p1.isGrounded = false;
         audioManager.playSound('jump');
         gameStats.team1.jumps++;
-        p1.lastJumpTime = Date.now(); // ثبت زمان پرش
+        p1.hasJumped = true; // فقط هنگام پرش واقعی
     } else if (keysPressed['w'] && !p1.isGrounded) {
         // Optional: sound for attempted jump in air? Probably not.
     }
