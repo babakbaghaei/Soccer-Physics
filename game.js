@@ -351,26 +351,23 @@ function createField() {
 
     // Goal posts are now thinner
     const goal1Post = Bodies.rectangle(GOAL_POST_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_POST_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost1",
-        collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
+        isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost1"
     });
     // Sensor remains wider to define scoring area
     const goal1Sensor = Bodies.rectangle(GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, isSensor: true, render: { fillStyle: 'transparent' }, label: "goal1",
-        collisionFilter: { category: goalPostCategory, mask: ballCategory }
+        isStatic: true, isSensor: true, render: { fillStyle: 'transparent' }, label: "goal1"
     });
 
     const goal2Post = Bodies.rectangle(CANVAS_WIDTH - GOAL_POST_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_POST_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost2",
-        collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
+        isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost2"
     });
     const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, isSensor: true, render: { fillStyle: 'transparent' }, label: "goal2",
-        collisionFilter: { category: goalPostCategory, mask: ballCategory }
+        isStatic: true, isSensor: true, render: { fillStyle: 'transparent' }, label: "goal2"
     });
 
     World.add(world, [ground, leftWall, rightWall, ceiling, goal1Post, goal1Sensor, goal2Post, goal2Sensor]);
     goals = { team1: goal1Sensor, team2: goal2Sensor };
+    console.log("Goals created:", goals);
 }
 
 function createPowerUp() {
@@ -382,8 +379,7 @@ function createPowerUp() {
         isStatic: true,
         render: { fillStyle: powerUpType.color },
         label: 'powerUp',
-        powerUpType: powerUpType,
-        collisionFilter: { category: playerCategory, mask: playerCategory }
+        powerUpType: powerUpType
     });
     
     powerUps.push(powerUp);
@@ -471,18 +467,16 @@ function deactivatePowerUp(player, powerUpType) {
 
 function createPlayers() {
     const player1Body = Bodies.rectangle(200, 450, PLAYER_WIDTH, PLAYER_HEIGHT, {
-        density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player1',
-        collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
+        density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player1'
     });
     players.push({ body: player1Body, team: 1, isGrounded: false, color: '#D9534F' });
 
     const player2Body = Bodies.rectangle(CANVAS_WIDTH - 200, 450, PLAYER_WIDTH, PLAYER_HEIGHT, {
-        density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player2',
-        collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
+        density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player2'
     });
     players.push({ body: player2Body, team: 2, isGrounded: false, color: '#428BCA' });
     World.add(world, [player1Body, player2Body]);
-    console.log("Players created");
+    console.log("Players created without collision categories");
 }
 
 // AI Player reference (from ai_player.js) - Ensure ai_player.js is loaded before game.js or functions are globally available
@@ -501,7 +495,7 @@ function createBall() {
         render: { sprite: { texture: null, xScale: 1, yScale: 1 } }
     });
     World.add(world, ball);
-    console.log("Ball created");
+    console.log("Ball created without collision categories");
 }
 
 // ===================================================================================
@@ -915,6 +909,15 @@ function setupCollisions() {
             const bodyA = pair.bodyA;
             const bodyB = pair.bodyB;
 
+            // Debug: Log all collisions
+            if (bodyA.label === 'ball' || bodyB.label === 'ball') {
+                console.log("Ball collision detected:", { 
+                    bodyA: bodyA.label, 
+                    bodyB: bodyB.label,
+                    ballPos: ball ? ball.position : null
+                });
+            }
+
             // --- Track last player to hit the ball and type of hit ---
             let playerBody = null;
             if (bodyA.label === 'ball' && (bodyB.label === 'player1' || bodyB.label === 'player2')) {
@@ -1023,19 +1026,19 @@ function setupCollisions() {
 
             // Goal scoring
             if (bodyA.label === 'ball' && bodyB.label === 'goal2') {
-                console.log("Goal scored by Team 1! Ball hit goal2");
+                console.log("Goal scored by Team 1! Ball hit goal2", { ballPos: ball.position, goalPos: bodyB.position });
                 handleGoalScored(1);
                 audioManager.playSound('goal');
             } else if (bodyB.label === 'ball' && bodyA.label === 'goal2') {
-                console.log("Goal scored by Team 1! Ball hit goal2");
+                console.log("Goal scored by Team 1! Ball hit goal2", { ballPos: ball.position, goalPos: bodyA.position });
                 handleGoalScored(1);
                 audioManager.playSound('goal');
             } else if (bodyA.label === 'ball' && bodyB.label === 'goal1') {
-                console.log("Goal scored by Team 2! Ball hit goal1");
+                console.log("Goal scored by Team 2! Ball hit goal1", { ballPos: ball.position, goalPos: bodyB.position });
                 handleGoalScored(2);
                 audioManager.playSound('goal');
             } else if (bodyB.label === 'ball' && bodyA.label === 'goal1') {
-                console.log("Goal scored by Team 2! Ball hit goal1");
+                console.log("Goal scored by Team 2! Ball hit goal1", { ballPos: ball.position, goalPos: bodyA.position });
                 handleGoalScored(2);
                 audioManager.playSound('goal');
             }
