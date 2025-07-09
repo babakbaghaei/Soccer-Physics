@@ -567,7 +567,6 @@ function setupControls() {
         keysPressed[e.key.toLowerCase()] = false;
         if (e.key.toLowerCase() === 's') {
             sPower = 0;
-            if (sPowerTimeout) clearTimeout(sPowerTimeout);
         }
     });
 }
@@ -614,11 +613,9 @@ function setupCollisions() {
             if (playerBody) {
                 const playerIndex = playerBody.label === 'player1' ? 0 : 1;
                 const player = players[playerIndex];
-                // پرتاب تدریجی توپ با S با قدرت کم و انیمیشن خم شدن
+                // پرتاب تدریجی توپ با S فقط هنگام برخورد
                 if (playerIndex === 0 && keysPressed['s']) {
-                    sPower = Math.min(sPower + 1, 3);
-                    if (sPowerTimeout) clearTimeout(sPowerTimeout);
-                    sPowerTimeout = setTimeout(() => { sPower = 0; }, 1000);
+                    sPower = Math.min(sPower + 1, 3); // فقط هنگام برخورد زیاد شود
                     let yPower = -1.5;
                     if (sPower === 2) yPower = -2.5;
                     if (sPower >= 3) yPower = -3.5;
