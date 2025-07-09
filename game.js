@@ -236,21 +236,35 @@ function draw() {
             ctx.fillStyle = 'white'; // رنگ توپ
             ctx.fill();
         } else if (body.isStatic) {
-            // زمین، دیوارها و تیرک دروازه
-            ctx.fillStyle = body.render.fillStyle || '#444'; // رنگ پیش‌فرض برای اجسام استاتیک
-             if (body.label === 'Rectangle Body' && body.position.y > CANVAS_HEIGHT/2) { // Ground
-                ctx.fillStyle = '#228B22';
-            } else if (goals.team1[0] === body || goals.team2[0] === body) { // Goal posts
-                ctx.fillStyle = '#FFF';
-            } else {
-                 ctx.fillStyle = '#666'; // Walls & Ceiling
+            let staticColor = '#CCC'; // Default light grey for unspecified static bodies
+
+            if (body.render && body.render.fillStyle) {
+                staticColor = body.render.fillStyle;
+            }
+
+            // Specific overrides based on known static bodies
+            // Ground (usually the largest static body at the bottom)
+            if (body.label === 'Rectangle Body' && body.position.y > (GROUND_Y - GROUND_THICKNESS) && body.area >= (CANVAS_WIDTH * GROUND_THICKNESS * 0.8)) {
+                ctx.fillStyle = '#228B22'; // Explicitly set grass green
+            }
+            // Goal Posts (identified by direct object comparison - assuming goals.team1[0] and goals.team2[0] are the post bodies)
+            else if (goals.team1 && goals.team1[0] === body || goals.team2 && goals.team2[0] === body) {
+                ctx.fillStyle = '#FFFFFF'; // White for goal posts
+            }
+            // Walls and Ceiling (other static bodies not ground or posts)
+            else if (body.label === 'Rectangle Body') { // Catches walls and ceiling if not labeled otherwise
+                ctx.fillStyle = '#666666'; // Darker grey for walls/ceiling
+            }
+            // Fallback to determined staticColor if none of the above match
+            else {
+                ctx.fillStyle = staticColor;
             }
             ctx.fill();
         }
 
-        // همیشه یک حاشیه نازک مشکی بکش
+        // Always draw a thin black border for all bodies
         ctx.lineWidth = 1;
-        ctx.strokeStyle = '#000';
+        ctx.strokeStyle = '#000000';
         ctx.stroke();
     });
 
