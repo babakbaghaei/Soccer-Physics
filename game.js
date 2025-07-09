@@ -125,6 +125,10 @@ const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
 const keysPressed = {};
 
+// شمارنده قدرت S برای بازیکن ۱
+let sPower = 0;
+let sPowerTimeout = null;
+
 // ===================================================================================
 // Setup Function
 // ===================================================================================
@@ -559,7 +563,13 @@ function setupControls() {
         initializeAudio(); // Initialize audio on first keydown
         keysPressed[e.key.toLowerCase()] = true;
     });
-    window.addEventListener('keyup', (e) => { keysPressed[e.key.toLowerCase()] = false; });
+    window.addEventListener('keyup', (e) => {
+        keysPressed[e.key.toLowerCase()] = false;
+        if (e.key.toLowerCase() === 's') {
+            sPower = 0;
+            if (sPowerTimeout) clearTimeout(sPowerTimeout);
+        }
+    });
 }
 
 // --- Special Goal Tracking ---
@@ -606,10 +616,17 @@ function setupCollisions() {
                 const player = players[playerIndex];
                 // لاگ برای تست
                 console.log('S pressed:', keysPressed['s'], 'playerIndex:', playerIndex);
+                // پرتاب تدریجی توپ با S
                 if (playerIndex === 0 && keysPressed['s']) {
-                    Body.setVelocity(ball, { x: 0, y: -5 });
+                    sPower = Math.min(sPower + 1, 3);
+                    if (sPowerTimeout) clearTimeout(sPowerTimeout);
+                    sPowerTimeout = setTimeout(() => { sPower = 0; }, 1000);
+                    let yPower = -2;
+                    if (sPower === 2) yPower = -3.5;
+                    if (sPower >= 3) yPower = -5;
+                    Body.setVelocity(ball, { x: 0, y: yPower });
                     Body.setAngularVelocity(ball, 0);
-                    console.log('Ball launched up by S!');
+                    console.log('Ball launched up by S! Power:', sPower, 'y:', yPower);
                 }
                 // برای AI: اگر توپ نزدیک دروازه حریف یا مانع جلوی توپ بود، توپ را به بالا پرتاب کن
                 if (playerIndex === 1) {
@@ -876,6 +893,30 @@ function handleGoalScored(scoringTeam) {
             }
         }, 1200);
     }, 200);
+
+    // پرتاب و ناپدید شدن تدریجی بازیکن گل‌خورده و توپ بعد از گل
+    Body.setStatic(loserPlayer.body, false);
+    Body.setVelocity(loserPlayer.body, { x: 0, y: -10 });
+    loserPlayer.body.render = loserPlayer.body.render || {};
+    let fadeStep = 0;
+    const fadeInterval = setInterval(() => {
+        fadeStep++;
+        loserPlayer.body.render.opacity = Math.max(0, 1 - fadeStep / 20);
+        if (fadeStep >= 20) {
+            clearInterval(fadeInterval);
+            loserPlayer.body.render.opacity = 1;
+        }
+    }, 50);
+    // توپ ناپدید و بعد ظاهر شود سمت بازیکن گل‌خورده
+    ball.render = ball.render || {};
+    ball.render.opacity = 0;
+    setTimeout(() => {
+        ball.render.opacity = 1;
+        // توپ سمت بازیکن گل‌خورده قرار بگیرد
+        const newX = loserIndex === 0 ? 200 : CANVAS_WIDTH - 200;
+        Body.setPosition(ball, { x: newX, y: 100 });
+        Body.setVelocity(ball, { x: 0, y: 0 });
+    }, 1000);
 
     if (scoringTeam === 1) {
         if (isSpecialGoal) {
