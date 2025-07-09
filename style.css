@@ -1,5 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
+html, body {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+    -webkit-image-rendering: pixelated;
+    -ms-interpolation-mode: nearest-neighbor; /* IE, though less relevant for modern pixelation */
+}
+
 body {
     font-family: 'Press Start 2P', cursive, monospace; /* Apply new pixel font */
     display: flex;
@@ -8,17 +16,13 @@ body {
     justify-content: center;
     min-height: 100vh;
     margin: 0;
-    background: linear-gradient(135deg, #E3F2FD, #BBDEFB, #90CAF9);
-    background-size: 60px 60px;
-    animation: backgroundMove 30s linear infinite;
-    color: #fff;
+    background-color: #FFFFFF; /* Changed to white background */
+    /* Removed animated gradient background */
+    color: #333; /* Changed default text color for readability on white background */
     font-size: 10px; /* Base font size for pixel font - adjust as needed */
 }
 
-@keyframes backgroundMove {
-    0% { background-position: 0 0; }
-    100% { background-position: 40px 40px; }
-}
+/* @keyframes backgroundMove removed as animation is removed */
 
 /* Retro TV Container */
 #retroTvContainer {

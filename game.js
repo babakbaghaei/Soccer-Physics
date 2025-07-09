@@ -10,6 +10,8 @@ const Composite = Matter.Composite;
 const Composites = Matter.Composites;
 const Constraint = Matter.Constraint;
 
+import audioManager from './audioManager.js';
+
 // --- DOM Element References ---
 const mainCanvas = document.getElementById('gameCanvas');
 const mainCtx = mainCanvas.getContext('2d');
@@ -112,7 +114,11 @@ function setup() {
 // Entity Creation Functions
 // ===================================================================================
 function createField() {
-    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, GROUND_Y, CANVAS_WIDTH, GROUND_THICKNESS, { isStatic: true, render: { fillStyle: '#228B22' } });
+    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, GROUND_Y, CANVAS_WIDTH, GROUND_THICKNESS, {
+        isStatic: true,
+        render: { fillStyle: '#228B22' },
+        label: 'Rectangle Body' // Added label for ground detection
+    });
     const leftWall = Bodies.rectangle(-WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, render: { fillStyle: '#666666' } });
     const rightWall = Bodies.rectangle(CANVAS_WIDTH + WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, render: { fillStyle: '#666666' } });
     const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, -WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, render: { fillStyle: '#666666' } });
@@ -163,7 +169,11 @@ function createPlayers() {
 
 function createBall() {
     ball = Bodies.circle(CANVAS_WIDTH / 2, 100, BALL_RADIUS, {
-        restitution: 0.8, friction: 0.01, frictionAir: 0.005, density: 0.001, label: 'ball',
+        restitution: 0.5,    // Reduced bounciness
+        friction: 0.01,      // Surface friction (rolling)
+        frictionAir: 0.01,   // Increased air resistance
+        density: 0.0015,     // Slightly increased density for more 'weight'
+        label: 'ball',
         render: { sprite: { texture: null, xScale: 1, yScale: 1 } }
     });
     World.add(world, ball);
@@ -278,6 +288,50 @@ function drawSimplifiedSoccerBall(targetCtx, body) {
 }
 
 // ===================================================================================
+// Particle System Variables and Functions
+// ===================================================================================
+let particles = [];
+
+function createImpactParticles(x, y, count = 5, color = '#A0522D') { // Brownish dirt color
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI - Math.PI; // Mostly upward direction (-PI to 0)
+        const speed = Math.random() * 2 + 1; // Random speed
+        particles.push({
+            x: x, // x position in world coordinates
+            y: y, // y position in world coordinates
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed * 0.5, // Less vertical velocity initially
+            life: Math.random() * 30 + 30, // Lifespan in frames (0.5 to 1 second at 60fps)
+            size: Math.random() * 2 + 1, // Size in world pixels
+            color: color
+        });
+    }
+}
+
+function updateAndDrawParticles(targetCtx) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.05; // Gravity effect on particles
+        p.life--;
+
+        if (p.life <= 0) {
+            particles.splice(i, 1);
+        } else {
+            targetCtx.fillStyle = p.color;
+            // Draw particles on the lowResCtx, so scale positions and size
+            targetCtx.fillRect(
+                p.x * PIXELATION_SCALE_FACTOR - (p.size * PIXELATION_SCALE_FACTOR / 2),
+                p.y * PIXELATION_SCALE_FACTOR - (p.size * PIXELATION_SCALE_FACTOR / 2),
+                p.size * PIXELATION_SCALE_FACTOR,
+                p.size * PIXELATION_SCALE_FACTOR
+            );
+        }
+    }
+}
+
+// ===================================================================================
 // Main Draw Loop & Screen Shake Variables
 // ===================================================================================
 let isShaking = false;
@@ -316,9 +370,10 @@ function draw() {
     lowResCtx.translate(shakeOffsetX, shakeOffsetY); // Apply shake to lowResCtx
 
     lowResCtx.clearRect(0, 0, lowResCanvas.width, lowResCanvas.height);
-    lowResCtx.fillStyle = "lightgray";
+    // Changed background to a sky blue color
+    lowResCtx.fillStyle = "#87CEEB"; // Sky Blue
     lowResCtx.fillRect(0, 0, lowResCanvas.width, lowResCanvas.height);
-    drawDynamicSky(lowResCtx);
+    drawDynamicSky(lowResCtx); // Sun and clouds will be drawn on top of this blue
 
     // 3. Grass on low-res canvas - Striped pattern
     const grassStartY_scaled = (GROUND_Y - GROUND_THICKNESS/2) * PIXELATION_SCALE_FACTOR;
@@ -379,6 +434,8 @@ function draw() {
         }
     });
 
+    updateAndDrawParticles(lowResCtx); // Update and draw particles on the low-res canvas
+
     lowResCtx.restore(); // Restore context state after shake translation
 
     mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
@@ -405,8 +462,19 @@ function draw() {
 // ===================================================================================
 // Event Handlers and Game Logic
 // ===================================================================================
+let audioInitialized = false;
+function initializeAudio() {
+    if (!audioInitialized) {
+        audioManager.initAudioContext();
+        audioInitialized = true;
+    }
+}
+
 function setupControls() {
-    window.addEventListener('keydown', (e) => { keysPressed[e.key.toLowerCase()] = true; });
+    window.addEventListener('keydown', (e) => {
+        initializeAudio(); // Initialize audio on first keydown
+        keysPressed[e.key.toLowerCase()] = true;
+    });
     window.addEventListener('keyup', (e) => { keysPressed[e.key.toLowerCase()] = false; });
 }
 
@@ -419,10 +487,19 @@ function setupCollisions() {
             const bodyB = pair.bodyB;
 
             // Goal scoring
-            if (bodyA.label === 'ball' && bodyB.label === 'goal2') handleGoalScored(1);
-            if (bodyB.label === 'ball' && bodyA.label === 'goal2') handleGoalScored(1);
-            if (bodyA.label === 'ball' && bodyB.label === 'goal1') handleGoalScored(2);
-            if (bodyB.label === 'ball' && bodyA.label === 'goal1') handleGoalScored(2);
+            if (bodyA.label === 'ball' && bodyB.label === 'goal2') {
+                handleGoalScored(1);
+                audioManager.playSound('goal');
+            } else if (bodyB.label === 'ball' && bodyA.label === 'goal2') {
+                handleGoalScored(1);
+                audioManager.playSound('goal');
+            } else if (bodyA.label === 'ball' && bodyB.label === 'goal1') {
+                handleGoalScored(2);
+                audioManager.playSound('goal');
+            } else if (bodyB.label === 'ball' && bodyA.label === 'goal1') {
+                handleGoalScored(2);
+                audioManager.playSound('goal');
+            }
 
             // Player grounding
             players.forEach(p => {
@@ -431,11 +508,38 @@ function setupCollisions() {
                  }
             });
 
-            // Ball hitting a goal post for screen shake
+            // Ball hitting ground
+            if ((bodyA.label === 'ball' && bodyB.label === 'Rectangle Body') || (bodyB.label === 'ball' && bodyA.label === 'Rectangle Body')) {
+                const ballBody = bodyA.label === 'ball' ? bodyA : bodyB;
+                const groundBody = bodyA.label === 'Rectangle Body' ? bodyA : bodyB; // just to be clear
+
+                const ballWorldY = ballBody.position.y + ballBody.circleRadius;
+                createImpactParticles(ballBody.position.x, ballWorldY);
+                audioManager.playSound('bounce');
+            }
+
+            // Ball hitting a wall (leftWall, rightWall, ceiling)
+            // Walls don't have specific labels, but they are static and not 'Rectangle Body' (ground) or goal posts
+            if (bodyA.label === 'ball' && bodyB.isStatic && bodyB.label !== 'Rectangle Body' && !bodyB.label?.startsWith('goal')) {
+                audioManager.playSound('bounce');
+            } else if (bodyB.label === 'ball' && bodyA.isStatic && bodyA.label !== 'Rectangle Body' && !bodyA.label?.startsWith('goal')) {
+                audioManager.playSound('bounce');
+            }
+
+
+            // Ball hitting a goal post for screen shake and sound
             if (bodyA.label === 'ball' && (bodyB.label === 'goalPost1' || bodyB.label === 'goalPost2')) {
-                triggerScreenShake(5, 15); // Magnitude 5 (world pixels), duration 15 frames
+                triggerScreenShake(5, 15);
+                audioManager.playSound('bounce'); // Using bounce for post hit too
             } else if (bodyB.label === 'ball' && (bodyA.label === 'goalPost1' || bodyA.label === 'goalPost2')) {
                 triggerScreenShake(5, 15);
+                audioManager.playSound('bounce');
+            }
+
+            // Player hitting ball (kick sound)
+            if ((bodyA.label === 'ball' && (bodyB.label === 'player1' || bodyB.label === 'player2')) ||
+                (bodyB.label === 'ball' && (bodyA.label === 'player1' || bodyA.label === 'player2'))) {
+                audioManager.playSound('kick');
             }
         }
     });
@@ -444,20 +548,25 @@ function setupCollisions() {
 function handlePlayerControls() {
     const p1 = players[0];
     const currentMoveForceP1 = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
+
+    // Debug log for key presses and player state
+    if (Object.keys(keysPressed).some(key => keysPressed[key])) { // Log if any relevant key is pressed
+         initializeAudio(); // Also try initializing here if not done by keydown
+        // console.log(`Keys: a:${keysPressed['a']}, d:${keysPressed['d']}, w:${keysPressed['w']}. P1 Grounded: ${p1.isGrounded}, Velocity: {x: ${p1.body.velocity.x.toFixed(2)}, y: ${p1.body.velocity.y.toFixed(2)}}`);
+    }
+
     if (keysPressed['a']) {
         Body.applyForce(p1.body, p1.body.position, { x: -currentMoveForceP1, y: 0 });
-        console.log("Player 1 (Red) Action: 'a' (Move Left). Grounded: " + p1.isGrounded);
     }
     if (keysPressed['d']) {
         Body.applyForce(p1.body, p1.body.position, { x: currentMoveForceP1, y: 0 });
-        console.log("Player 1 (Red) Action: 'd' (Move Right). Grounded: " + p1.isGrounded);
     }
     if (keysPressed['w'] && p1.isGrounded) {
         Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
         p1.isGrounded = false;
-        console.log("Player 1 (Red) Action: 'w' (Jump). Was Grounded: true");
+        audioManager.playSound('jump');
     } else if (keysPressed['w'] && !p1.isGrounded) {
-        console.log("Player 1 (Red) Action: 'w' (Jump attempted in air). Was Grounded: false");
+        // Optional: sound for attempted jump in air? Probably not.
     }
 
     // Player 2 (Blue Team) is now controlled by AI
