@@ -265,7 +265,7 @@ function handleRecoverState(playerPos) {
 // AI Action Functions (Movement and Jumping)
 // ===================================================================================
 function moveHorizontally(playerPosition, targetX, force) {
-    const currentMoveForce = aiPlayer.isGrounded ? force : force * AIR_MOVE_FORCE_MULTIPLIER;
+    const currentMoveForce = aiPlayer.isGrounded ? force : force * 0.1; // روی هوا فقط ۱۰٪ قدرت حرکت
     // Add a small dead zone to prevent jittering if AI is very close to targetX
     const deadZone = PLAYER_WIDTH * 0.1;
     if (targetX < playerPosition.x - deadZone) { // Target is to the left
