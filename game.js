@@ -73,6 +73,10 @@ const keysPressed = {};
  * تابع اصلی برای راه‌اندازی کل بازی
  */
 function setup() {
+    // Set canvas dimensions correctly
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+
     // 1. ساخت موتور فیزیک
     engine = Engine.create();
     world = engine.world;
