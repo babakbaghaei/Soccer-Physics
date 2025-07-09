@@ -312,6 +312,12 @@ function handleIdleState(playerPos) {
         targetX = CANVAS_WIDTH * 0.6; // Move forward for counter attack
     }
     
+    // اگر توپ نزدیک دروازه حریف است و دروازه خالی است، سریع حمله کن
+    if (gameBall.position.x < CANVAS_WIDTH * 0.3 && gameBall.position.y < GROUND_Y - 100) {
+        targetX = CANVAS_WIDTH * 0.4; // حرکت به جلو برای حمله
+        console.log("AI: Quick attack opportunity detected!");
+    }
+    
     moveHorizontally(playerPos, targetX, MOVE_FORCE);
 }
 
@@ -328,6 +334,12 @@ function handleDefendState(ballPos, playerPos) {
     // In Counter Attack mode, be more aggressive
     if (counterAttackMode) {
         targetX = Math.min(targetX, CANVAS_WIDTH * 0.65); // Don't go too far back
+    }
+    
+    // اگر توپ به سمت دروازه AI حرکت می‌کند، بین توپ و دروازه قرار بگیر
+    if (ballPos.x > CANVAS_WIDTH * 0.7 && gameBall.velocity.x > 2) {
+        targetX = Math.max(targetX, CANVAS_WIDTH * 0.8); // بین توپ و دروازه
+        console.log("AI: Defending goal line!");
     }
     
     moveHorizontally(playerPos, targetX, MOVE_FORCE);
@@ -351,6 +363,12 @@ function handleAttackState(ballPos, playerPos) {
     // In Counter Attack mode, be more aggressive
     if (counterAttackMode) {
         targetX = Math.max(targetX, CANVAS_WIDTH * 0.5); // Stay in attack position
+    }
+    
+    // اگر دروازه حریف خالی است، سریع حمله کن
+    if (ballPos.x < CANVAS_WIDTH * 0.4) {
+        targetX = ballPos.x + PLAYER_WIDTH * 0.5; // کمی جلوتر از توپ
+        console.log("AI: Quick attack to empty goal!");
     }
     
     moveHorizontally(playerPos, targetX, MOVE_FORCE * 1.2); // Slightly faster movement
@@ -382,6 +400,13 @@ function moveHorizontally(playerPosition, targetX, force) {
     
     // Add a small dead zone to prevent jittering if AI is very close to targetX
     const deadZone = PLAYER_WIDTH * 0.1;
+    
+    // اگر توپ به سمت دروازه AI حرکت می‌کند، سریع‌تر حرکت کن
+    const ballMovingTowardsGoal = gameBall.velocity.x > 1 && gameBall.position.x > CANVAS_WIDTH * 0.7;
+    if (ballMovingTowardsGoal) {
+        currentMoveForce *= 1.5; // 50% سریع‌تر برای دفاع
+    }
+    
     if (targetX < playerPosition.x - deadZone) { // Target is to the left
         Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: -currentMoveForce, y: 0 });
     } else if (targetX > playerPosition.x + deadZone) { // Target is to the right
@@ -410,7 +435,6 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
     // Tighter horizontal range for attack jumps, needs to be more precise
     if (isAttacking) jumpRangeX = PLAYER_WIDTH * 1.2;
 
-
     let jumpHeightMin = PLAYER_HEIGHT * 0.5; // Ball's center must be at least half player height above player's feet
     let jumpHeightMax = PLAYER_HEIGHT * 3;   // And not too high to be reachable (approx 3x player height)
 
@@ -433,6 +457,13 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
              }
         }
     } else { // Defensive jump
+        // اگر توپ به سمت دروازه AI حرکت می‌کند، بیشتر احتمال پرش
+        const ballMovingTowardsGoal = gameBall.velocity.x > 1 && ballPos.x > CANVAS_WIDTH * 0.7;
+        if (ballMovingTowardsGoal) {
+            jumpRangeX = PLAYER_WIDTH * 2.5; // گسترش محدوده پرش برای دفاع
+            jumpHeightMin = PLAYER_HEIGHT * 0.2; // پرش برای توپ‌های پایین‌تر
+        }
+        
         if (horizontalDistance < jumpRangeX &&
             verticalDistance > jumpHeightMin &&
             verticalDistance < jumpHeightMax) {
