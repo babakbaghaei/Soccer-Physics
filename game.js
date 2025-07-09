@@ -103,11 +103,11 @@ function setup() {
 
     // Initialize AI for Player 2
     // Ensure players array is populated and ball exists.
-    if (typeof window.initializeAI === "function" && players.length > 1 && ball) {
+    if (typeof window.initializeAI === "function" && players.length > 1 && ball && ball.velocity) {
         window.initializeAI(players[AI_PLAYER_INDEX], ball, engine); // AI_PLAYER_INDEX should be 1 for P2
         console.log("AI initialized successfully");
     } else {
-        console.error("AI could not be initialized. Ensure ai_player.js is loaded and initializeAI is defined.");
+        console.error("AI could not be initialized. Ensure ai_player.js is loaded and initializeAI is defined, and ball is created properly.");
     }
 
     startGame();
