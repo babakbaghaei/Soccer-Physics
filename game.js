@@ -670,7 +670,7 @@ function setupCollisions() {
             players.forEach(p => {
                  if ((bodyA === p.body && bodyB.label === 'Rectangle Body') || (bodyB === p.body && bodyA.label === 'Rectangle Body')) {
                      p.isGrounded = true;
-                     p.hasJumped = false; // وقتی روی زمین آمد، پرچم پرش را ریست کن
+                     setTimeout(() => { p.hasJumped = false; }, 50); // با تاخیر ریست کن
                  }
             });
 
