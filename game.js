@@ -11,8 +11,8 @@ const Composites = Matter.Composites;
 const Constraint = Matter.Constraint;
 
 // --- DOM Element References ---
-const mainCanvas = document.getElementById('gameCanvas'); // Renamed for clarity
-const mainCtx = mainCanvas.getContext('2d'); // Renamed for clarity
+const mainCanvas = document.getElementById('gameCanvas');
+const mainCtx = mainCanvas.getContext('2d');
 const team1ScoreDisplay = document.getElementById('team1ScoreDisplay');
 const team2ScoreDisplay = document.getElementById('team2ScoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
@@ -25,7 +25,7 @@ const ROUND_DURATION_SECONDS = 90;
 const BALL_RADIUS = 15;
 
 // --- Pixelation / Low-Resolution Rendering ---
-const PIXELATION_SCALE_FACTOR = 0.5; // e.g., 0.5 means render at half resolution (400x300)
+const PIXELATION_SCALE_FACTOR = 0.25; // Further reduced for more pixelation
 let lowResCanvas;
 let lowResCtx;
 
@@ -40,13 +40,11 @@ let engine;
 let world;
 let runner;
 let isGameOver = false;
-
 let team1Score = 0;
 let team2Score = 0;
 let ball;
 let players = [];
 let goals = {};
-
 let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
 
@@ -55,7 +53,9 @@ const GROUND_Y = 580;
 const GROUND_THICKNESS = 40;
 const WALL_THICKNESS = 40;
 const GOAL_HEIGHT = 120;
-const GOAL_WIDTH = 30;
+const GOAL_WIDTH = 30; // Original goal area width
+const GOAL_POST_WIDTH = 6; // Thinner goal posts (was 10)
+
 
 // --- Player Constants ---
 const PLAYER_FRICTION = 0.8;
@@ -104,17 +104,19 @@ function createField() {
     const rightWall = Bodies.rectangle(CANVAS_WIDTH + WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, render: { fillStyle: '#666666' } });
     const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, -WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, render: { fillStyle: '#666666' } });
 
-    const goal1Post = Bodies.rectangle(GOAL_WIDTH, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, 10, GOAL_HEIGHT, {
-        isStatic: true, render: { fillStyle: '#FFFFFF' },
+    // Goal posts are now thinner
+    const goal1Post = Bodies.rectangle(GOAL_POST_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_POST_WIDTH, GOAL_HEIGHT, {
+        isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost1",
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
+    // Sensor remains wider to define scoring area
     const goal1Sensor = Bodies.rectangle(GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
         isStatic: true, isSensor: true, label: 'goal1', render: { visible: false }
     });
     goals.team1 = [goal1Post, goal1Sensor];
 
-    const goal2Post = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, 10, GOAL_HEIGHT, {
-        isStatic: true, render: { fillStyle: '#FFFFFF' },
+    const goal2Post = Bodies.rectangle(CANVAS_WIDTH - GOAL_POST_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_POST_WIDTH, GOAL_HEIGHT, {
+        isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost2",
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
     const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
@@ -122,7 +124,7 @@ function createField() {
     });
     goals.team2 = [goal2Post, goal2Sensor];
     
-    World.add(world, [ground, leftWall, rightWall, ceiling, ...goals.team1, ...goals.team2]);
+    World.add(world, [ground, leftWall, rightWall, ceiling, goal1Post, goal1Sensor, goal2Post, goal2Sensor]);
 }
 
 function createPlayers() {
@@ -143,13 +145,13 @@ function createPlayers() {
 function createBall() {
     ball = Bodies.circle(CANVAS_WIDTH / 2, 100, BALL_RADIUS, {
         restitution: 0.8, friction: 0.01, frictionAir: 0.005, density: 0.001, label: 'ball',
-        render: { sprite: { texture: null, xScale: 1, yScale: 1 } } // Custom rendered
+        render: { sprite: { texture: null, xScale: 1, yScale: 1 } }
     });
     World.add(world, ball);
 }
 
 // ===================================================================================
-// Drawing Functions (Now use targetCtx and scaled parameters)
+// Drawing Functions (Simplified for Global Pixelation)
 // ===================================================================================
 let sunPosition = { x: 100, y: 100 };
 let cloudPositions = [
@@ -158,35 +160,28 @@ let cloudPositions = [
     { x: 650, y: 150, width: 70, height: 25, speed: 0.4 }
 ];
 
-function drawPixelatedSun(targetCtx, x_scaled, y_scaled, radius_scaled) {
+// Simplified: Draw a filled circle. Global pixelation will make it blocky.
+function drawSimplifiedSun(targetCtx, x_scaled, y_scaled, radius_scaled) {
     targetCtx.fillStyle = '#FFD700';
-    const pixelSizeOnLowRes = Math.max(1, Math.floor(8 * PIXELATION_SCALE_FACTOR));
-    for (let i_offset = -radius_scaled; i_offset <= radius_scaled; i_offset += pixelSizeOnLowRes) {
-        for (let j_offset = -radius_scaled; j_offset <= radius_scaled; j_offset += pixelSizeOnLowRes) {
-            if (i_offset * i_offset + j_offset * j_offset <= radius_scaled * radius_scaled) {
-                targetCtx.fillRect(x_scaled + i_offset, y_scaled + j_offset, pixelSizeOnLowRes, pixelSizeOnLowRes);
-            }
-        }
-    }
+    targetCtx.beginPath();
+    targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, Math.PI * 2);
+    targetCtx.fill();
 }
 
-function drawPixelatedCloud(targetCtx, x_scaled, y_scaled, width_scaled, height_scaled) {
+// Simplified: Draw a few overlapping circles. Global pixelation handles blockiness.
+function drawSimplifiedCloud(targetCtx, x_scaled, y_scaled, width_scaled, height_scaled) {
     targetCtx.fillStyle = '#FFFFFF';
-    const pixelSizeOnLowRes = Math.max(1, Math.floor(10 * PIXELATION_SCALE_FACTOR));
-    for (let i = 0; i < width_scaled; i += pixelSizeOnLowRes) {
-        for (let j = 0; j < height_scaled; j += pixelSizeOnLowRes) {
-            if (Math.random() > 0.2 || (i > pixelSizeOnLowRes && i < width_scaled - pixelSizeOnLowRes * 2 && j > pixelSizeOnLowRes && j < height_scaled - pixelSizeOnLowRes*2) ) {
-                 targetCtx.fillRect(x_scaled + i, y_scaled + j, pixelSizeOnLowRes, pixelSizeOnLowRes);
-            }
-        }
-    }
-    for (let k = 0; k < 3; k++) {
-        let puffX_offset = Math.random() * (width_scaled - pixelSizeOnLowRes*2) + pixelSizeOnLowRes;
-        let puffY_offset = -height_scaled / 3 + Math.random() * (height_scaled/4) ;
-        let puffW = pixelSizeOnLowRes * (Math.random() > 0.5 ? 2:1);
-        let puffH = pixelSizeOnLowRes * (Math.random() > 0.5 ? 2:1);
-        targetCtx.fillRect(x_scaled + puffX_offset, y_scaled + puffY_offset, puffW, puffH);
-    }
+    const baseCircleRadius = height_scaled * 0.6;
+
+    targetCtx.beginPath(); // Cloud 1
+    targetCtx.arc(x_scaled + width_scaled * 0.25, y_scaled + height_scaled * 0.5, baseCircleRadius * 0.8, 0, Math.PI * 2);
+    targetCtx.fill();
+    targetCtx.beginPath(); // Cloud 2
+    targetCtx.arc(x_scaled + width_scaled * 0.5, y_scaled + height_scaled * 0.4, baseCircleRadius, 0, Math.PI * 2);
+    targetCtx.fill();
+    targetCtx.beginPath(); // Cloud 3
+    targetCtx.arc(x_scaled + width_scaled * 0.75, y_scaled + height_scaled * 0.55, baseCircleRadius * 0.9, 0, Math.PI * 2);
+    targetCtx.fill();
 }
 
 function drawDynamicSky(targetCtx) {
@@ -195,7 +190,7 @@ function drawDynamicSky(targetCtx) {
     let sunWorldY = 80 + Math.sin(gameProgress * Math.PI) * 40;
     let sunWorldRadius = 25;
 
-    drawPixelatedSun(targetCtx,
+    drawSimplifiedSun(targetCtx,
         sunWorldX * PIXELATION_SCALE_FACTOR,
         sunWorldY * PIXELATION_SCALE_FACTOR,
         sunWorldRadius * PIXELATION_SCALE_FACTOR
@@ -207,7 +202,7 @@ function drawDynamicSky(targetCtx) {
             cloud.x = -cloud.width;
             cloud.y = 50 + Math.random() * 100;
         }
-        drawPixelatedCloud(targetCtx,
+        drawSimplifiedCloud(targetCtx,
             cloud.x * PIXELATION_SCALE_FACTOR,
             cloud.y * PIXELATION_SCALE_FACTOR,
             cloud.width * PIXELATION_SCALE_FACTOR,
@@ -216,10 +211,11 @@ function drawDynamicSky(targetCtx) {
     });
 }
 
-function drawPixelatedNet(targetCtx, x_scaled, y_scaled, width_scaled, height_scaled) {
-    targetCtx.strokeStyle = 'rgba(200, 200, 200, 0.6)';
-    targetCtx.lineWidth = Math.max(1, Math.floor(3 * PIXELATION_SCALE_FACTOR));
-    const spacing_scaled = Math.max(1, Math.floor(12 * PIXELATION_SCALE_FACTOR));
+// Net remains simple lines, global pixelation makes them blocky.
+function drawSimplifiedNet(targetCtx, x_scaled, y_scaled, width_scaled, height_scaled) {
+    targetCtx.strokeStyle = 'rgba(220, 220, 220, 0.7)'; // Lighter net
+    targetCtx.lineWidth = Math.max(1, Math.floor(2 * PIXELATION_SCALE_FACTOR)); // Thinner base line (2 world px)
+    const spacing_scaled = Math.max(2, Math.floor(15 * PIXELATION_SCALE_FACTOR)); // Wider spacing
 
     for (let i = 0; i <= width_scaled; i += spacing_scaled) {
         targetCtx.beginPath();
@@ -235,84 +231,95 @@ function drawPixelatedNet(targetCtx, x_scaled, y_scaled, width_scaled, height_sc
     }
 }
 
-function drawPixelatedSoccerBall(targetCtx, body) {
+// Simplified: White circle with a basic pattern (e.g. one black quarter or half)
+function drawSimplifiedSoccerBall(targetCtx, body) {
     const x_scaled = body.position.x * PIXELATION_SCALE_FACTOR;
     const y_scaled = body.position.y * PIXELATION_SCALE_FACTOR;
     const radius_scaled = body.circleRadius * PIXELATION_SCALE_FACTOR;
-    const segmentAngle = Math.PI / 3;
-    const pixelSizeOnLowRes = Math.max(1, Math.floor(5 * PIXELATION_SCALE_FACTOR));
 
-    targetCtx.beginPath();
-    targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, 2 * Math.PI);
     targetCtx.fillStyle = 'white';
-    targetCtx.fill();
-    targetCtx.fillStyle = 'black';
-    for (let angle = 0; angle < 2 * Math.PI; angle += segmentAngle / 2) {
-        for (let r_scaled = radius_scaled * 0.4; r_scaled < radius_scaled; r_scaled += pixelSizeOnLowRes * 2) {
-            if ( (Math.floor(angle / (segmentAngle/2)) % 2 === 0 && Math.floor(r_scaled / (pixelSizeOnLowRes*2)) % 2 === 0) ||
-                 (Math.floor(angle / (segmentAngle/2)) % 2 !== 0 && Math.floor(r_scaled / (pixelSizeOnLowRes*2)) % 2 !== 0) ) {
-                const patchX_scaled = x_scaled + (r_scaled + pixelSizeOnLowRes) * Math.cos(angle + segmentAngle/4);
-                const patchY_scaled = y_scaled + (r_scaled + pixelSizeOnLowRes) * Math.sin(angle + segmentAngle/4);
-                if (Math.sqrt(Math.pow(patchX_scaled - x_scaled, 2) + Math.pow(patchY_scaled - y_scaled, 2)) < radius_scaled - pixelSizeOnLowRes) {
-                     targetCtx.fillRect(
-                         Math.floor(patchX_scaled/pixelSizeOnLowRes)*pixelSizeOnLowRes - pixelSizeOnLowRes/2,
-                         Math.floor(patchY_scaled/pixelSizeOnLowRes)*pixelSizeOnLowRes - pixelSizeOnLowRes/2,
-                         pixelSizeOnLowRes, pixelSizeOnLowRes);
-                }
-            }
-        }
-    }
     targetCtx.beginPath();
-    targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, 2 * Math.PI);
+    targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, Math.PI * 2);
+    targetCtx.fill();
+
+    targetCtx.fillStyle = 'black';
+    targetCtx.beginPath();
+    // Example: a simple rotating line or a sector to show spin
+    const angle = body.angle; // Use body's angle
+    targetCtx.moveTo(x_scaled, y_scaled);
+    targetCtx.arc(x_scaled, y_scaled, radius_scaled, angle, angle + Math.PI / 3); // A sector
+    targetCtx.closePath();
+    targetCtx.fill();
+
     targetCtx.strokeStyle = 'black';
-    targetCtx.lineWidth = Math.max(1, Math.floor(2 * PIXELATION_SCALE_FACTOR));
+    targetCtx.lineWidth = Math.max(1, Math.floor(1 * PIXELATION_SCALE_FACTOR)); // 1 world px outline
+    targetCtx.beginPath();
+    targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, Math.PI * 2);
     targetCtx.stroke();
 }
 
 // ===================================================================================
-// Main Draw Loop (Refactored for Low-Resolution Rendering)
+// Main Draw Loop & Screen Shake Variables
 // ===================================================================================
+let isShaking = false;
+let shakeMagnitude = 0;
+let shakeDuration = 0;
+let shakeTimer = 0;
+let shakeOffsetX = 0;
+let shakeOffsetY = 0;
+
+function triggerScreenShake(magnitude, duration) {
+    isShaking = true;
+    shakeMagnitude = magnitude * PIXELATION_SCALE_FACTOR; // Scale shake to low-res canvas
+    shakeDuration = duration; // Number of frames
+    shakeTimer = duration;
+}
+
+
 function draw() {
     if (isGameOver) return;
 
-    // --- Start Drawing to Low-Resolution Off-Screen Canvas ---
+    if (isShaking) {
+        shakeOffsetX = (Math.random() - 0.5) * shakeMagnitude * 2;
+        shakeOffsetY = (Math.random() - 0.5) * shakeMagnitude * 2;
+        shakeTimer--;
+        if (shakeTimer <= 0) {
+            isShaking = false;
+            shakeOffsetX = 0;
+            shakeOffsetY = 0;
+        }
+    } else {
+        shakeOffsetX = 0;
+        shakeOffsetY = 0;
+    }
+
+    lowResCtx.save(); // Save context state
+    lowResCtx.translate(shakeOffsetX, shakeOffsetY); // Apply shake to lowResCtx
+
     lowResCtx.clearRect(0, 0, lowResCanvas.width, lowResCanvas.height);
-
-    // 1. Base sky color on low-res canvas
-    lowResCtx.fillStyle = "lightgray"; // Sky color
+    lowResCtx.fillStyle = "lightgray";
     lowResCtx.fillRect(0, 0, lowResCanvas.width, lowResCanvas.height);
-
-    // 2. Dynamic sky (sun, clouds) on low-res canvas
     drawDynamicSky(lowResCtx);
-
-    // 3. Grass on low-res canvas
-    lowResCtx.fillStyle = "#228B22"; // Grass color from ground body render
+    lowResCtx.fillStyle = "#228B22";
     lowResCtx.fillRect(
         0,
         (GROUND_Y - GROUND_THICKNESS/2) * PIXELATION_SCALE_FACTOR,
         lowResCanvas.width,
         (CANVAS_HEIGHT - (GROUND_Y - GROUND_THICKNESS/2)) * PIXELATION_SCALE_FACTOR
     );
-
-    // 4. Goals (nets) on low-res canvas
-    drawPixelatedNet(lowResCtx,
-        0,
-        (GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
-        GOAL_WIDTH * PIXELATION_SCALE_FACTOR,
-        GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
+    drawSimplifiedNet(lowResCtx,
+        0, (GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
+        GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
     );
-    drawPixelatedNet(lowResCtx,
+    drawSimplifiedNet(lowResCtx,
         (CANVAS_WIDTH - GOAL_WIDTH) * PIXELATION_SCALE_FACTOR,
         (GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
-        GOAL_WIDTH * PIXELATION_SCALE_FACTOR,
-        GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
+        GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
     );
 
-    // 5. All physics bodies on low-res canvas
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
         if (body.render && body.render.visible === false) return;
-
         lowResCtx.beginPath();
         const vertices = body.vertices;
         lowResCtx.moveTo(vertices[0].x * PIXELATION_SCALE_FACTOR, vertices[0].y * PIXELATION_SCALE_FACTOR);
@@ -326,29 +333,26 @@ function draw() {
             lowResCtx.fillStyle = player.color;
             lowResCtx.fill();
         } else if (body.label === 'ball') {
-            drawPixelatedSoccerBall(lowResCtx, body);
+            drawSimplifiedSoccerBall(lowResCtx, body);
         } else if (body.isStatic) {
             if (body.render && body.render.fillStyle) {
                 lowResCtx.fillStyle = body.render.fillStyle;
             } else {
                 lowResCtx.fillStyle = '#CCC';
             }
-            // Avoid filling ground again if already done, but other static bodies like walls/posts are fine.
-            // The main ground rect is drawn before this loop. Goal posts will be filled here.
             if (!(body.label === 'Rectangle Body' && body.position.y > (GROUND_Y - GROUND_THICKNESS) && body.area >= (CANVAS_WIDTH * GROUND_THICKNESS * 0.8))) {
                  lowResCtx.fill();
             }
         }
-
         if (!body.isSensor && body.label !== 'ball') {
             lowResCtx.lineWidth = Math.max(1, Math.floor(2 * PIXELATION_SCALE_FACTOR));
             lowResCtx.strokeStyle = '#000000';
             lowResCtx.stroke();
         }
     });
-    // --- End Drawing to Low-Resolution Off-Screen Canvas ---
 
-    // --- Upscale lowResCanvas to mainCanvas ---
+    lowResCtx.restore(); // Restore context state after shake translation
+
     mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
     mainCtx.imageSmoothingEnabled = false;
     mainCtx.mozImageSmoothingEnabled = false;
@@ -377,15 +381,28 @@ function setupCollisions() {
         const pairs = event.pairs;
         for (let i = 0; i < pairs.length; i++) {
             const pair = pairs[i];
-            if (pair.bodyA.label === 'ball' && pair.bodyB.label === 'goal2') handleGoalScored(1);
-            if (pair.bodyB.label === 'ball' && pair.bodyA.label === 'goal2') handleGoalScored(1);
-            if (pair.bodyA.label === 'ball' && pair.bodyB.label === 'goal1') handleGoalScored(2);
-            if (pair.bodyB.label === 'ball' && pair.bodyA.label === 'goal1') handleGoalScored(2);
+            const bodyA = pair.bodyA;
+            const bodyB = pair.bodyB;
+
+            // Goal scoring
+            if (bodyA.label === 'ball' && bodyB.label === 'goal2') handleGoalScored(1);
+            if (bodyB.label === 'ball' && bodyA.label === 'goal2') handleGoalScored(1);
+            if (bodyA.label === 'ball' && bodyB.label === 'goal1') handleGoalScored(2);
+            if (bodyB.label === 'ball' && bodyA.label === 'goal1') handleGoalScored(2);
+
+            // Player grounding
             players.forEach(p => {
-                 if ((pair.bodyA === p.body && pair.bodyB.label === 'Rectangle Body') || (pair.bodyB === p.body && pair.bodyA.label === 'Rectangle Body')) {
+                 if ((bodyA === p.body && bodyB.label === 'Rectangle Body') || (bodyB === p.body && bodyA.label === 'Rectangle Body')) {
                      p.isGrounded = true;
                  }
             });
+
+            // Ball hitting a goal post for screen shake
+            if (bodyA.label === 'ball' && (bodyB.label === 'goalPost1' || bodyB.label === 'goalPost2')) {
+                triggerScreenShake(5, 15); // Magnitude 5 (world pixels), duration 15 frames
+            } else if (bodyB.label === 'ball' && (bodyA.label === 'goalPost1' || bodyA.label === 'goalPost2')) {
+                triggerScreenShake(5, 15);
+            }
         }
     });
 }
@@ -467,7 +484,7 @@ function startGame() {
     Runner.run(runner, engine);
     roundTimerId = setInterval(() => {
         gameTimeRemaining--;
-        timerDisplay.textContent = `Time: ${gameTimeRemaining}`; // Ensure "Time: " prefix
+        timerDisplay.textContent = `Time: ${gameTimeRemaining}`;
         if (gameTimeRemaining <= 0) {
             endGame();
         }
