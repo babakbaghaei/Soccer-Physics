@@ -30,6 +30,19 @@ let currentAiState = AI_STATE.IDLE;
 let lastJumpTime = 0;
 const JUMP_COOLDOWN = 500; // Milliseconds (0.5 seconds)
 
+// --- Counter Attack System ---
+let counterAttackMode = false;
+let counterAttackTimer = 0;
+const COUNTER_ATTACK_DURATION = 3000; // 3 seconds
+let lastGoalTime = 0;
+const COUNTER_ATTACK_WINDOW = 5000; // 5 seconds after goal
+
+// --- Randomness System ---
+let aiRandomness = 0.15; // 15% randomness by default
+let decisionMistakes = 0;
+let lastRandomDecision = 0;
+const RANDOM_DECISION_COOLDOWN = 2000; // 2 seconds between random mistakes
+
 // --- AI Player Object (to be initialized) ---
 let aiPlayer = null; // Reference to the AI player's body and data from game.js
 let gameBall = null; // Reference to the ball's body from game.js
@@ -96,6 +109,80 @@ function updateAdaptationParameters() {
     // console.log("AI Adaptation Updated: Zones:", opponentAttackZones, "Opponent Jump Freq:", opponentJumpFrequency.toFixed(2));
 }
 
+// ===================================================================================
+// Counter Attack System
+// ===================================================================================
+function triggerCounterAttack() {
+    counterAttackMode = true;
+    counterAttackTimer = COUNTER_ATTACK_DURATION;
+    console.log("AI: Counter Attack Mode Activated!");
+}
+
+function updateCounterAttack() {
+    if (counterAttackMode) {
+        counterAttackTimer -= 16; // Assuming 60fps
+        if (counterAttackTimer <= 0) {
+            counterAttackMode = false;
+            console.log("AI: Counter Attack Mode Deactivated");
+        }
+    }
+}
+
+function shouldTriggerCounterAttack(ballPos, playerPos) {
+    const now = Date.now();
+    const timeSinceGoal = now - lastGoalTime;
+    
+    // اگر اخیراً گل خورده باشیم و توپ در موقعیت مناسب باشد
+    if (timeSinceGoal < COUNTER_ATTACK_WINDOW && !counterAttackMode) {
+        const ballInGoodPosition = ballPos.x > CANVAS_WIDTH * 0.6 && ballPos.x < CANVAS_WIDTH * 0.9;
+        const ballNotTooHigh = ballPos.y > GROUND_Y - 200;
+        const playerCanReach = Math.abs(ballPos.x - playerPos.x) < PLAYER_WIDTH * 3;
+        
+        if (ballInGoodPosition && ballNotTooHigh && playerCanReach) {
+            return true;
+        }
+    }
+    
+    // اگر در حالت Counter Attack باشیم و فرصت خوبی باشد
+    if (counterAttackMode) {
+        const ballMovingTowardsGoal = gameBall.velocity.x < -2;
+        const ballInScoringRange = ballPos.x < CANVAS_WIDTH * 0.3;
+        
+        if (ballMovingTowardsGoal && ballInScoringRange) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// ===================================================================================
+// Randomness System
+// ===================================================================================
+function shouldMakeRandomMistake() {
+    const now = Date.now();
+    if (now - lastRandomDecision < RANDOM_DECISION_COOLDOWN) {
+        return false;
+    }
+    
+    if (Math.random() < aiRandomness) {
+        lastRandomDecision = now;
+        decisionMistakes++;
+        return true;
+    }
+    
+    return false;
+}
+
+function getRandomizedTarget(targetX, randomness = 0.1) {
+    const variation = (Math.random() - 0.5) * randomness * CANVAS_WIDTH;
+    return Math.max(0, Math.min(CANVAS_WIDTH, targetX + variation));
+}
+
+function getRandomizedForce(baseForce, randomness = 0.2) {
+    const variation = 1 + (Math.random() - 0.5) * randomness;
+    return baseForce * variation;
+}
 
 // ===================================================================================
 // AI Update Function (Called every game tick)
@@ -109,6 +196,14 @@ function updateAI() {
     const playerPosition = aiPlayer.body.position;
     const playerHalfX = CANVAS_WIDTH / 2; // Assuming CANVAS_WIDTH is accessible
     const ballVelocity = gameBall.velocity;
+
+    // Update Counter Attack system
+    updateCounterAttack();
+    
+    // Check for Counter Attack opportunity
+    if (shouldTriggerCounterAttack(ballPosition, playerPosition)) {
+        triggerCounterAttack();
+    }
 
     // Update current state based on game conditions
     determineAiState(ballPosition, playerPosition, playerHalfX, ballVelocity);
@@ -202,54 +297,66 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
 // State Handling Functions (Initial stubs)
 // ===================================================================================
 function handleIdleState(playerPos) {
-    let targetX = CANVAS_WIDTH * 0.75; // Default defensive position for player 2 (AI's right side of its half)
-    const adaptationShift = PLAYER_WIDTH * 0.35; // How much to shift position based on opponent habits
-
-    // Adaptive positioning: if opponent favors a side, shift AI's default idle position
-    const totalRecentAttacks = recentOpponentActions.length; // recentOpponentActions.reduce((sum, action) => sum + 1, 0); is same as length
-    // Only adapt if there's a decent amount of data and a clear preference
-    if (totalRecentAttacks > ADAPTATION_MEMORY_SIZE / 2) {
-        const leftAttacks = opponentAttackZones.left;
-        const rightAttacks = opponentAttackZones.right;
-        // If P1 attacks more from their left (AI's right goal side), AI should shift more to its right.
-        if (leftAttacks > rightAttacks && leftAttacks > opponentAttackZones.center) {
-            targetX += adaptationShift;
-        }
-        // If P1 attacks more from their right (AI's left goal side), AI should shift more to its left.
-        else if (rightAttacks > leftAttacks && rightAttacks > opponentAttackZones.center) {
-            targetX -= adaptationShift;
-        }
+    // In IDLE state, AI should position itself defensively in its half
+    // Default defensive position for Player 2 (AI) is around 75% of the field width
+    let targetX = CANVAS_WIDTH * 0.75;
+    
+    // Apply randomness to target position
+    if (shouldMakeRandomMistake()) {
+        targetX = getRandomizedTarget(targetX, 0.2);
+        console.log("AI: Random positioning mistake in IDLE");
     }
-    // Ensure targetX is within reasonable bounds of AI's half
-    targetX = Math.max(OPPONENT_HALF_X_LINE + PLAYER_WIDTH, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, targetX));
-    moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.5); // Slower movement in idle
+    
+    // In Counter Attack mode, be more aggressive
+    if (counterAttackMode) {
+        targetX = CANVAS_WIDTH * 0.6; // Move forward for counter attack
+    }
+    
+    moveHorizontally(playerPos, targetX, MOVE_FORCE);
 }
 
 function handleDefendState(ballPos, playerPos) {
-    const scaledGravity = gameEngine.gravity.y * gameEngine.timing.timeScale * gameEngine.timing.timeScale;
-    let predictedLandingX = predictBallLandingX(ballPos, gameBall.velocity, scaledGravity);
-
-    // Optional: Minor adjustment to predictedLandingX based on opponent habits if ball is very far.
-    // This is more complex and might make AI jittery if not careful.
-    // Example: If opponent strongly prefers their left and ball is coming from P1's side,
-    // slightly bias prediction towards covering AI's right side of goal.
-    // For now, direct prediction is usually better in active defense.
-
-    moveHorizontally(playerPos, predictedLandingX, MOVE_FORCE);
-
-    // Pass opponent jump frequency hint to shouldJump
-    if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
+    // In DEFEND state, AI should try to intercept the ball
+    let targetX = predictBallLandingX(ballPos, gameBall.velocity, gameEngine.gravity.y);
+    
+    // Apply randomness to prediction
+    if (shouldMakeRandomMistake()) {
+        targetX = getRandomizedTarget(targetX, 0.15);
+        console.log("AI: Random prediction mistake in DEFEND");
+    }
+    
+    // In Counter Attack mode, be more aggressive
+    if (counterAttackMode) {
+        targetX = Math.min(targetX, CANVAS_WIDTH * 0.65); // Don't go too far back
+    }
+    
+    moveHorizontally(playerPos, targetX, MOVE_FORCE);
+    
+    // Check if AI should jump
+    if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.3)) {
         performJump();
     }
 }
 
 function handleAttackState(ballPos, playerPos) {
-    // Move towards the ball to hit it
-    moveHorizontally(playerPos, ballPos.x, MOVE_FORCE * 1.2); // Slightly faster for attack
-
-    // Jump if ball is above and close
-    // No direct adaptation here, but could make AI more/less aggressive on jumps if P1 is often caught off-ground.
-    if (shouldJump(ballPos, playerPos, true, opponentJumpFrequency > 0.6 && ballPos.y < PLAYER_HEIGHT * 1.5)) { // Consider opponent jumpiness for aggressive attack jumps too
+    // In ATTACK state, AI should try to hit the ball towards the opponent's goal
+    let targetX = ballPos.x;
+    
+    // Apply randomness to attack positioning
+    if (shouldMakeRandomMistake()) {
+        targetX = getRandomizedTarget(targetX, 0.1);
+        console.log("AI: Random attack positioning mistake");
+    }
+    
+    // In Counter Attack mode, be more aggressive
+    if (counterAttackMode) {
+        targetX = Math.max(targetX, CANVAS_WIDTH * 0.5); // Stay in attack position
+    }
+    
+    moveHorizontally(playerPos, targetX, MOVE_FORCE * 1.2); // Slightly faster movement
+    
+    // Check if AI should jump for attack
+    if (shouldJump(ballPos, playerPos, true, false)) {
         performJump();
     }
 }
@@ -265,7 +372,14 @@ function handleRecoverState(playerPos) {
 // AI Action Functions (Movement and Jumping)
 // ===================================================================================
 function moveHorizontally(playerPosition, targetX, force) {
-    const currentMoveForce = aiPlayer.isGrounded ? force : force * 0.1; // روی هوا فقط ۱۰٪ قدرت حرکت
+    let currentMoveForce = aiPlayer.isGrounded ? force : force * 0.1; // روی هوا فقط ۱۰٪ قدرت حرکت
+    
+    // Apply randomness to movement force
+    if (shouldMakeRandomMistake()) {
+        currentMoveForce = getRandomizedForce(currentMoveForce, 0.3);
+        console.log("AI: Random movement force variation");
+    }
+    
     // Add a small dead zone to prevent jittering if AI is very close to targetX
     const deadZone = PLAYER_WIDTH * 0.1;
     if (targetX < playerPosition.x - deadZone) { // Target is to the left
@@ -455,9 +569,49 @@ function resetAIState() {
 }
 
 // ===================================================================================
-// Expose functions to be used by game.js
+// API Functions for External Control
+// ===================================================================================
+function setAIRandomness(level) {
+    aiRandomness = Math.max(0, Math.min(1, level)); // Clamp between 0 and 1
+    console.log(`AI Randomness set to: ${(aiRandomness * 100).toFixed(1)}%`);
+}
+
+function getAIRandomness() {
+    return aiRandomness;
+}
+
+function getAIDecisionMistakes() {
+    return decisionMistakes;
+}
+
+function setCounterAttackEnabled(enabled) {
+    if (enabled && !counterAttackMode) {
+        triggerCounterAttack();
+    } else if (!enabled) {
+        counterAttackMode = false;
+        counterAttackTimer = 0;
+    }
+}
+
+function isCounterAttackActive() {
+    return counterAttackMode;
+}
+
+function notifyGoalScored() {
+    lastGoalTime = Date.now();
+    console.log("AI: Goal scored notification received");
+}
+
+// ===================================================================================
+// Export functions for use in game.js
 // ===================================================================================
 window.initializeAI = initializeAI;
 window.updateAI = updateAI;
-window.resetAIState = resetAIState;
 window.recordOpponentOffensiveAction = recordOpponentOffensiveAction;
+window.resetAIState = resetAIState;
+window.setAIRandomness = setAIRandomness;
+window.getAIRandomness = getAIRandomness;
+window.getAIDecisionMistakes = getAIDecisionMistakes;
+window.setCounterAttackEnabled = setCounterAttackEnabled;
+window.isCounterAttackActive = isCounterAttackActive;
+window.notifyGoalScored = notifyGoalScored;

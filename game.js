@@ -363,6 +363,42 @@ function setup() {
         }
     }, 1000);
 
+    // Add AI control buttons
+    const aiControlBtns = document.createElement('div');
+    aiControlBtns.style.position = 'fixed';
+    aiControlBtns.style.top = '130px';
+    aiControlBtns.style.left = '50%';
+    aiControlBtns.style.transform = 'translateX(-50%)';
+    aiControlBtns.style.zIndex = 1000;
+    aiControlBtns.style.fontSize = '12px';
+    aiControlBtns.innerHTML = `
+        <button id="btnAIRandom">AI تصادفی</button> 
+        <button id="btnAIPrecise">AI دقیق</button> 
+        <button id="btnCounterAttack">حمله متقابل</button>
+        <span id="aiStatus" style="margin-left: 10px; color: #666;">AI: عادی</span>
+    `;
+    document.body.appendChild(aiControlBtns);
+    
+    document.getElementById('btnAIRandom').onclick = () => {
+        if (typeof window.setAIRandomness === "function") {
+            window.setAIRandomness(0.3);
+            document.getElementById('aiStatus').textContent = 'AI: تصادفی (30%)';
+        }
+    };
+    document.getElementById('btnAIPrecise').onclick = () => {
+        if (typeof window.setAIRandomness === "function") {
+            window.setAIRandomness(0.05);
+            document.getElementById('aiStatus').textContent = 'AI: دقیق (5%)';
+        }
+    };
+    document.getElementById('btnCounterAttack').onclick = () => {
+        if (typeof window.setCounterAttackEnabled === "function") {
+            const isActive = window.isCounterAttackActive();
+            window.setCounterAttackEnabled(!isActive);
+            document.getElementById('aiStatus').textContent = isActive ? 'AI: عادی' : 'AI: حمله متقابل';
+        }
+    };
+
     // ایجاد power-up های تصادفی
     setInterval(() => {
         if (!isGameOver && powerUps.length < 2) { // حداکثر 2 power-up همزمان
@@ -863,6 +899,15 @@ function draw() {
         });
     }
 
+    // اضافه کردن Randomness به فیزیک توپ
+    if (Math.random() < 0.02) { // 2% احتمال
+        const randomForce = (Math.random() - 0.5) * 0.001;
+        Body.applyForce(ball, ball.position, { 
+            x: randomForce, 
+            y: 0 
+        });
+    }
+
     lowResCtx.restore(); // Restore context state after shake translation
 
     mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
@@ -1254,6 +1299,11 @@ let goalScoredThisTick = false;
 function handleGoalScored(scoringTeam) {
     if (isGameOver || goalScoredThisTick) return;
     goalScoredThisTick = true; // Prevent immediate re-triggering
+
+    // اطلاع‌رسانی به AI در مورد گل
+    if (typeof window.notifyGoalScored === "function") {
+        window.notifyGoalScored();
+    }
 
     // --- Special Goal Logic ---
     let specialType = null;
