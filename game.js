@@ -66,7 +66,7 @@ const PLAYER_WIDTH = PLAYER_SIZE;
 const PLAYER_HEIGHT = PLAYER_SIZE;
 const JUMP_FORCE = 0.18;
 const MOVE_FORCE = 0.015;
-const AIR_MOVE_FORCE_MULTIPLIER = 0.3;
+const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
 const keysPressed = {};
 
@@ -300,13 +300,22 @@ function draw() {
     lowResCtx.fillStyle = "lightgray";
     lowResCtx.fillRect(0, 0, lowResCanvas.width, lowResCanvas.height);
     drawDynamicSky(lowResCtx);
-    lowResCtx.fillStyle = "#228B22";
-    lowResCtx.fillRect(
-        0,
-        (GROUND_Y - GROUND_THICKNESS/2) * PIXELATION_SCALE_FACTOR,
-        lowResCanvas.width,
-        (CANVAS_HEIGHT - (GROUND_Y - GROUND_THICKNESS/2)) * PIXELATION_SCALE_FACTOR
-    );
+
+    // 3. Grass on low-res canvas - Striped pattern
+    const grassStartY_scaled = (GROUND_Y - GROUND_THICKNESS/2) * PIXELATION_SCALE_FACTOR;
+    const grassHeight_scaled = (CANVAS_HEIGHT - (GROUND_Y - GROUND_THICKNESS/2)) * PIXELATION_SCALE_FACTOR;
+    const STRIPE_WIDTH_WORLD = 50; // Width of each stripe in world units
+    const stripeWidth_scaled = STRIPE_WIDTH_WORLD * PIXELATION_SCALE_FACTOR;
+    const GRASS_COLOR_DARK = "#228B22";  // ForestGreen
+    const GRASS_COLOR_LIGHT = "#32CD32"; // LimeGreen
+
+    for (let x_stripe = 0; x_stripe < lowResCanvas.width; x_stripe += stripeWidth_scaled) {
+        // Ensure we don't draw past the canvas width if stripeWidth_scaled isn't a perfect divisor
+        const currentStripeWidth = Math.min(stripeWidth_scaled, lowResCanvas.width - x_stripe);
+        lowResCtx.fillStyle = (Math.floor(x_stripe / stripeWidth_scaled) % 2 === 0) ? GRASS_COLOR_DARK : GRASS_COLOR_LIGHT;
+        lowResCtx.fillRect(x_stripe, grassStartY_scaled, currentStripeWidth, grassHeight_scaled);
+    }
+
     drawSimplifiedNet(lowResCtx,
         0, (GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
         GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
