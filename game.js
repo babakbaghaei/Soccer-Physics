@@ -499,6 +499,17 @@ function setupControls() {
     window.addEventListener('keyup', (e) => { keysPressed[e.key.toLowerCase()] = false; });
 }
 
+// --- Special Goal Tracking ---
+let lastBallHitInfo = {
+    team: null, // 1 or 2
+    isJump: false,
+    isHeader: false,
+    isLongShot: false,
+    playerIndex: null,
+    hitPosition: null,
+    hitVelocity: null
+};
+
 function setupCollisions() {
     Events.on(engine, 'collisionStart', (event) => {
         const pairs = event.pairs;
@@ -506,6 +517,40 @@ function setupCollisions() {
             const pair = pairs[i];
             const bodyA = pair.bodyA;
             const bodyB = pair.bodyB;
+
+            // --- Track last player to hit the ball and type of hit ---
+            let playerBody = null;
+            if (bodyA.label === 'ball' && (bodyB.label === 'player1' || bodyB.label === 'player2')) {
+                playerBody = bodyB;
+            } else if (bodyB.label === 'ball' && (bodyA.label === 'player1' || bodyA.label === 'player2')) {
+                playerBody = bodyA;
+            }
+            if (playerBody) {
+                const playerIndex = playerBody.label === 'player1' ? 0 : 1;
+                const player = players[playerIndex];
+                const ballPos = { ...ball.position };
+                const ballVel = { ...ball.velocity };
+                // تشخیص پرش: اگر بازیکن روی زمین نباشد
+                const isJump = !player.isGrounded;
+                // تشخیص هد: اگر توپ بالاتر از سر بازیکن باشد
+                const isHeader = ball.position.y < player.body.position.y - PLAYER_HEIGHT * 0.5;
+                // تشخیص شوت از راه دور: اگر فاصله افقی بازیکن تا دروازه حریف زیاد باشد
+                let isLongShot = false;
+                if (playerIndex === 0) {
+                    isLongShot = ball.position.x > CANVAS_WIDTH * 0.7;
+                } else {
+                    isLongShot = ball.position.x < CANVAS_WIDTH * 0.3;
+                }
+                lastBallHitInfo = {
+                    team: player.team,
+                    isJump,
+                    isHeader,
+                    isLongShot,
+                    playerIndex,
+                    hitPosition: { ...player.body.position },
+                    hitVelocity: { ...player.body.velocity }
+                };
+            }
 
             // Goal scoring
             if (bodyA.label === 'ball' && bodyB.label === 'goal2') {
@@ -615,6 +660,22 @@ function handleGoalScored(scoringTeam) {
     if (isGameOver || goalScoredThisTick) return;
     goalScoredThisTick = true; // Prevent immediate re-triggering
 
+    // --- Special Goal Logic ---
+    let specialType = null;
+    let isSpecialGoal = false;
+    if (lastBallHitInfo.team === scoringTeam) {
+        if (lastBallHitInfo.isJump) {
+            specialType = 'پرشی';
+            isSpecialGoal = true;
+        } else if (lastBallHitInfo.isHeader) {
+            specialType = 'هدی';
+            isSpecialGoal = true;
+        } else if (lastBallHitInfo.isLongShot) {
+            specialType = 'راه دور';
+            isSpecialGoal = true;
+        }
+    }
+
     // Probabilistic "Near Miss Post Effect" (20% chance)
     if (Math.random() < 0.20) {
         triggerScreenShake(5, 15); // Use existing shake magnitude and duration
@@ -653,15 +714,28 @@ function handleGoalScored(scoringTeam) {
         return; // Do not proceed to score the goal
     }
 
-    // Normal Goal Scoring (80% chance)
+    // --- Special Goal Scoring ---
     if (scoringTeam === 1) {
-        team1Score++;
+        if (isSpecialGoal) {
+            team1Score += 2;
+            gameStats.team1.specialGoals++;
+            gameMessageDisplay.textContent = `گل ویژه (${specialType})! +۲ امتیاز`;
+        } else {
+            team1Score++;
+            gameMessageDisplay.textContent = "گل!";
+        }
         team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
     } else {
-        team2Score++;
+        if (isSpecialGoal) {
+            team2Score += 2;
+            gameStats.team2.specialGoals++;
+            gameMessageDisplay.textContent = `گل ویژه (${specialType})! +۲ امتیاز`;
+        } else {
+            team2Score++;
+            gameMessageDisplay.textContent = "گل!";
+        }
         team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
     }
-    gameMessageDisplay.textContent = "گل!"; // "Goal!"
     gameMessageDisplay.classList.add('has-text');
     
     // Standard reset after a goal
