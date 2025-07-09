@@ -101,7 +101,7 @@ function updateAdaptationParameters() {
 // AI Update Function (Called every game tick)
 // ===================================================================================
 function updateAI() {
-    if (!aiPlayer || !gameBall || isGameOver) { // isGameOver should be accessible globally or passed
+    if (!aiPlayer || !gameBall || !gameBall.velocity || isGameOver) { // اضافه شدن بررسی velocity
         return;
     }
 
