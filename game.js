@@ -66,74 +66,15 @@ let activePowerUps = { team1: null, team2: null };
 
 // --- Game Stats (For Stats Summary) ---
 let gameStats = {
-    team1: { shots: 0, jumps: 0, possessions: 0, tackles: 0, mistakes: 0, specialGoals: 0, points: 0 },
-    team2: { shots: 0, jumps: 0, possessions: 0, tackles: 0, mistakes: 0, specialGoals: 0, points: 0 },
+    team1: { shots: 0, jumps: 0, possessions: 0, tackles: 0, mistakes: 0, specialGoals: 0 },
+    team2: { shots: 0, jumps: 0, possessions: 0, tackles: 0, mistakes: 0, specialGoals: 0 },
     totalPossessionTime: { team1: 0, team2: 0 },
     lastPossession: null,
     startTime: null,
     endTime: null
 };
 
-// --- Advanced Scoring System ---
-let scoringSystem = {
-    goal: 10,
-    specialGoal: 25,
-    chip: 15,
-    header: 8,
-    longShot: 12,
-    tackle: 3,
-    possession: 1, // per 10 seconds
-    powerUp: 5,
-    weatherBonus: 2 // bonus for scoring in bad weather
-};
 
-// --- Combo System ---
-let comboSystem = {
-    team1: { streak: 0, lastAction: null, lastActionTime: 0 },
-    team2: { streak: 0, lastAction: null, lastActionTime: 0 }
-};
-
-function awardPoints(team, action, amount = null) {
-    const teamKey = team === 1 ? 'team1' : 'team2';
-    const points = amount || scoringSystem[action] || 0;
-    
-    // محاسبه combo
-    const combo = comboSystem[teamKey];
-    const now = Date.now();
-    const timeSinceLastAction = now - combo.lastActionTime;
-    
-    if (timeSinceLastAction < 5000 && combo.lastAction === action) { // 5 ثانیه برای combo
-        combo.streak++;
-        const comboBonus = Math.floor(combo.streak / 2) * 5; // هر 2 combo یک بار +5 امتیاز
-        gameStats[teamKey].points += points + comboBonus;
-        
-        // نمایش combo
-        const teamName = team === 1 ? 'تیم ۱' : 'تیم ۲';
-        gameMessageDisplay.textContent = `${teamName}: ${action} x${combo.streak + 1}! +${points + comboBonus} امتیاز`;
-        gameMessageDisplay.classList.add('has-text');
-        setTimeout(() => {
-            gameMessageDisplay.textContent = '';
-            gameMessageDisplay.classList.remove('has-text');
-        }, 2000);
-    } else {
-        combo.streak = 0;
-        gameStats[teamKey].points += points;
-        
-        // نمایش امتیاز عادی
-        if (points > 0) {
-            const teamName = team === 1 ? 'تیم ۱' : 'تیم ۲';
-            gameMessageDisplay.textContent = `${teamName}: +${points} امتیاز`;
-            gameMessageDisplay.classList.add('has-text');
-            setTimeout(() => {
-                gameMessageDisplay.textContent = '';
-                gameMessageDisplay.classList.remove('has-text');
-            }, 1500);
-        }
-    }
-    
-    combo.lastAction = action;
-    combo.lastActionTime = now;
-}
 
 // --- Field Type (For Special Physics) ---
 // Possible values: 'normal', 'ice', 'sand', 'moon'
@@ -340,28 +281,7 @@ function setup() {
     document.getElementById('btnSnow').onclick = () => setWeather('snow');
     document.getElementById('btnStorm').onclick = () => setWeather('storm');
 
-    // Add points display
-    const pointsDisplay = document.createElement('div');
-    pointsDisplay.id = 'pointsDisplay';
-    pointsDisplay.style.position = 'fixed';
-    pointsDisplay.style.top = '100px';
-    pointsDisplay.style.left = '50%';
-    pointsDisplay.style.transform = 'translateX(-50%)';
-    pointsDisplay.style.zIndex = 1000;
-    pointsDisplay.style.fontSize = '16px';
-    pointsDisplay.style.fontWeight = 'bold';
-    pointsDisplay.style.color = '#333';
-    pointsDisplay.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-    pointsDisplay.style.padding = '5px 10px';
-    pointsDisplay.style.borderRadius = '5px';
-    document.body.appendChild(pointsDisplay);
 
-    // Update points display
-    setInterval(() => {
-        if (!isGameOver) {
-            pointsDisplay.textContent = `امتیازات: تیم ۱: ${gameStats.team1.points} | تیم ۲: ${gameStats.team2.points}`;
-        }
-    }, 1000);
 
     // Add AI control buttons
     const aiControlBtns = document.createElement('div');
@@ -401,10 +321,10 @@ function setup() {
 
     // ایجاد power-up های تصادفی
     setInterval(() => {
-        if (!isGameOver && powerUps.length < 2) { // حداکثر 2 power-up همزمان
+        if (!isGameOver && powerUps.length < 1) { // حداکثر 1 power-up همزمان
             createPowerUp();
         }
-    }, 8000); // هر 8 ثانیه یک power-up جدید
+    }, 15000); // هر 15 ثانیه یک power-up جدید
 
     // ایجاد ذرات آب و هوا
     setInterval(() => {
@@ -463,7 +383,7 @@ function createField() {
 function createPowerUp() {
     const powerUpType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
     const x = Math.random() * (CANVAS_WIDTH - 100) + 50;
-    const y = Math.random() * (GROUND_Y - 200) + 100;
+    const y = Math.random() * (GROUND_Y - 150) + 50; // نزدیک‌تر به زمین
     
     const powerUp = Bodies.circle(x, y, 15, {
         isStatic: true,
@@ -484,13 +404,13 @@ function createPowerUp() {
         gameMessageDisplay.classList.remove('has-text');
     }, 2000);
     
-    // حذف خودکار بعد از 10 ثانیه
+    // حذف خودکار بعد از 15 ثانیه
     setTimeout(() => {
         if (powerUps.includes(powerUp)) {
             World.remove(world, powerUp);
             powerUps = powerUps.filter(p => p !== powerUp);
         }
-    }, 10000);
+    }, 15000);
 }
 
 function applyPowerUp(player, powerUpType) {
@@ -1076,21 +996,8 @@ function setupCollisions() {
                             }, 1000);
                         }
                     }
-                    ball.isChipped = true;
+                                        ball.isChipped = true;
                     setTimeout(() => { ball.isChipped = false; }, 100);
-                    
-                    // امتیاز برای چیپ
-                    awardPoints(player.team, 'chip');
-                }
-                
-                // امتیاز برای هد
-                if (isHeader) {
-                    awardPoints(player.team, 'header');
-                }
-                
-                // امتیاز برای شوت از راه دور
-                if (isLongShot) {
-                    awardPoints(player.team, 'longShot');
                 }
                 
                 // اعمال قدرت strength روی سرعت توپ
@@ -1216,8 +1123,7 @@ function setupCollisions() {
                 // ایجاد ذرات
                 createImpactParticles(powerUp.position.x, powerUp.position.y, 8, powerUp.powerUpType.color);
                 
-                // امتیاز برای جمع‌آوری power-up
-                awardPoints(player.team, 'powerUp');
+
             }
         }
     });
@@ -1406,16 +1312,9 @@ function handleGoalScored(scoringTeam) {
             team1Score += 2;
             gameStats.team1.specialGoals++;
             gameMessageDisplay.textContent = `گل ویژه (${specialType})! +۲ امتیاز`;
-            awardPoints(1, 'specialGoal');
         } else {
             team1Score++;
             gameMessageDisplay.textContent = "گل!";
-            awardPoints(1, 'goal');
-        }
-        
-        // امتیاز اضافی برای گل در آب و هوای بد
-        if (currentWeather !== 'clear') {
-            awardPoints(1, 'weatherBonus');
         }
         
         team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
@@ -1424,16 +1323,9 @@ function handleGoalScored(scoringTeam) {
             team2Score += 2;
             gameStats.team2.specialGoals++;
             gameMessageDisplay.textContent = `گل ویژه (${specialType})! +۲ امتیاز`;
-            awardPoints(2, 'specialGoal');
         } else {
             team2Score++;
             gameMessageDisplay.textContent = "گل!";
-            awardPoints(2, 'goal');
-        }
-        
-        // امتیاز اضافی برای گل در آب و هوای بد
-        if (currentWeather !== 'clear') {
-            awardPoints(2, 'weatherBonus');
         }
         
         team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
@@ -1488,13 +1380,7 @@ function resetPositions() {
         }
     });
 
-    // ریست combo system
-    comboSystem.team1.streak = 0;
-    comboSystem.team1.lastAction = null;
-    comboSystem.team1.lastActionTime = 0;
-    comboSystem.team2.streak = 0;
-    comboSystem.team2.lastAction = null;
-    comboSystem.team2.lastActionTime = 0;
+
 
     // Reset ball state
     ball.isChipped = false;
@@ -1530,8 +1416,8 @@ function endGame() {
     setTimeout(() => {
         alert(
             `آمار بازی:\n` +
-            `تیم ۱: شوت ${t1.shots} | پرش ${t1.jumps} | گل ویژه ${t1.specialGoals} | مالکیت ${pos1} ثانیه | امتیاز ${t1.points}\n` +
-            `تیم ۲: شوت ${t2.shots} | پرش ${t2.jumps} | گل ویژه ${t2.specialGoals} | مالکیت ${pos2} ثانیه | امتیاز ${t2.points}`
+            `تیم ۱: شوت ${t1.shots} | پرش ${t1.jumps} | گل ویژه ${t1.specialGoals} | مالکیت ${pos1} ثانیه\n` +
+            `تیم ۲: شوت ${t2.shots} | پرش ${t2.jumps} | گل ویژه ${t2.specialGoals} | مالکیت ${pos2} ثانیه`
         );
     }, 1000);
 }
