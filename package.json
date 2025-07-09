@@ -1,0 +1,41 @@
+{
+  "name": "pixel-soccer-game",
+  "version": "2.0.0",
+  "description": "A modern modular pixel soccer game with advanced physics and AI",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8000",
+    "build": "echo 'No build process needed for this game'",
+    "test": "echo 'No tests configured yet'",
+    "lint": "echo 'No linter configured yet'"
+  },
+  "keywords": [
+    "game",
+    "soccer",
+    "football",
+    "pixel",
+    "retro",
+    "physics",
+    "javascript",
+    "matter-js"
+  ],
+  "author": "Game Developer",
+  "license": "MIT",
+  "dependencies": {
+    "matter-js": "^0.19.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/pixel-soccer-game.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/pixel-soccer-game/issues"
+  },
+  "homepage": "https://github.com/yourusername/pixel-soccer-game#readme"
+}

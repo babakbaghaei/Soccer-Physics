@@ -1,141 +1,217 @@
-# ⚽ Soccer Physics Game - MVP
+# فوتبال پیکسلی - Pixel Soccer Game
 
-A hilarious physics-based soccer game featuring ragdoll players, one-button controls, and chaotic gameplay!
+یک بازی فوتبال پیکسلی مدرن و ماژولار با فیزیک پیشرفته و هوش مصنوعی هوشمند.
 
-## 🎮 Features
+## 🎮 ویژگی‌ها
 
-✅ **One-button controls** - Simple and accessible gameplay  
-✅ **Ragdoll physics** - Hilarious player movements using Matter.js  
-✅ **2v2 local multiplayer** - Four players on one keyboard  
-✅ **Pixelated 3D field** - Retro aesthetic with modern physics  
-✅ **Goal scoring system** - Complete with goal detection  
-✅ **Score tracking** - Real-time scoreboard  
-✅ **Comical animations** - Wobbly ragdoll players with funny eyes  
-✅ **Ball and player collisions** - Realistic physics interactions  
-✅ **Single round matches** - 60-second games with timer  
+### ✨ ویژگی‌های اصلی
+- **فیزیک واقع‌گرایانه**: استفاده از Matter.js برای فیزیک دقیق
+- **هوش مصنوعی پیشرفته**: AI هوشمند با رفتارهای مختلف (دفاع، حمله، تعقیب)
+- **سیستم Power-up**: قدرت‌های مختلف (سرعت، قدرت، محافظت، آهنربا)
+- **آب و هوای پویا**: باران، برف، طوفان با تأثیرات فیزیکی
+- **انواع زمین**: زمین معمولی، یخ، شن، ماه با فیزیک متفاوت
+- **سیستم گل‌زنی دقیق**: تشخیص خودکار گل با collision detection پیشرفته
 
-## 🚀 Quick Start
+### 🎯 مکانیک‌های بازی
+- **حرکت روان**: کنترل دقیق بازیکن با WASD
+- **پرش و هد**: مکانیک‌های پیشرفته برای تعامل با توپ
+- **چیپ شات**: تکنیک خاص برای شوت از روی حریف
+- **Screen Shake**: افکت‌های بصری برای تجربه بهتر
+- **سیستم امتیازدهی**: آمار کامل بازی
 
-1. **Open `index.html`** in any modern web browser
-2. **Click "START GAME"** to begin
-3. **Use your assigned keys** to control your player
-4. **Score goals** by getting the ball into the opponent's goal
-5. **Win** by having the most goals when time runs out!
+### 🎨 طراحی و رابط کاربری
+- **طراحی مدرن**: رابط کاربری زیبا و responsive
+- **پیکسل آرت**: گرافیک پیکسلی با کیفیت بالا
+- **انیمیشن‌های نرم**: انتقال‌های روان و افکت‌های بصری
+- **پشتیبانی از موبایل**: طراحی responsive برای همه دستگاه‌ها
 
-## 🎮 Controls
+## 🚀 نصب و اجرا
 
-### Team 1 (Pink Team) - Left Side
-- **Player 1**: Press `A` to jump/kick
-- **Player 2**: Press `S` to jump/kick
+### پیش‌نیازها
+- Python 3.x (برای سرور محلی)
+- مرورگر مدرن با پشتیبانی از ES6 modules
 
-### Team 2 (Sky Blue Team) - Right Side  
-- **Player 1**: Press `K` to jump/kick
-- **Player 2**: Press `L` to jump/kick
+### نصب
+```bash
+# Clone repository
+git clone https://github.com/yourusername/pixel-soccer-game.git
+cd pixel-soccer-game
 
-### Game Controls
-- **START GAME**: Begin a new match
-- **RESET**: Reset the current game
-- **PLAY AGAIN**: Start over after game ends
+# Install dependencies (optional)
+npm install
 
-## 🎯 How to Play
-
-1. **Objective**: Score more goals than the opposing team within 60 seconds
-2. **Movement**: Players are ragdolls! Press your button to jump and move toward the ball
-3. **Kicking**: Get close to the ball and press your button to kick it
-4. **Scoring**: Get the ball into the opponent's goal area
-5. **Strategy**: Work with your teammate to control the ball and score!
-
-## 🎨 Game Features
-
-### Physics System
-- **Realistic ragdoll physics** using Matter.js engine
-- **Ball bouncing** with proper collision detection
-- **Player-ball interactions** with momentum transfer
-- **Gravity and friction** for authentic movement
-
-### Visual Design
-- **Pixelated 3D aesthetic** with pastel colors and depth effects
-- **3D character models** with highlights and shadows
-- **Animated grass patterns** for field texture  
-- **Dynamic ball trails** when moving fast
-- **Screen flash effects** when goals are scored
-- **Bouncing title animation** and smooth UI
-- **Pastel color palette** for a soft, modern look
-
-### Game Mechanics
-- **60-second matches** with countdown timer
-- **Automatic goal detection** and scoring
-- **Player positioning reset** after each goal
-- **Kick cooldown** to prevent button spamming
-- **Random movement elements** for comedic effect
-
-## 🛠️ Technical Details
-
-### Technologies Used
-- **HTML5 Canvas** for rendering
-- **Matter.js** for 2D physics simulation
-- **CSS3** for styling and animations
-- **JavaScript ES6+** for game logic
-- **Google Fonts** for pixel-perfect typography
-
-### Browser Compatibility
-- Chrome (recommended)
-- Firefox
-- Safari
-- Edge
-- Any modern browser with HTML5 Canvas support
-
-## 🎪 Tips for Maximum Fun
-
-1. **Embrace the chaos** - The ragdoll physics are intentionally silly!
-2. **Time your jumps** - Wait for the right moment to kick the ball
-3. **Work as a team** - Coordinate with your teammate
-4. **Practice positioning** - Get close to the ball before pressing your button
-5. **Have fun** - It's all about the laughs and good times!
-
-## 🏆 Game Modes
-
-**Current**: Single Match Mode
-- 60-second rounds
-- 2v2 local multiplayer
-- Score tracking
-- Winner determination
-
-## 🔧 Customization
-
-Want to modify the game? Here are some easy tweaks you can make in `game.js`:
-
-```javascript
-// Game duration (line ~15)
-this.gameTime = 60; // Change to desired seconds
-
-// Physics gravity (line ~18)  
-this.engine.world.gravity.y = 0.8; // Higher = more gravity
-
-// Player jump force (line ~285)
-const force = 0.02; // Higher = stronger jumps
-
-// Ball kick force (line ~305)
-const kickForce = 0.03; // Higher = stronger kicks
+# Start development server
+npm start
+# یا
+python3 -m http.server 8000
 ```
 
-## 🐛 Known Issues
+### اجرا
+1. مرورگر را باز کنید
+2. به آدرس `http://localhost:8000` بروید
+3. بازی شروع می‌شود!
 
-- Players may occasionally get stuck in goal posts (part of the fun!)
-- Ball may rarely clip through boundaries at high speeds
-- Ragdoll physics can be unpredictable (this is intentional!)
+## 🎮 کنترل‌ها
 
-## 🚀 Future Enhancements
+### بازیکن انسانی (تیم ۱)
+- **حرکت چپ**: `A` یا `←`
+- **حرکت راست**: `D` یا `→`
+- **پرش**: `W` یا `↑` یا `Space`
+- **شوت**: `S`
 
-Potential additions for future versions:
-- [ ] Tournament mode with multiple rounds
-- [ ] Power-ups and special abilities
-- [ ] Different field environments
-- [ ] AI opponents for single-player mode
-- [ ] Online multiplayer support
-- [ ] Replay system
-- [ ] Customizable team colors
+### کنترل‌های بازی
+- **توقف/ادامه**: دکمه "توقف" در رابط کاربری
+- **شروع مجدد**: دکمه "شروع مجدد"
+- **تغییر آب و هوا**: دکمه‌های آب و هوا
+- **تغییر نوع زمین**: دکمه‌های نوع زمین
+
+## �️ معماری پروژه
+
+### ساختار فایل‌ها
+```
+src/
+├── config/
+│   └── constants.js          # ثابت‌های بازی
+├── game/
+│   ├── Game.js              # کلاس اصلی بازی
+│   ├── GameState.js         # مدیریت وضعیت بازی
+│   ├── Player.js            # کلاس بازیکن
+│   ├── Ball.js              # کلاس توپ
+│   ├── Field.js             # کلاس زمین
+│   └── PowerUpManager.js    # مدیریت power-ups
+├── ai/
+│   └── AIPlayer.js          # هوش مصنوعی
+├── rendering/
+│   └── Renderer.js          # سیستم rendering
+├── utils/
+│   ├── AudioManager.js      # مدیریت صدا
+│   └── ParticleSystem.js    # سیستم particle
+└── main.js                  # نقطه شروع
+```
+
+### ماژول‌های اصلی
+
+#### 🎮 Game.js
+کلاس اصلی که همه ماژول‌ها را مدیریت می‌کند:
+- مدیریت حلقه بازی
+- collision detection
+- input handling
+- game state management
+
+#### 🎯 Player.js
+مدیریت بازیکنان:
+- فیزیک حرکت
+- power-up effects
+- collision handling
+- AI integration
+
+#### ⚽ Ball.js
+مدیریت توپ:
+- فیزیک توپ
+- collision detection
+- special effects
+- boundary handling
+
+#### 🏟️ Field.js
+مدیریت زمین:
+- goal detection
+- field rendering
+- physics boundaries
+- net drawing
+
+#### 🤖 AIPlayer.js
+هوش مصنوعی پیشرفته:
+- decision making
+- state machine
+- tactical behavior
+- adaptive strategies
+
+## � تنظیمات و شخصی‌سازی
+
+### تغییر ثابت‌ها
+فایل `src/config/constants.js` را ویرایش کنید:
+```javascript
+// تغییر اندازه canvas
+export const CANVAS_WIDTH = 800;
+export const CANVAS_HEIGHT = 600;
+
+// تغییر فیزیک بازی
+export const JUMP_FORCE = 0.18;
+export const MOVE_FORCE = 0.015;
+```
+
+### اضافه کردن Power-up جدید
+```javascript
+// در constants.js
+export const POWER_UP_TYPES = [
+    // ... existing power-ups
+    { type: 'newPower', color: '#FF0000', duration: 5000, effect: 'قدرت جدید' }
+];
+```
+
+## 🐛 عیب‌یابی
+
+### مشکلات رایج
+
+#### گل ثبت نمی‌شود
+- مطمئن شوید که collision detection فعال است
+- بررسی کنید که goal areas درست تنظیم شده‌اند
+
+#### عملکرد کند
+- مرورگر را به‌روزرسانی کنید
+- تب‌های اضافی را ببندید
+- تنظیمات PIXELATION_SCALE_FACTOR را کاهش دهید
+
+#### صدا کار نمی‌کند
+- مطمئن شوید که مرورگر اجازه پخش صدا دارد
+- روی canvas کلیک کنید تا audio context فعال شود
+
+### Debug Mode
+برای فعال کردن debug mode:
+```javascript
+// در Game.js
+console.log('Debug info:', {
+    ballPosition: this.ball.getPosition(),
+    playerPositions: this.players.map(p => p.getPosition()),
+    gameState: this.gameState
+});
+```
+
+## 🤝 مشارکت
+
+### گزارش باگ
+1. Issue جدید ایجاد کنید
+2. مرورگر و سیستم عامل را مشخص کنید
+3. مراحل تکرار باگ را بنویسید
+4. Screenshot یا video اضافه کنید
+
+### پیشنهاد ویژگی
+1. Issue جدید با برچسب "enhancement" ایجاد کنید
+2. توضیح کامل ویژگی پیشنهادی
+3. مزایا و کاربردها را بنویسید
+
+### Pull Request
+1. Fork کنید
+2. Branch جدید ایجاد کنید
+3. تغییرات را commit کنید
+4. Pull request ارسال کنید
+
+## 📄 لایسنس
+
+این پروژه تحت لایسنس MIT منتشر شده است.
+
+## 🙏 تشکر
+
+- **Matter.js**: برای موتور فیزیک
+- **Community**: برای ایده‌ها و بازخورد
+- **Contributors**: برای مشارکت‌ها
+
+## 📞 تماس
+
+- **GitHub**: [@yourusername](https://github.com/yourusername)
+- **Email**: your.email@example.com
+- **Discord**: [Server Link]
 
 ---
 
-**Enjoy the chaotic fun of Soccer Physics!** ⚽🎮
+**لذت ببرید از بازی! ⚽🎮**
