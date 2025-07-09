@@ -611,9 +611,17 @@ function setupCollisions() {
                      (playerIndex === 1 && opponent.body.position.x < ball.position.x))) {
                     isObstacleAhead = true;
                 }
+                // لاگ دیباگ برای چیپ
+                console.log('CHIP DEBUG', {
+                  isJump, isNearCorner, isObstacleAhead, ballX: ball.position.x, playerX: player.body.position.x
+                });
                 if (isJump && (isNearCorner || isObstacleAhead)) {
+                    console.log('CHIP EXECUTED!');
                     const chipVX = playerIndex === 0 ? 6 : -6;
                     Body.setVelocity(ball, { x: chipVX, y: -14 });
+                    setTimeout(() => {
+                      console.log('Ball velocity after chip:', ball.velocity);
+                    }, 50);
                     audioManager.playSound('kick');
                     gameMessageDisplay.textContent = 'چیپ!';
                     gameMessageDisplay.classList.add('has-text');
