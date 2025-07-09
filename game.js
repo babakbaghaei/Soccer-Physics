@@ -613,13 +613,13 @@ function setupCollisions() {
                 }
                 // چیپ واقعی: اگر توپ نزدیک زمین است و بازیکن با سرعت عمودی منفی کافی از بالا روی توپ بپرد
                 const isBallOnGround = Math.abs(ball.position.y + ball.circleRadius - GROUND_Y) < 25;
-                const isPlayerFalling = player.body.velocity.y < -0.2;
-                const isChipCondition = isBallOnGround && isPlayerFalling;
+                const isChipCondition = isBallOnGround;
                 console.log('CHIP DEBUG', {isChipCondition, isBallOnGround, vy: player.body.velocity.y, ballY: ball.position.y, playerY: player.body.position.y});
                 if (isChipCondition) {
                     console.log('CHIP EXECUTED!');
                     const chipVX = playerIndex === 0 ? 10 : -10;
                     Body.setVelocity(ball, { x: chipVX, y: -16 });
+                    Body.setAngularVelocity(ball, playerIndex === 0 ? 0.5 : -0.5);
                     setTimeout(() => {
                       console.log('Ball velocity after chip:', ball.velocity);
                     }, 50);
