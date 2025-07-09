@@ -600,6 +600,26 @@ function setupCollisions() {
                 } else {
                     isLongShot = ball.position.x < CANVAS_WIDTH * 0.3;
                 }
+                // --- منطق چیپ ---
+                let isNearCorner = (ball.position.x < 60 || ball.position.x > CANVAS_WIDTH - 60);
+                let isObstacleAhead = false;
+                // بررسی وجود مانع جلوی بازیکن (بازیکن دیگر نزدیک توپ و بین توپ و دروازه)
+                const opponent = players[1 - playerIndex];
+                if (Math.abs(opponent.body.position.x - ball.position.x) < 40 &&
+                    ((playerIndex === 0 && opponent.body.position.x > ball.position.x) ||
+                     (playerIndex === 1 && opponent.body.position.x < ball.position.x))) {
+                    isObstacleAhead = true;
+                }
+                // اگر پرش و گوشه یا مانع، چیپ بزن
+                if (isJump && (isNearCorner || isObstacleAhead)) {
+                    // چیپ: سرعت عمودی زیاد و افقی متوسط
+                    const chipVX = playerIndex === 0 ? 6 : -6;
+                    Body.setVelocity(ball, { x: chipVX, y: -12 });
+                    audioManager.playSound('kick');
+                    gameMessageDisplay.textContent = 'چیپ!';
+                    gameMessageDisplay.classList.add('has-text');
+                    setTimeout(() => { gameMessageDisplay.textContent = ''; gameMessageDisplay.classList.remove('has-text'); }, 700);
+                }
                 lastBallHitInfo = {
                     team: player.team,
                     isJump,
