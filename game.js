@@ -639,16 +639,20 @@ function setupCollisions() {
                     const chipVX = playerIndex === 0 ? 10 : -10;
                     Body.setVelocity(ball, { x: chipVX, y: -16 });
                     Body.setAngularVelocity(ball, playerIndex === 0 ? 0.5 : -0.5);
-                    setTimeout(() => {
-                      console.log('Ball velocity after chip:', ball.velocity);
-                    }, 50);
-                    audioManager.playSound('kick');
-                    gameMessageDisplay.textContent = 'چیپ!';
-                    gameMessageDisplay.classList.add('has-text');
-                    setTimeout(() => { gameMessageDisplay.textContent = ''; gameMessageDisplay.classList.remove('has-text'); }, 700);
+                    chipMessageTimer = 40;
+                    // ناپدید کردن بازیکن مقابل
+                    const opponentIndex = 1 - playerIndex;
+                    const opponent = players[opponentIndex];
+                    if (!opponent._vanishTimeout) {
+                        opponent.body.render = opponent.body.render || {};
+                        opponent.body.render.opacity = 0;
+                        opponent._vanishTimeout = setTimeout(() => {
+                            opponent.body.render.opacity = 1;
+                            opponent._vanishTimeout = null;
+                        }, 1000);
+                    }
                     ball.isChipped = true;
                     setTimeout(() => { ball.isChipped = false; }, 100);
-                    chipMessageTimer = 40; // حدود 0.7 ثانیه با فرض 60fps
                 }
                 lastBallHitInfo = {
                     team: player.team,
