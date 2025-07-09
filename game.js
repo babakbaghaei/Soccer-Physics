@@ -216,19 +216,43 @@ function draw() {
 
     // ترسیم تمام اجسام فیزیکی
     const allBodies = Composite.allBodies(world);
-    ctx.beginPath();
-    for (let i = 0; i < allBodies.length; i++) {
-        const body = allBodies[i];
+    allBodies.forEach(body => {
+        ctx.beginPath();
         const vertices = body.vertices;
         ctx.moveTo(vertices[0].x, vertices[0].y);
         for (let j = 1; j < vertices.length; j++) {
             ctx.lineTo(vertices[j].x, vertices[j].y);
         }
         ctx.lineTo(vertices[0].x, vertices[0].y);
-    }
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = '#000';
-    ctx.stroke();
+
+        // تعیین رنگ بر اساس نوع جسم
+        if (body.label === 'player1') {
+            ctx.fillStyle = players[0].color; // رنگ بازیکن ۱
+            ctx.fill();
+        } else if (body.label === 'player2') {
+            ctx.fillStyle = players[1].color; // رنگ بازیکن ۲
+            ctx.fill();
+        } else if (body.label === 'ball') {
+            ctx.fillStyle = 'white'; // رنگ توپ
+            ctx.fill();
+        } else if (body.isStatic) {
+            // زمین، دیوارها و تیرک دروازه
+            ctx.fillStyle = body.render.fillStyle || '#444'; // رنگ پیش‌فرض برای اجسام استاتیک
+             if (body.label === 'Rectangle Body' && body.position.y > CANVAS_HEIGHT/2) { // Ground
+                ctx.fillStyle = '#228B22';
+            } else if (goals.team1[0] === body || goals.team2[0] === body) { // Goal posts
+                ctx.fillStyle = '#FFF';
+            } else {
+                 ctx.fillStyle = '#666'; // Walls & Ceiling
+            }
+            ctx.fill();
+        }
+
+        // همیشه یک حاشیه نازک مشکی بکش
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#000';
+        ctx.stroke();
+    });
 
     handlePlayerControls();
     requestAnimationFrame(draw);
