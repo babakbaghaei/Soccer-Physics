@@ -614,28 +614,38 @@ function setupCollisions() {
             if (playerBody) {
                 const playerIndex = playerBody.label === 'player1' ? 0 : 1;
                 const player = players[playerIndex];
-                // لاگ برای تست
-                console.log('S pressed:', keysPressed['s'], 'playerIndex:', playerIndex);
-                // پرتاب تدریجی توپ با S
+                // پرتاب تدریجی توپ با S با قدرت کم و انیمیشن خم شدن
                 if (playerIndex === 0 && keysPressed['s']) {
                     sPower = Math.min(sPower + 1, 3);
                     if (sPowerTimeout) clearTimeout(sPowerTimeout);
                     sPowerTimeout = setTimeout(() => { sPower = 0; }, 1000);
-                    let yPower = -2;
-                    if (sPower === 2) yPower = -3.5;
-                    if (sPower >= 3) yPower = -5;
+                    let yPower = -1.5;
+                    if (sPower === 2) yPower = -2.5;
+                    if (sPower >= 3) yPower = -3.5;
                     Body.setVelocity(ball, { x: 0, y: yPower });
                     Body.setAngularVelocity(ball, 0);
+                    // انیمیشن خم شدن
+                    const originalAngle = player.body.angle;
+                    Matter.Body.setAngle(player.body, originalAngle + (playerIndex === 0 ? -0.4 : 0.4));
+                    setTimeout(() => {
+                        Matter.Body.setAngle(player.body, originalAngle);
+                    }, 300);
                     console.log('Ball launched up by S! Power:', sPower, 'y:', yPower);
                 }
-                // برای AI: اگر توپ نزدیک دروازه حریف یا مانع جلوی توپ بود، توپ را به بالا پرتاب کن
+                // برای AI: اگر توپ نزدیک دروازه حریف یا مانع جلوی توپ بود، توپ را به بالا پرتاب کن و انیمیشن خم شدن
                 if (playerIndex === 1) {
                     const nearGoal = ball.position.x < 120;
                     const opponent = players[0];
                     const opponentNear = Math.abs(opponent.body.position.x - ball.position.x) < 40;
                     if (nearGoal || opponentNear) {
-                        Body.setVelocity(ball, { x: 0, y: -5 });
+                        Body.setVelocity(ball, { x: 0, y: -3.5 });
                         Body.setAngularVelocity(ball, 0);
+                        // انیمیشن خم شدن AI
+                        const originalAngle = player.body.angle;
+                        Matter.Body.setAngle(player.body, originalAngle + 0.4);
+                        setTimeout(() => {
+                            Matter.Body.setAngle(player.body, originalAngle);
+                        }, 300);
                     }
                 }
                 // جلوگیری از override چیپ
@@ -894,25 +904,24 @@ function handleGoalScored(scoringTeam) {
         }, 1200);
     }, 200);
 
-    // پرتاب و ناپدید شدن تدریجی بازیکن گل‌خورده و توپ بعد از گل
+    // پرتاب و fade بازیکن گل‌خورده
     Body.setStatic(loserPlayer.body, false);
-    Body.setVelocity(loserPlayer.body, { x: 0, y: -10 });
+    Body.setVelocity(loserPlayer.body, { x: 0, y: -7 });
     loserPlayer.body.render = loserPlayer.body.render || {};
     let fadeStep = 0;
     const fadeInterval = setInterval(() => {
         fadeStep++;
-        loserPlayer.body.render.opacity = Math.max(0, 1 - fadeStep / 20);
-        if (fadeStep >= 20) {
+        loserPlayer.body.render.opacity = Math.max(0, 1 - fadeStep / 30);
+        if (fadeStep >= 30) {
             clearInterval(fadeInterval);
-            loserPlayer.body.render.opacity = 1;
+            setTimeout(() => { loserPlayer.body.render.opacity = 1; }, 500);
         }
-    }, 50);
+    }, 33);
     // توپ ناپدید و بعد ظاهر شود سمت بازیکن گل‌خورده
     ball.render = ball.render || {};
     ball.render.opacity = 0;
     setTimeout(() => {
         ball.render.opacity = 1;
-        // توپ سمت بازیکن گل‌خورده قرار بگیرد
         const newX = loserIndex === 0 ? 200 : CANVAS_WIDTH - 200;
         Body.setPosition(ball, { x: newX, y: 100 });
         Body.setVelocity(ball, { x: 0, y: 0 });
