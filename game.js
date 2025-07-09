@@ -613,7 +613,6 @@ function setupCollisions() {
                 }
                 // برای AI: اگر توپ نزدیک دروازه حریف یا مانع جلوی توپ بود، توپ را به بالا پرتاب کن
                 if (playerIndex === 1) {
-                    // مثال: اگر توپ نزدیک دروازه تیم 1 (سمت چپ) یا بازیکن حریف نزدیک توپ بود
                     const nearGoal = ball.position.x < 120;
                     const opponent = players[0];
                     const opponentNear = Math.abs(opponent.body.position.x - ball.position.x) < 40;
