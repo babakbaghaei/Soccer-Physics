@@ -510,6 +510,19 @@ let lastBallHitInfo = {
     hitVelocity: null
 };
 
+// --- Helper: ثبت مالکیت توپ ---
+function updatePossession(team) {
+    if (gameStats.lastPossession !== team) {
+        const now = Date.now();
+        if (gameStats.lastPossession && gameStats.startTime) {
+            const lastTeam = gameStats.lastPossession === 1 ? 'team1' : 'team2';
+            gameStats.totalPossessionTime[lastTeam] += now - gameStats.startTime;
+        }
+        gameStats.lastPossession = team;
+        gameStats.startTime = now;
+    }
+}
+
 function setupCollisions() {
     Events.on(engine, 'collisionStart', (event) => {
         const pairs = event.pairs;
@@ -550,6 +563,14 @@ function setupCollisions() {
                     hitPosition: { ...player.body.position },
                     hitVelocity: { ...player.body.velocity }
                 };
+
+                // ثبت شوت
+                if (Math.abs(ballVel.x) > 2 || Math.abs(ballVel.y) > 2) {
+                    const teamKey = player.team === 1 ? 'team1' : 'team2';
+                    gameStats[teamKey].shots++;
+                }
+                // ثبت مالکیت توپ
+                updatePossession(player.team);
             }
 
             // Goal scoring
@@ -631,6 +652,7 @@ function handlePlayerControls() {
         Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
         p1.isGrounded = false;
         audioManager.playSound('jump');
+        gameStats.team1.jumps++;
     } else if (keysPressed['w'] && !p1.isGrounded) {
         // Optional: sound for attempted jump in air? Probably not.
     }
@@ -801,6 +823,18 @@ function endGame() {
     if (team2Score > team1Score) winnerMessage = "تیم آبی برنده شد!";
     gameMessageDisplay.textContent = `پایان بازی! ${winnerMessage}`;
     gameMessageDisplay.classList.add('has-text');
+
+    // --- نمایش خلاصه آمار بازی ---
+    const t1 = gameStats.team1, t2 = gameStats.team2;
+    const pos1 = Math.round(gameStats.totalPossessionTime.team1 / 1000);
+    const pos2 = Math.round(gameStats.totalPossessionTime.team2 / 1000);
+    setTimeout(() => {
+        alert(
+            `آمار بازی:\n` +
+            `تیم ۱: شوت ${t1.shots} | پرش ${t1.jumps} | گل ویژه ${t1.specialGoals} | مالکیت ${pos1} ثانیه\n` +
+            `تیم ۲: شوت ${t2.shots} | پرش ${t2.jumps} | گل ویژه ${t2.specialGoals} | مالکیت ${pos2} ثانیه`
+        );
+    }, 1000);
 }
 
 window.addEventListener('DOMContentLoaded', setup);
