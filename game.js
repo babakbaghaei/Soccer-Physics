@@ -80,6 +80,8 @@ const keysPressed = {};
 // Setup Function
 // ===================================================================================
 function setup() {
+    console.log("Starting game setup...");
+    
     mainCanvas.width = CANVAS_WIDTH;
     mainCanvas.height = CANVAS_HEIGHT;
 
@@ -101,13 +103,15 @@ function setup() {
 
     // Initialize AI for Player 2
     // Ensure players array is populated and ball exists.
-    if (typeof initializeAI === "function" && players.length > 1 && ball) {
-        initializeAI(players[AI_PLAYER_INDEX], ball, engine); // AI_PLAYER_INDEX should be 1 for P2
+    if (typeof window.initializeAI === "function" && players.length > 1 && ball) {
+        window.initializeAI(players[AI_PLAYER_INDEX], ball, engine); // AI_PLAYER_INDEX should be 1 for P2
+        console.log("AI initialized successfully");
     } else {
         console.error("AI could not be initialized. Ensure ai_player.js is loaded and initializeAI is defined.");
     }
 
     startGame();
+    console.log("Game setup completed!");
 }
 
 // ===================================================================================
@@ -144,6 +148,7 @@ function createField() {
     goals.team2 = [goal2Post, goal2Sensor];
     
     World.add(world, [ground, leftWall, rightWall, ceiling, goal1Post, goal1Sensor, goal2Post, goal2Sensor]);
+    console.log("Field created");
 }
 
 function createPlayers() {
@@ -159,6 +164,7 @@ function createPlayers() {
     });
     players.push({ body: player2Body, team: 2, isGrounded: false, color: '#428BCA' });
     World.add(world, [player1Body, player2Body]);
+    console.log("Players created");
 }
 
 // AI Player reference (from ai_player.js) - Ensure ai_player.js is loaded before game.js or functions are globally available
@@ -177,6 +183,7 @@ function createBall() {
         render: { sprite: { texture: null, xScale: 1, yScale: 1 } }
     });
     World.add(world, ball);
+    console.log("Ball created");
 }
 
 // ===================================================================================
@@ -452,8 +459,8 @@ function draw() {
     handlePlayerControls();
 
     // Update AI Player
-    if (typeof updateAI === "function" && !isGameOver) {
-        updateAI();
+    if (typeof window.updateAI === "function" && !isGameOver) {
+        window.updateAI();
     }
 
     requestAnimationFrame(draw);
@@ -664,8 +671,8 @@ function resetPositions() {
     Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 100 });
     Body.setVelocity(ball, { x: 0, y: 0 });
 
-    if (typeof resetAIState === "function") {
-        resetAIState();
+    if (typeof window.resetAIState === "function") {
+        window.resetAIState();
     }
 }
 

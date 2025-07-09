@@ -11,6 +11,20 @@ const AI_STATE = {
     RECOVER: 'RECOVER'  // After conceding a goal or defensive disarray
 };
 
+// --- Global constants that will be available from game.js ---
+let CANVAS_WIDTH = 800;
+let CANVAS_HEIGHT = 600;
+let PLAYER_WIDTH = 40;
+let PLAYER_HEIGHT = 40;
+let JUMP_FORCE = 0.18;
+let MOVE_FORCE = 0.015;
+let AIR_MOVE_FORCE_MULTIPLIER = 0.1;
+let BALL_RADIUS = 15;
+let GROUND_Y = 580;
+let GOAL_HEIGHT = 120;
+let GOAL_WIDTH = 30;
+let isGameOver = false;
+
 // --- AI Variables ---
 let currentAiState = AI_STATE.IDLE;
 let lastJumpTime = 0;
@@ -29,9 +43,8 @@ let recentOpponentActions = [];
 
 // --- Constants for Adaptive Learning ---
 // Assuming CANVAS_WIDTH is globally available from game.js
-const OPPONENT_HALF_X_LINE = typeof CANVAS_WIDTH !== 'undefined' ? CANVAS_WIDTH / 2 : 400;
-const PLAYER1_ATTACK_ZONE_THIRD = typeof CANVAS_WIDTH !== 'undefined' ? CANVAS_WIDTH / 4 : 200; // Divides P1's half (0 to CANVAS_WIDTH/2) into rough thirds for zone tracking
-
+const OPPONENT_HALF_X_LINE = CANVAS_WIDTH / 2;
+const PLAYER1_ATTACK_ZONE_THIRD = CANVAS_WIDTH / 4; // Divides P1's half (0 to CANVAS_WIDTH/2) into rough thirds for zone tracking
 
 // ===================================================================================
 // AI Initialization & Adaptation API
@@ -256,9 +269,9 @@ function moveHorizontally(playerPosition, targetX, force) {
     // Add a small dead zone to prevent jittering if AI is very close to targetX
     const deadZone = PLAYER_WIDTH * 0.1;
     if (targetX < playerPosition.x - deadZone) { // Target is to the left
-        Body.applyForce(aiPlayer.body, playerPosition, { x: -currentMoveForce, y: 0 });
+        Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: -currentMoveForce, y: 0 });
     } else if (targetX > playerPosition.x + deadZone) { // Target is to the right
-        Body.applyForce(aiPlayer.body, playerPosition, { x: currentMoveForce, y: 0 });
+        Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: currentMoveForce, y: 0 });
     }
 }
 
@@ -317,7 +330,7 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
 
 function performJump() {
     if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
-        Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -JUMP_FORCE });
+        Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -JUMP_FORCE });
         aiPlayer.isGrounded = false; // Assume this will be updated by collision events in game.js
         lastJumpTime = Date.now();
         // console.log("AI Player jumped.");
@@ -441,16 +454,10 @@ function resetAIState() {
     console.log("AI State Reset to RECOVER.");
 }
 
-// Expose functions to be used by game.js if using script tags,
-// or handle module exports if using ES6 modules.
-// For simple script include:
-// window.initializeAI = initializeAI;
-// window.updateAI = updateAI;
-// window.resetAIState = resetAIState;
-// window.setAIGameOver = function(status) { isGameOver = status; }; // Allow game.js to set game over status
-
-// Constants from game.js that might be needed (ensure they are accessible)
-// const CANVAS_WIDTH, CANVAS_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT, JUMP_FORCE, MOVE_FORCE, AIR_MOVE_FORCE_MULTIPLIER, BALL_RADIUS, GROUND_Y, GOAL_HEIGHT, GOAL_WIDTH
-// It's better if these are passed during initialization or accessed via a shared game state object.
-// For now, we assume some key constants like CANVAS_WIDTH, PLAYER_WIDTH etc. are globally available or will be made so.
-// This will be refined during integration.
+// ===================================================================================
+// Expose functions to be used by game.js
+// ===================================================================================
+window.initializeAI = initializeAI;
+window.updateAI = updateAI;
+window.resetAIState = resetAIState;
+window.recordOpponentOffensiveAction = recordOpponentOffensiveAction;
