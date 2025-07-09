@@ -38,7 +38,6 @@ const ballCategory = 0x0004;
 const worldCategory = 0x0008;
 
 // --- Game Constants ---
-// ... (other constants)
 const AI_PLAYER_INDEX = 1; // Player 2 is at index 1 in the players array
 
 // --- Game Variables ---
@@ -53,6 +52,7 @@ let players = [];
 let goals = {};
 let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
+let lastFrameTime = 0;
 
 // --- Field Constants ---
 const GROUND_Y = 580;
@@ -61,7 +61,6 @@ const WALL_THICKNESS = 40;
 const GOAL_HEIGHT = 120;
 const GOAL_WIDTH = 30; // Original goal area width
 const GOAL_POST_WIDTH = 6; // Thinner goal posts (was 10)
-
 
 // --- Player Constants ---
 const PLAYER_FRICTION = 0.8;
@@ -76,11 +75,17 @@ const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
 const keysPressed = {};
 
+// --- Enhanced Game Systems ---
+let powerUpSystem;
+let physicsSystem;
+let gameStateManager;
+let enhancedAI;
+
 // ===================================================================================
 // Setup Function
 // ===================================================================================
 function setup() {
-    console.log("Starting game setup...");
+    console.log("Starting enhanced game setup...");
     
     mainCanvas.width = CANVAS_WIDTH;
     mainCanvas.height = CANVAS_HEIGHT;
@@ -95,23 +100,28 @@ function setup() {
     world = engine.world;
     engine.gravity.y = 1.5;
 
+    // Initialize enhanced systems
+    powerUpSystem = new window.PowerUpSystem();
+    physicsSystem = new window.PhysicsSystem();
+    gameStateManager = new window.GameStateManager();
+    enhancedAI = new window.EnhancedAI();
+
     createField();
     createPlayers();
     createBall();
     setupControls();
     setupCollisions();
 
-    // Initialize AI for Player 2
-    // Ensure players array is populated and ball exists.
-    if (typeof window.initializeAI === "function" && players.length > 1 && ball) {
-        window.initializeAI(players[AI_PLAYER_INDEX], ball, engine); // AI_PLAYER_INDEX should be 1 for P2
-        console.log("AI initialized successfully");
+    // Initialize Enhanced AI for Player 2
+    if (players.length > 1 && ball) {
+        enhancedAI.initialize(players[AI_PLAYER_INDEX], ball, engine);
+        console.log("Enhanced AI initialized successfully");
     } else {
-        console.error("AI could not be initialized. Ensure ai_player.js is loaded and initializeAI is defined.");
+        console.error("Enhanced AI could not be initialized");
     }
 
     startGame();
-    console.log("Game setup completed!");
+    console.log("Enhanced game setup completed!");
 }
 
 // ===================================================================================
@@ -167,18 +177,12 @@ function createPlayers() {
     console.log("Players created");
 }
 
-// AI Player reference (from ai_player.js) - Ensure ai_player.js is loaded before game.js or functions are globally available
-// For example, in index.html:
-// <script src="ai_player.js"></script>
-// <script src="game.js"></script>
-
-
 function createBall() {
     ball = Bodies.circle(CANVAS_WIDTH / 2, 100, BALL_RADIUS, {
-        restitution: 0.5,    // Reduced bounciness
+        restitution: 0.6,    // Slightly increased for more lively bounces
         friction: 0.01,      // Surface friction (rolling)
-        frictionAir: 0.01,   // Increased air resistance
-        density: 0.0015,     // Slightly increased density for more 'weight'
+        frictionAir: 0.008,   // Decreased air resistance for more realistic movement
+        density: 0.0012,     // Adjusted density
         label: 'ball',
         render: { sprite: { texture: null, xScale: 1, yScale: 1 } }
     });
@@ -187,7 +191,7 @@ function createBall() {
 }
 
 // ===================================================================================
-// Drawing Functions (Simplified for Global Pixelation)
+// Drawing Functions (Enhanced)
 // ===================================================================================
 let sunPosition = { x: 100, y: 100 };
 let cloudPositions = [
@@ -267,75 +271,87 @@ function drawSimplifiedNet(targetCtx, x_scaled, y_scaled, width_scaled, height_s
     }
 }
 
-// Simplified: White circle with a basic pattern (e.g. one black quarter or half)
-function drawSimplifiedSoccerBall(targetCtx, body) {
+// Enhanced: Soccer ball with better design
+function drawEnhancedSoccerBall(targetCtx, body) {
     const x_scaled = body.position.x * PIXELATION_SCALE_FACTOR;
     const y_scaled = body.position.y * PIXELATION_SCALE_FACTOR;
     const radius_scaled = body.circleRadius * PIXELATION_SCALE_FACTOR;
 
+    // Main ball body
     targetCtx.fillStyle = 'white';
     targetCtx.beginPath();
     targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, Math.PI * 2);
     targetCtx.fill();
 
+    // Ball pattern - multiple patches
     targetCtx.fillStyle = 'black';
-    targetCtx.beginPath();
-    // Example: a simple rotating line or a sector to show spin
-    const angle = body.angle; // Use body's angle
-    targetCtx.moveTo(x_scaled, y_scaled);
-    targetCtx.arc(x_scaled, y_scaled, radius_scaled, angle, angle + Math.PI / 3); // A sector
-    targetCtx.closePath();
-    targetCtx.fill();
+    const angle = body.angle;
+    
+    // Draw pentagon-like patches
+    for (let i = 0; i < 3; i++) {
+        const patchAngle = angle + (i * Math.PI * 2 / 3);
+        const patchX = x_scaled + Math.cos(patchAngle) * radius_scaled * 0.4;
+        const patchY = y_scaled + Math.sin(patchAngle) * radius_scaled * 0.4;
+        
+        targetCtx.beginPath();
+        targetCtx.arc(patchX, patchY, radius_scaled * 0.15, 0, Math.PI * 2);
+        targetCtx.fill();
+    }
 
+    // Ball outline
     targetCtx.strokeStyle = 'black';
-    targetCtx.lineWidth = Math.max(1, Math.floor(1 * PIXELATION_SCALE_FACTOR)); // 1 world px outline
+    targetCtx.lineWidth = Math.max(1, Math.floor(1 * PIXELATION_SCALE_FACTOR));
     targetCtx.beginPath();
     targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, Math.PI * 2);
     targetCtx.stroke();
 }
 
-// ===================================================================================
-// Particle System Variables and Functions
-// ===================================================================================
-let particles = [];
+// Enhanced player drawing with power-up indicators
+function drawEnhancedPlayer(targetCtx, player, playerIndex) {
+    const body = player.body;
+    const x_scaled = body.position.x * PIXELATION_SCALE_FACTOR;
+    const y_scaled = body.position.y * PIXELATION_SCALE_FACTOR;
+    const width_scaled = PLAYER_WIDTH * PIXELATION_SCALE_FACTOR;
+    const height_scaled = PLAYER_HEIGHT * PIXELATION_SCALE_FACTOR;
 
-function createImpactParticles(x, y, count = 5, color = '#A0522D') { // Brownish dirt color
-    for (let i = 0; i < count; i++) {
-        const angle = Math.random() * Math.PI - Math.PI; // Mostly upward direction (-PI to 0)
-        const speed = Math.random() * 2 + 1; // Random speed
-        particles.push({
-            x: x, // x position in world coordinates
-            y: y, // y position in world coordinates
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed * 0.5, // Less vertical velocity initially
-            life: Math.random() * 30 + 30, // Lifespan in frames (0.5 to 1 second at 60fps)
-            size: Math.random() * 2 + 1, // Size in world pixels
-            color: color
-        });
+    // Check for active power-ups
+    const activePowerUp = powerUpSystem.getPlayerPowerUp(playerIndex);
+    
+    // Draw power-up aura if active
+    if (activePowerUp) {
+        const auraColor = powerUpSystem.powerUpTypes[activePowerUp.type].color;
+        const pulse = 0.8 + 0.2 * Math.sin(Date.now() * 0.01);
+        
+        targetCtx.strokeStyle = auraColor;
+        targetCtx.globalAlpha = 0.5 * pulse;
+        targetCtx.lineWidth = 3 * PIXELATION_SCALE_FACTOR;
+        targetCtx.strokeRect(
+            x_scaled - width_scaled * 0.6,
+            y_scaled - height_scaled * 0.6,
+            width_scaled * 1.2,
+            height_scaled * 1.2
+        );
+        targetCtx.globalAlpha = 1.0;
     }
-}
 
-function updateAndDrawParticles(targetCtx) {
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.05; // Gravity effect on particles
-        p.life--;
+    // Draw player body
+    targetCtx.fillStyle = player.color;
+    targetCtx.fillRect(
+        x_scaled - width_scaled / 2,
+        y_scaled - height_scaled / 2,
+        width_scaled,
+        height_scaled
+    );
 
-        if (p.life <= 0) {
-            particles.splice(i, 1);
-        } else {
-            targetCtx.fillStyle = p.color;
-            // Draw particles on the lowResCtx, so scale positions and size
-            targetCtx.fillRect(
-                p.x * PIXELATION_SCALE_FACTOR - (p.size * PIXELATION_SCALE_FACTOR / 2),
-                p.y * PIXELATION_SCALE_FACTOR - (p.size * PIXELATION_SCALE_FACTOR / 2),
-                p.size * PIXELATION_SCALE_FACTOR,
-                p.size * PIXELATION_SCALE_FACTOR
-            );
-        }
-    }
+    // Draw player outline
+    targetCtx.strokeStyle = '#000000';
+    targetCtx.lineWidth = Math.max(1, Math.floor(2 * PIXELATION_SCALE_FACTOR));
+    targetCtx.strokeRect(
+        x_scaled - width_scaled / 2,
+        y_scaled - height_scaled / 2,
+        width_scaled,
+        height_scaled
+    );
 }
 
 // ===================================================================================
@@ -355,9 +371,17 @@ function triggerScreenShake(magnitude, duration) {
     shakeTimer = duration;
 }
 
-
-function draw() {
+function draw(currentTime) {
     if (isGameOver) return;
+
+    const deltaTime = currentTime - lastFrameTime;
+    lastFrameTime = currentTime;
+
+    // Update enhanced systems
+    powerUpSystem.update(deltaTime, world, players, ball);
+    physicsSystem.updateBallPhysics(ball);
+    physicsSystem.updateParticles();
+    gameStateManager.update(deltaTime, ball);
 
     if (isShaking) {
         shakeOffsetX = (Math.random() - 0.5) * shakeMagnitude * 2;
@@ -397,6 +421,7 @@ function draw() {
         lowResCtx.fillRect(x_stripe, grassStartY_scaled, currentStripeWidth, grassHeight_scaled);
     }
 
+    // Draw goals with nets
     drawSimplifiedNet(lowResCtx,
         0, (GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
         GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
@@ -407,41 +432,52 @@ function draw() {
         GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
     );
 
+    // Draw ball trail first (behind ball)
+    physicsSystem.drawBallTrail(lowResCtx, PIXELATION_SCALE_FACTOR);
+
+    // Draw all bodies
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
         if (body.render && body.render.visible === false) return;
-        lowResCtx.beginPath();
-        const vertices = body.vertices;
-        lowResCtx.moveTo(vertices[0].x * PIXELATION_SCALE_FACTOR, vertices[0].y * PIXELATION_SCALE_FACTOR);
-        for (let j = 1; j < vertices.length; j++) {
-            lowResCtx.lineTo(vertices[j].x * PIXELATION_SCALE_FACTOR, vertices[j].y * PIXELATION_SCALE_FACTOR);
-        }
-        lowResCtx.closePath();
-
+        
         if (body.label === 'player1' || body.label === 'player2') {
-            const player = (body.label === 'player1') ? players[0] : players[1];
-            lowResCtx.fillStyle = player.color;
-            lowResCtx.fill();
+            const playerIndex = body.label === 'player1' ? 0 : 1;
+            const player = players[playerIndex];
+            drawEnhancedPlayer(lowResCtx, player, playerIndex);
         } else if (body.label === 'ball') {
-            drawSimplifiedSoccerBall(lowResCtx, body);
-        } else if (body.isStatic) {
+            drawEnhancedSoccerBall(lowResCtx, body);
+        } else if (body.isStatic && !body.label?.startsWith('powerup')) {
+            lowResCtx.beginPath();
+            const vertices = body.vertices;
+            lowResCtx.moveTo(vertices[0].x * PIXELATION_SCALE_FACTOR, vertices[0].y * PIXELATION_SCALE_FACTOR);
+            for (let j = 1; j < vertices.length; j++) {
+                lowResCtx.lineTo(vertices[j].x * PIXELATION_SCALE_FACTOR, vertices[j].y * PIXELATION_SCALE_FACTOR);
+            }
+            lowResCtx.closePath();
+
             if (body.render && body.render.fillStyle) {
                 lowResCtx.fillStyle = body.render.fillStyle;
             } else {
                 lowResCtx.fillStyle = '#CCC';
             }
+            
             if (!(body.label === 'Rectangle Body' && body.position.y > (GROUND_Y - GROUND_THICKNESS) && body.area >= (CANVAS_WIDTH * GROUND_THICKNESS * 0.8))) {
                  lowResCtx.fill();
             }
-        }
-        if (!body.isSensor && body.label !== 'ball') {
-            lowResCtx.lineWidth = Math.max(1, Math.floor(2 * PIXELATION_SCALE_FACTOR));
-            lowResCtx.strokeStyle = '#000000';
-            lowResCtx.stroke();
+            
+            if (!body.isSensor) {
+                lowResCtx.lineWidth = Math.max(1, Math.floor(2 * PIXELATION_SCALE_FACTOR));
+                lowResCtx.strokeStyle = '#000000';
+                lowResCtx.stroke();
+            }
         }
     });
 
-    updateAndDrawParticles(lowResCtx); // Update and draw particles on the low-res canvas
+    // Draw power-ups
+    powerUpSystem.drawPowerUps(lowResCtx, PIXELATION_SCALE_FACTOR);
+
+    // Draw particles
+    physicsSystem.drawParticles(lowResCtx, PIXELATION_SCALE_FACTOR);
 
     lowResCtx.restore(); // Restore context state after shake translation
 
@@ -458,9 +494,9 @@ function draw() {
 
     handlePlayerControls();
 
-    // Update AI Player
-    if (typeof window.updateAI === "function" && !isGameOver) {
-        window.updateAI();
+    // Update Enhanced AI
+    if (enhancedAI && !isGameOver && gameStateManager.state === 'PLAYING') {
+        enhancedAI.update();
     }
 
     requestAnimationFrame(draw);
@@ -481,6 +517,16 @@ function setupControls() {
     window.addEventListener('keydown', (e) => {
         initializeAudio(); // Initialize audio on first keydown
         keysPressed[e.key.toLowerCase()] = true;
+        
+        // Record player action for AI analysis
+        if (['a', 'd', 'w'].includes(e.key.toLowerCase()) && players[0]) {
+            const isAggressive = e.key.toLowerCase() === 'w'; // Jumping is considered aggressive
+            enhancedAI.recordOpponentAction(
+                e.key.toLowerCase(), 
+                players[0].body.position, 
+                isAggressive
+            );
+        }
     });
     window.addEventListener('keyup', (e) => { keysPressed[e.key.toLowerCase()] = false; });
 }
@@ -515,38 +561,54 @@ function setupCollisions() {
                  }
             });
 
-            // Ball hitting ground
+            // Ball hitting ground - enhanced particle effects
             if ((bodyA.label === 'ball' && bodyB.label === 'Rectangle Body') || (bodyB.label === 'ball' && bodyA.label === 'Rectangle Body')) {
                 const ballBody = bodyA.label === 'ball' ? bodyA : bodyB;
-                const groundBody = bodyA.label === 'Rectangle Body' ? bodyA : bodyB; // just to be clear
-
                 const ballWorldY = ballBody.position.y + ballBody.circleRadius;
-                createImpactParticles(ballBody.position.x, ballWorldY);
+                physicsSystem.createImpactParticles(ballBody.position.x, ballWorldY, 12, '#8B4513');
                 audioManager.playSound('bounce');
             }
 
-            // Ball hitting a wall (leftWall, rightWall, ceiling)
-            // Walls don't have specific labels, but they are static and not 'Rectangle Body' (ground) or goal posts
+            // Ball hitting a wall
             if (bodyA.label === 'ball' && bodyB.isStatic && bodyB.label !== 'Rectangle Body' && !bodyB.label?.startsWith('goal')) {
                 audioManager.playSound('bounce');
+                physicsSystem.createImpactParticles(bodyA.position.x, bodyA.position.y, 6, '#CCCCCC');
             } else if (bodyB.label === 'ball' && bodyA.isStatic && bodyA.label !== 'Rectangle Body' && !bodyA.label?.startsWith('goal')) {
                 audioManager.playSound('bounce');
+                physicsSystem.createImpactParticles(bodyB.position.x, bodyB.position.y, 6, '#CCCCCC');
             }
-
 
             // Ball hitting a goal post for screen shake and sound
             if (bodyA.label === 'ball' && (bodyB.label === 'goalPost1' || bodyB.label === 'goalPost2')) {
                 triggerScreenShake(5, 15);
-                audioManager.playSound('bounce'); // Using bounce for post hit too
+                audioManager.playSound('bounce');
+                physicsSystem.createImpactParticles(bodyA.position.x, bodyA.position.y, 8, '#FFFFFF');
             } else if (bodyB.label === 'ball' && (bodyA.label === 'goalPost1' || bodyA.label === 'goalPost2')) {
                 triggerScreenShake(5, 15);
                 audioManager.playSound('bounce');
+                physicsSystem.createImpactParticles(bodyB.position.x, bodyB.position.y, 8, '#FFFFFF');
             }
 
             // Player hitting ball (kick sound)
             if ((bodyA.label === 'ball' && (bodyB.label === 'player1' || bodyB.label === 'player2')) ||
                 (bodyB.label === 'ball' && (bodyA.label === 'player1' || bodyA.label === 'player2'))) {
                 audioManager.playSound('kick');
+                
+                // Check for super shot power-up
+                const ballBody = bodyA.label === 'ball' ? bodyA : bodyB;
+                const playerBody = bodyA.label === 'ball' ? bodyB : bodyA;
+                const playerIndex = playerBody.label === 'player1' ? 0 : 1;
+                const activePowerUp = powerUpSystem.getPlayerPowerUp(playerIndex);
+                
+                if (activePowerUp && activePowerUp.type === 'SUPER_SHOT') {
+                    // Apply super shot effect
+                    const direction = ballBody.position.x > playerBody.position.x ? 1 : -1;
+                    Matter.Body.setVelocity(ballBody, {
+                        x: direction * 8, // Super fast shot
+                        y: -2 // Slight upward trajectory
+                    });
+                    physicsSystem.createImpactParticles(ballBody.position.x, ballBody.position.y, 15, '#FF4500');
+                }
             }
         }
     });
@@ -554,13 +616,27 @@ function setupCollisions() {
 
 function handlePlayerControls() {
     const p1 = players[0];
-    const currentMoveForceP1 = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
-
-    // Debug log for key presses and player state
-    if (Object.keys(keysPressed).some(key => keysPressed[key])) { // Log if any relevant key is pressed
-         initializeAudio(); // Also try initializing here if not done by keydown
-        // console.log(`Keys: a:${keysPressed['a']}, d:${keysPressed['d']}, w:${keysPressed['w']}. P1 Grounded: ${p1.isGrounded}, Velocity: {x: ${p1.body.velocity.x.toFixed(2)}, y: ${p1.body.velocity.y.toFixed(2)}}`);
+    if (!p1 || !p1.body) {
+        console.error("Player 1 not found or body is null");
+        return;
     }
+    
+    // Check for power-up effects
+    const p1PowerUp = powerUpSystem.getPlayerPowerUp(0);
+    let moveForceMultiplier = 1.0;
+    let gravityMultiplier = 1.0;
+    
+    if (p1PowerUp) {
+        if (p1PowerUp.type === 'SPEED') {
+            moveForceMultiplier = p1PowerUp.multiplier;
+        } else if (p1PowerUp.type === 'LOW_GRAVITY') {
+            gravityMultiplier = p1PowerUp.multiplier;
+            // Temporarily reduce gravity for this player (simplified)
+            engine.gravity.y = 1.5 * gravityMultiplier;
+        }
+    }
+    
+    const currentMoveForceP1 = (p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER) * moveForceMultiplier;
 
     if (keysPressed['a']) {
         Body.applyForce(p1.body, p1.body.position, { x: -currentMoveForceP1, y: 0 });
@@ -569,31 +645,16 @@ function handlePlayerControls() {
         Body.applyForce(p1.body, p1.body.position, { x: currentMoveForceP1, y: 0 });
     }
     if (keysPressed['w'] && p1.isGrounded) {
-        Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
+        const jumpForce = JUMP_FORCE * (p1PowerUp && p1PowerUp.type === 'LOW_GRAVITY' ? 1.3 : 1.0);
+        Body.applyForce(p1.body, p1.body.position, { x: 0, y: -jumpForce });
         p1.isGrounded = false;
         audioManager.playSound('jump');
-    } else if (keysPressed['w'] && !p1.isGrounded) {
-        // Optional: sound for attempted jump in air? Probably not.
     }
-
-    // Player 2 (Blue Team) is now controlled by AI
-    // const p2 = players[1];
-    // const currentMoveForceP2 = p2.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
-    // if (keysPressed['arrowleft']) {
-    //     Body.applyForce(p2.body, p2.body.position, { x: -currentMoveForceP2, y: 0 });
-    //     console.log("Player 2 (Blue) Action: 'ArrowLeft' (Move Left). Grounded: " + p2.isGrounded);
-    // }
-    // if (keysPressed['arrowright']) {
-    //     Body.applyForce(p2.body, p2.body.position, { x: currentMoveForceP2, y: 0 });
-    //     console.log("Player 2 (Blue) Action: 'ArrowRight' (Move Right). Grounded: " + p2.isGrounded);
-    // }
-    // if (keysPressed['arrowup'] && p2.isGrounded) {
-    //     Body.applyForce(p2.body, p2.body.position, { x: 0, y: -JUMP_FORCE });
-    //     p2.isGrounded = false;
-    //     console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump). Was Grounded: true");
-    // } else if (keysPressed['arrowup'] && !p2.isGrounded) {
-    //     console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump attempted in air). Was Grounded: false");
-    // }
+    
+    // Reset gravity if no low gravity power-up
+    if (!p1PowerUp || p1PowerUp.type !== 'LOW_GRAVITY') {
+        engine.gravity.y = 1.5;
+    }
 }
 
 let goalScoredThisTick = false;
@@ -619,7 +680,6 @@ function handleGoalScored(scoringTeam) {
         // Apply a bit of spin for more dynamic bounce
         Body.setAngularVelocity(ball, (Math.random() - 0.5) * 0.2);
 
-
         gameMessageDisplay.textContent = "تیرک!"; // "Post!"
         gameMessageDisplay.classList.add('has-text');
 
@@ -635,7 +695,6 @@ function handleGoalScored(scoringTeam) {
         setTimeout(() => {
             goalScoredThisTick = false;
         }, 50);
-        // Note: The original goalScoredThisTick reset (for actual goals) is now part of the 'else' block.
         return; // Do not proceed to score the goal
     }
 
@@ -647,8 +706,12 @@ function handleGoalScored(scoringTeam) {
         team2Score++;
         team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
     }
+    
     gameMessageDisplay.textContent = "گل!"; // "Goal!"
     gameMessageDisplay.classList.add('has-text');
+    
+    // Enhanced goal handling with ball respawn system
+    gameStateManager.handleGoalScored(scoringTeam, ball);
     
     // Standard reset after a goal
     setTimeout(() => {
@@ -668,11 +731,13 @@ function resetPositions() {
     Body.setPosition(players[1].body, { x: 600, y: 450 });
     Body.setVelocity(players[1].body, { x: 0, y: 0 });
     Body.setAngle(players[1].body, 0);
-    Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 100 });
-    Body.setVelocity(ball, { x: 0, y: 0 });
 
-    if (typeof window.resetAIState === "function") {
-        window.resetAIState();
+    // Reset enhanced systems
+    if (enhancedAI) {
+        enhancedAI.reset();
+    }
+    if (physicsSystem) {
+        physicsSystem.ballTrail = [];
     }
 }
 
@@ -686,7 +751,9 @@ function startGame() {
             endGame();
         }
     }, 1000);
-    draw();
+    
+    lastFrameTime = performance.now();
+    draw(lastFrameTime);
 }
 
 function endGame() {

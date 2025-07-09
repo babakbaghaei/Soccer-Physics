@@ -1,208 +1,333 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
-html, body {
-    image-rendering: pixelated;
+/* Global Pixelated Rendering */
+* {
     image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
     image-rendering: crisp-edges;
-    -webkit-image-rendering: pixelated;
-    -ms-interpolation-mode: nearest-neighbor; /* IE, though less relevant for modern pixelation */
 }
 
+/* Body with pixelated scaling */
 body {
-    font-family: 'Press Start 2P', cursive, monospace; /* Apply new pixel font */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
     margin: 0;
-    background-color: #FFFFFF; /* Changed to white background */
-    /* Removed animated gradient background */
-    color: #333; /* Changed default text color for readability on white background */
-    font-size: 10px; /* Base font size for pixel font - adjust as needed */
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #FFFFFF; /* Changed from blue to white */
+    font-family: monospace;
+    /* Apply pixelated rendering to everything */
+    transform-origin: center center;
+    image-rendering: pixelated;
 }
-
-/* @keyframes backgroundMove removed as animation is removed */
 
 /* Retro TV Container */
 #retroTvContainer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: auto; /* Adjust to content + frame */
-    height: auto; /* Adjust to content + frame */
-    padding: 50px; /* Space for TV body */
-    background-color: #3a2a20; /* Dark wood color for TV body */
-    border-radius: 10px; /* Reduced from 30px */
-    border: 5px solid #2a1a10; /* Simpler border instead of complex shadow */
-    /* Removed complex box-shadow, relying on border for definition */
-    position: relative; /* For positioning controls */
-}
-
-.tv-frame {
-    display: flex;
-    flex-direction: column; /* Stack screen and controls */
-    align-items: center;
-    background-color: #1c1c1c; /* Dark plastic/metal for frame */
-    padding: 15px; /* Reduced padding */
-    border-radius: 5px; /* Reduced from 20px */
-    border: 3px solid #111; /* Sharp border */
-    /* Removed inset shadow for a flatter look */
-}
-
-.tv-screen {
-    width: 800px; /* Canvas width */
-    height: 600px; /* Canvas height */
-    background-color: lightgray; /* Default screen color, game will draw over */
-    position: relative; /* For positioning scoreboard and game message */
-    border: 4px solid #0a0a0a; /* Sharper inner screen bezel */
-    border-radius: 3px; /* Reduced from 10px, very slight rounding */
-    overflow: hidden; /* Ensure canvas/scoreboard don't spill */
-    /* Removed inset shadow for a flatter screen appearance */
-}
-
-
-#scoreBoard {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    width: 100%; /* Take full width of tv-screen */
-    position: absolute; /* Position over the canvas */
-    top: 10px;
-    left: 0;
-    z-index: 10; /* Ensure it's above the canvas */
-    font-size: 14px;
-    color: #fff;
-    padding: 5px 0; /* Reduced padding */
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
-    /* Removed border, box-shadow from original scoreboard for cleaner overlay look */
-}
-
-/* Removed ::before and shine animation for scoreboard */
-
-#team1ScoreDisplay, #team2ScoreDisplay, #timerDisplay {
-    font-weight: normal;
-    padding: 5px 10px;
-    background-color: transparent; /* Transparent background */
-    border: none; /* No border */
-    text-shadow: 1px 1px 2px #000; /* Text shadow for readability */
-}
-
-#team1ScoreDisplay {
-    color: #FFB83D;
-}
-
-#team2ScoreDisplay {
-    color: #82DAFF;
-}
-
-#timerDisplay {
-    color: #90EE90;
-}
-
-#gameCanvas {
-    /* border and border-radius removed, handled by tv-screen */
-    background-color: lightgray; /* Initial background, game draws over this */
+    position: relative;
+    /* Scale up the entire TV to simulate pixelation */
+    transform: scale(1.2);
     image-rendering: pixelated;
-    image-rendering: -moz-crisp-edges; /* Fallback for older Firefox */
-    image-rendering: crisp-edges;    /* Fallback */
-    -webkit-image-rendering: pixelated; /* Fallback for older WebKit */
-    -ms-interpolation-mode: nearest-neighbor; /* IE */
-    /* box-shadow removed, handled by tv-screen */
-    /* transform and transition removed for a static TV screen appearance */
-    display: block; /* Remove extra space below canvas */
-    width: 100%;
-    height: 100%;
 }
 
-/* No hover effect for gameCanvas inside TV */
+/* TV Frame */
+.tv-frame {
+    width: 900px;
+    height: 700px;
+    background: linear-gradient(145deg, #8B4513, #5D2A0A);
+    border-radius: 30px;
+    padding: 40px;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.5),
+        inset 0 5px 10px rgba(255, 255, 255, 0.1),
+        inset 0 -5px 10px rgba(0, 0, 0, 0.3);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    image-rendering: pixelated;
+}
 
-.tv-controls {
+/* Screen bezel */
+.tv-screen {
+    width: 820px;
+    height: 620px;
+    background: #000000;
+    border-radius: 15px;
+    padding: 10px;
+    box-shadow: 
+        inset 0 0 20px rgba(0, 0, 0, 0.8),
+        0 0 10px rgba(255, 255, 255, 0.1);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    image-rendering: pixelated;
+}
+
+/* Score Board */
+#scoreBoard {
+    width: 100%;
+    height: 40px;
+    background: linear-gradient(90deg, #2C2C2C, #1A1A1A);
+    border-radius: 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 80%; /* Control panel width */
-    padding: 15px 0 5px 0; /* Padding for controls area */
-    margin-top: 10px; /* Space between screen and controls */
+    padding: 0 20px;
+    margin-bottom: 10px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    font-weight: bold;
+    color: #00FF00;
+    text-shadow: 0 0 5px #00FF00;
+    image-rendering: pixelated;
 }
 
-.knob {
-    width: 40px;
-    height: 40px;
-    background-color: #505050; /* Dark grey knob */
-    border: 2px solid #333; /* Simplified border */
-    /* box-shadow: 0 2px 3px rgba(0,0,0,0.5), inset 0 0 5px rgba(255,255,255,0.2); */ /* Removed shadow */
-    position: relative;
-    border-radius: 2px; /* Sharper corners for knob */
-}
-.knob::before { /* Knob marker */
-    content: '';
-    position: absolute;
-    top: 5px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 10px;
-    background-color: #222;
-    border-radius: 2px;
+#team1ScoreDisplay {
+    color: #FF6B6B;
+    text-shadow: 0 0 8px #FF6B6B;
 }
 
-.speaker {
-    display: grid;
-    grid-template-columns: repeat(2, 10px); /* 2 columns of holes */
-    grid-gap: 5px;
-    padding: 10px;
-    background-color: #282828; /* Speaker grille color */
-    border-radius: 5px;
+#team2ScoreDisplay {
+    color: #4ECDC4;
+    text-shadow: 0 0 8px #4ECDC4;
 }
 
-.speaker-hole {
-    width: 10px;
-    height: 10px;
-    background-color: #1a1a1a; /* Darker hole color */
-    /* border-radius: 50%; */ /* Removed for square speaker holes */
+#timerDisplay {
+    color: #FFD93D;
+    text-shadow: 0 0 8px #FFD93D;
 }
 
+/* Game Canvas */
+#gameCanvas {
+    border: 4px solid #333333;
+    border-radius: 8px;
+    box-shadow: 
+        inset 0 0 15px rgba(0, 0, 0, 0.7),
+        0 0 20px rgba(255, 255, 255, 0.1);
+    background: #000000;
+    image-rendering: pixelated;
+    /* Force pixelated rendering */
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
 
+/* Game Message */
 #gameMessage {
-    position: absolute; /* Position over the canvas */
-    bottom: 20px; /* Positioned at the bottom of the screen */
+    position: absolute;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 40px); /* Responsive width */
-    z-index: 10;
-    font-size: 16px; /* Adjusted for pixel font */
-    font-weight: normal;
-    color: #00ff00; /* Bright green for messages, good for retro */
-    text-shadow: 2px 2px #000, -1px -1px #000, 1px -1px #000, -1px 1px #000; /* Stronger text shadow */
-    min-height: 0;
-    line-height: 1.3;
-    padding: 0; /* Default to no padding */
-    background: transparent; /* Default to transparent */
-    border: none;
-    box-shadow: none;
-    animation: none;
-    border-radius: 3px;
-    transition: background-color 0.2s, padding 0.2s; /* Smooth transition */
+    transform: translate(-50%, -50%);
+    font-family: 'Courier New', monospace;
+    font-size: 36px;
+    font-weight: bold;
+    color: #FFD700;
+    text-shadow: 
+        2px 2px 0 #000000,
+        4px 4px 8px rgba(0, 0, 0, 0.8),
+        0 0 20px #FFD700;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    image-rendering: pixelated;
 }
 
 #gameMessage.has-text {
-    background: rgba(0, 0, 0, 0.70); /* Slightly more opaque for better text visibility */
-    padding: 5px 10px; /* Padding only when there is text */
-    border-radius: 3px; /* Slight rounding for the message box */
+    opacity: 1;
+    animation: messageGlow 1.5s ease-in-out infinite alternate;
 }
 
-/* @keyframes messageGlow removed */
+@keyframes messageGlow {
+    from { text-shadow: 2px 2px 0 #000000, 4px 4px 8px rgba(0, 0, 0, 0.8), 0 0 20px #FFD700; }
+    to { text-shadow: 2px 2px 0 #000000, 4px 4px 8px rgba(0, 0, 0, 0.8), 0 0 30px #FFD700, 0 0 40px #FFD700; }
+}
 
-#controlsInfo {
-    margin-top: 15px;
-    font-size: 11px;
-    color: #ccc; /* Light grey for controls info */
-    text-shadow: 1px 1px #000;
+/* TV Controls */
+.tv-controls {
+    width: 100%;
+    height: 80px;
+    background: linear-gradient(145deg, #8B4513, #654321);
+    border-radius: 15px;
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 
+        inset 0 3px 6px rgba(255, 255, 255, 0.1),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.3);
+    image-rendering: pixelated;
+}
+
+/* Control Knobs */
+.knob {
+    width: 50px;
+    height: 50px;
+    background: radial-gradient(circle, #C0C0C0, #808080);
+    border-radius: 50%;
+    border: 3px solid #4A4A4A;
+    box-shadow: 
+        0 4px 8px rgba(0, 0, 0, 0.4),
+        inset 0 2px 4px rgba(255, 255, 255, 0.3),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+    image-rendering: pixelated;
+}
+
+.knob::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 3px;
+    height: 15px;
+    background: #333333;
+    transform: translateX(-50%);
+    border-radius: 2px;
+}
+
+/* Speaker Grille */
+.speaker {
+    width: 120px;
+    height: 60px;
+    background: #2C2C2C;
+    border-radius: 8px;
+    border: 2px solid #1A1A1A;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 8px;
     padding: 8px;
-    background: rgba(0, 0, 0, 0.6);
-    border: 2px solid #555;
-    border-radius: 4px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+    image-rendering: pixelated;
 }
 
-/* Control buttons now rendered inside canvas */
+.speaker-hole {
+    background: #0A0A0A;
+    border-radius: 50%;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* Controls Info */
+#controlsInfo {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #CCCCCC;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid #444444;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    image-rendering: pixelated;
+}
+
+/* Additional TV Effects */
+.tv-screen::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 255, 0, 0.03) 2px,
+            rgba(0, 255, 0, 0.03) 4px
+        );
+    pointer-events: none;
+    z-index: 10;
+    border-radius: 15px;
+}
+
+.tv-screen::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        transparent 70%,
+        rgba(0, 0, 0, 0.1) 100%
+    );
+    pointer-events: none;
+    z-index: 11;
+    border-radius: 15px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    #retroTvContainer {
+        transform: scale(0.9);
+    }
+}
+
+@media (max-width: 900px) {
+    #retroTvContainer {
+        transform: scale(0.7);
+    }
+    
+    .tv-frame {
+        width: 800px;
+        height: 600px;
+        padding: 30px;
+    }
+    
+    .tv-screen {
+        width: 740px;
+        height: 540px;
+    }
+    
+    #scoreBoard {
+        font-size: 14px;
+    }
+    
+    #gameMessage {
+        font-size: 28px;
+    }
+}
+
+@media (max-width: 600px) {
+    #retroTvContainer {
+        transform: scale(0.5);
+    }
+    
+    .tv-frame {
+        width: 700px;
+        height: 500px;
+        padding: 20px;
+    }
+    
+    .tv-screen {
+        width: 660px;
+        height: 460px;
+    }
+    
+    #scoreBoard {
+        font-size: 12px;
+        height: 30px;
+    }
+    
+    #gameMessage {
+        font-size: 24px;
+    }
+    
+    #controlsInfo {
+        font-size: 12px;
+        bottom: 10px;
+    }
+}

@@ -101,6 +101,27 @@ class AudioManager {
                 oscillator.stop(startTime + index * 0.1 + 0.15);
             });
         };
+
+        // --- Power-up Sound ---
+        // A magical/pickup sound
+        this.sounds['powerup'] = () => {
+            if (!this.audioContext) return;
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(660, this.audioContext.currentTime); // E5
+            oscillator.frequency.linearRampToValueAtTime(1320, this.audioContext.currentTime + 0.2); // E6
+
+            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.3);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(this.audioContext.currentTime + 0.3);
+        };
     }
 
     playSound(soundName) {
@@ -123,4 +144,5 @@ class AudioManager {
 
 // Export a single instance of the AudioManager
 const audioManager = new AudioManager();
+window.audioManager = audioManager; // Make it available globally
 export default audioManager;
