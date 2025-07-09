@@ -526,13 +526,18 @@ function handlePlayerControls() {
 
     if (keysPressed['a']) { // Left
         Body.applyForce(p1.body, p1.body.position, { x: -currentMoveForceP1, y: 0 });
+        console.log("Player 1 (Red) Action: 'a' (Move Left). Grounded: " + p1.isGrounded);
     }
     if (keysPressed['d']) { // Right
         Body.applyForce(p1.body, p1.body.position, { x: currentMoveForceP1, y: 0 });
+        console.log("Player 1 (Red) Action: 'd' (Move Right). Grounded: " + p1.isGrounded);
     }
     if (keysPressed['w'] && p1.isGrounded) { // Jump
         Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
         p1.isGrounded = false; // Set immediately to prevent double jump before next collision check
+        console.log("Player 1 (Red) Action: 'w' (Jump). Was Grounded: true");
+    } else if (keysPressed['w'] && !p1.isGrounded) {
+        console.log("Player 1 (Red) Action: 'w' (Jump attempted in air). Was Grounded: false");
     }
 
     // بازیکن ۲ (رقیب - کلیدهای جهت‌نما)
@@ -541,13 +546,18 @@ function handlePlayerControls() {
 
     if (keysPressed['arrowleft']) {
         Body.applyForce(p2.body, p2.body.position, { x: -currentMoveForceP2, y: 0 });
+        console.log("Player 2 (Blue) Action: 'ArrowLeft' (Move Left). Grounded: " + p2.isGrounded);
     }
     if (keysPressed['arrowright']) {
         Body.applyForce(p2.body, p2.body.position, { x: currentMoveForceP2, y: 0 });
+        console.log("Player 2 (Blue) Action: 'ArrowRight' (Move Right). Grounded: " + p2.isGrounded);
     }
     if (keysPressed['arrowup'] && p2.isGrounded) {
         Body.applyForce(p2.body, p2.body.position, { x: 0, y: -JUMP_FORCE });
         p2.isGrounded = false;
+        console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump). Was Grounded: true");
+    } else if (keysPressed['arrowup'] && !p2.isGrounded) {
+        console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump attempted in air). Was Grounded: false");
     }
 }
 
