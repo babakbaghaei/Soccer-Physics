@@ -602,6 +602,8 @@ function setupCollisions() {
                 playerBody = bodyA;
             }
             if (playerBody) {
+                const playerIndex = playerBody.label === 'player1' ? 0 : 1;
+                const player = players[playerIndex];
                 // لاگ برای تست
                 console.log('S pressed:', keysPressed['s'], 'playerIndex:', playerIndex);
                 if (playerIndex === 0 && keysPressed['s']) {
@@ -622,8 +624,6 @@ function setupCollisions() {
                 }
                 // جلوگیری از override چیپ
                 if (ball.isChipped) return;
-                const playerIndex = playerBody.label === 'player1' ? 0 : 1;
-                const player = players[playerIndex];
                 const ballPos = { ...ball.position };
                 const ballVel = { ...ball.velocity };
                 // تشخیص پرش: فقط اگر سرعت عمودی بازیکن کافی باشد
