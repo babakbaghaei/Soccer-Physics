@@ -613,36 +613,18 @@ function setupCollisions() {
             if (playerBody) {
                 const playerIndex = playerBody.label === 'player1' ? 0 : 1;
                 const player = players[playerIndex];
-                // پرتاب تدریجی توپ با S فقط هنگام برخورد
+                // پرتاب ساده توپ با S (یا توسط AI) با قدرت خیلی کم
                 if (playerIndex === 0 && keysPressed['s']) {
-                    sPower = Math.min(sPower + 1, 3); // فقط هنگام برخورد زیاد شود
-                    let yPower = -1.5;
-                    if (sPower === 2) yPower = -2.5;
-                    if (sPower >= 3) yPower = -3.5;
-                    Body.setVelocity(ball, { x: 0, y: yPower });
+                    Body.setVelocity(ball, { x: 0, y: -1 });
                     Body.setAngularVelocity(ball, 0);
-                    // انیمیشن خم شدن
-                    const originalAngle = player.body.angle;
-                    Matter.Body.setAngle(player.body, originalAngle + (playerIndex === 0 ? -0.4 : 0.4));
-                    setTimeout(() => {
-                        Matter.Body.setAngle(player.body, originalAngle);
-                    }, 300);
-                    console.log('Ball launched up by S! Power:', sPower, 'y:', yPower);
                 }
-                // برای AI: اگر توپ نزدیک دروازه حریف یا مانع جلوی توپ بود، توپ را به بالا پرتاب کن و انیمیشن خم شدن
                 if (playerIndex === 1) {
                     const nearGoal = ball.position.x < 120;
                     const opponent = players[0];
                     const opponentNear = Math.abs(opponent.body.position.x - ball.position.x) < 40;
                     if (nearGoal || opponentNear) {
-                        Body.setVelocity(ball, { x: 0, y: -3.5 });
+                        Body.setVelocity(ball, { x: 0, y: -1 });
                         Body.setAngularVelocity(ball, 0);
-                        // انیمیشن خم شدن AI
-                        const originalAngle = player.body.angle;
-                        Matter.Body.setAngle(player.body, originalAngle + 0.4);
-                        setTimeout(() => {
-                            Matter.Body.setAngle(player.body, originalAngle);
-                        }, 300);
                     }
                 }
                 // جلوگیری از override چیپ
