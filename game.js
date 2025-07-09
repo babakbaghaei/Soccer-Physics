@@ -54,6 +54,16 @@ let goals = {};
 let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
 
+// --- Power-ups System ---
+let powerUps = [];
+let powerUpTypes = [
+    { type: 'speed', color: '#FFD700', duration: 5000, effect: 'سرعت بالا' },
+    { type: 'strength', color: '#FF4500', duration: 4000, effect: 'شوت قوی' },
+    { type: 'shield', color: '#00CED1', duration: 6000, effect: 'محافظت' },
+    { type: 'magnet', color: '#FF69B4', duration: 3000, effect: 'آهنربا' }
+];
+let activePowerUps = { team1: null, team2: null };
+
 // --- Game Stats (For Stats Summary) ---
 let gameStats = {
     team1: { shots: 0, jumps: 0, possessions: 0, tackles: 0, mistakes: 0, specialGoals: 0 },
@@ -176,6 +186,13 @@ function setup() {
     document.getElementById('btnIce').onclick = () => setFieldType('ice');
     document.getElementById('btnSand').onclick = () => setFieldType('sand');
     document.getElementById('btnMoon').onclick = () => setFieldType('moon');
+
+    // ایجاد power-up های تصادفی
+    setInterval(() => {
+        if (!isGameOver && powerUps.length < 2) { // حداکثر 2 power-up همزمان
+            createPowerUp();
+        }
+    }, 8000); // هر 8 ثانیه یک power-up جدید
 }
 
 // ===================================================================================
@@ -198,21 +215,117 @@ function createField() {
     });
     // Sensor remains wider to define scoring area
     const goal1Sensor = Bodies.rectangle(GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, isSensor: true, label: 'goal1', render: { visible: false }
+        isStatic: true, render: { fillStyle: 'transparent' }, label: "goal1",
+        collisionFilter: { category: goalPostCategory, mask: ballCategory }
     });
-    goals.team1 = [goal1Post, goal1Sensor];
 
     const goal2Post = Bodies.rectangle(CANVAS_WIDTH - GOAL_POST_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_POST_WIDTH, GOAL_HEIGHT, {
         isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost2",
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
     const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
-        isStatic: true, isSensor: true, label: 'goal2', render: { visible: false }
+        isStatic: true, render: { fillStyle: 'transparent' }, label: "goal2",
+        collisionFilter: { category: goalPostCategory, mask: ballCategory }
     });
-    goals.team2 = [goal2Post, goal2Sensor];
-    
+
     World.add(world, [ground, leftWall, rightWall, ceiling, goal1Post, goal1Sensor, goal2Post, goal2Sensor]);
-    console.log("Field created");
+    goals = { team1: goal1Sensor, team2: goal2Sensor };
+}
+
+function createPowerUp() {
+    const powerUpType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+    const x = Math.random() * (CANVAS_WIDTH - 100) + 50;
+    const y = Math.random() * (GROUND_Y - 200) + 100;
+    
+    const powerUp = Bodies.circle(x, y, 15, {
+        isStatic: true,
+        render: { fillStyle: powerUpType.color },
+        label: 'powerUp',
+        powerUpType: powerUpType,
+        collisionFilter: { category: playerCategory, mask: playerCategory }
+    });
+    
+    powerUps.push(powerUp);
+    World.add(world, powerUp);
+    
+    // نمایش پیام
+    gameMessageDisplay.textContent = `قدرت جدید: ${powerUpType.effect}`;
+    gameMessageDisplay.classList.add('has-text');
+    setTimeout(() => {
+        gameMessageDisplay.textContent = '';
+        gameMessageDisplay.classList.remove('has-text');
+    }, 2000);
+    
+    // حذف خودکار بعد از 10 ثانیه
+    setTimeout(() => {
+        if (powerUps.includes(powerUp)) {
+            World.remove(world, powerUp);
+            powerUps = powerUps.filter(p => p !== powerUp);
+        }
+    }, 10000);
+}
+
+function applyPowerUp(player, powerUpType) {
+    const team = player.body.label === 'player1' ? 'team1' : 'team2';
+    
+    // لغو قدرت قبلی اگر وجود دارد
+    if (activePowerUps[team]) {
+        clearTimeout(activePowerUps[team].timeout);
+        deactivatePowerUp(player, activePowerUps[team].type);
+    }
+    
+    // اعمال قدرت جدید
+    switch (powerUpType.type) {
+        case 'speed':
+            player.moveForce = MOVE_FORCE * 2;
+            player.airMoveForce = MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER * 2;
+            break;
+        case 'strength':
+            player.shootPower = 2;
+            break;
+        case 'shield':
+            player.hasShield = true;
+            break;
+        case 'magnet':
+            player.hasMagnet = true;
+            break;
+    }
+    
+    // ذخیره قدرت فعال
+    activePowerUps[team] = {
+        type: powerUpType.type,
+        timeout: setTimeout(() => {
+            deactivatePowerUp(player, powerUpType.type);
+            activePowerUps[team] = null;
+        }, powerUpType.duration)
+    };
+    
+    // نمایش پیام
+    const teamName = team === 'team1' ? 'تیم ۱' : 'تیم ۲';
+    gameMessageDisplay.textContent = `${teamName}: ${powerUpType.effect}`;
+    gameMessageDisplay.classList.add('has-text');
+    setTimeout(() => {
+        gameMessageDisplay.textContent = '';
+        gameMessageDisplay.classList.remove('has-text');
+    }, 1500);
+}
+
+function deactivatePowerUp(player, powerUpType) {
+    switch (powerUpType) {
+        case 'speed':
+            player.moveForce = MOVE_FORCE;
+            player.airMoveForce = MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
+            break;
+        case 'strength':
+            player.shootPower = 1;
+            break;
+        case 'shield':
+            player.hasShield = false;
+            break;
+        case 'magnet':
+            player.hasMagnet = false;
+            break;
+    }
 }
 
 function createPlayers() {
@@ -488,8 +601,46 @@ function draw() {
             const player = (body.label === 'player1') ? players[0] : players[1];
             lowResCtx.fillStyle = player.color;
             lowResCtx.fill();
+            
+            // نمایش shield
+            if (player.hasShield) {
+                lowResCtx.strokeStyle = '#00CED1';
+                lowResCtx.lineWidth = Math.max(2, Math.floor(3 * PIXELATION_SCALE_FACTOR));
+                lowResCtx.stroke();
+            }
+            
+            // نمایش magnet
+            if (player.hasMagnet) {
+                const centerX = body.position.x * PIXELATION_SCALE_FACTOR;
+                const centerY = body.position.y * PIXELATION_SCALE_FACTOR;
+                lowResCtx.fillStyle = '#FF69B4';
+                lowResCtx.beginPath();
+                lowResCtx.arc(centerX, centerY, 25 * PIXELATION_SCALE_FACTOR, 0, Math.PI * 2);
+                lowResCtx.globalAlpha = 0.3;
+                lowResCtx.fill();
+                lowResCtx.globalAlpha = 1;
+            }
         } else if (body.label === 'ball') {
             drawSimplifiedSoccerBall(lowResCtx, body);
+        } else if (body.label === 'powerUp') {
+            // نمایش power-up
+            const centerX = body.position.x * PIXELATION_SCALE_FACTOR;
+            const centerY = body.position.y * PIXELATION_SCALE_FACTOR;
+            const radius = 15 * PIXELATION_SCALE_FACTOR;
+            
+            lowResCtx.fillStyle = body.powerUpType.color;
+            lowResCtx.beginPath();
+            lowResCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            lowResCtx.fill();
+            
+            // نمایش نماد قدرت
+            lowResCtx.fillStyle = 'white';
+            lowResCtx.font = `${Math.max(8, Math.floor(12 * PIXELATION_SCALE_FACTOR))}px Arial`;
+            lowResCtx.textAlign = 'center';
+            const symbol = body.powerUpType.type === 'speed' ? '⚡' : 
+                          body.powerUpType.type === 'strength' ? '💪' : 
+                          body.powerUpType.type === 'shield' ? '🛡️' : '🧲';
+            lowResCtx.fillText(symbol, centerX, centerY + 3 * PIXELATION_SCALE_FACTOR);
         } else if (body.isStatic) {
             if (body.render && body.render.fillStyle) {
                 lowResCtx.fillStyle = body.render.fillStyle;
@@ -500,7 +651,7 @@ function draw() {
                  lowResCtx.fill();
             }
         }
-        if (!body.isSensor && body.label !== 'ball') {
+        if (!body.isSensor && body.label !== 'ball' && body.label !== 'powerUp') {
             lowResCtx.lineWidth = Math.max(1, Math.floor(2 * PIXELATION_SCALE_FACTOR));
             lowResCtx.strokeStyle = '#000000';
             lowResCtx.stroke();
@@ -680,6 +831,16 @@ function setupCollisions() {
                     ball.isChipped = true;
                     setTimeout(() => { ball.isChipped = false; }, 100);
                 }
+                
+                // اعمال قدرت strength روی سرعت توپ
+                if (player.shootPower > 1) {
+                    const multiplier = player.shootPower;
+                    Body.setVelocity(ball, { 
+                        x: ball.velocity.x * multiplier, 
+                        y: ball.velocity.y * multiplier 
+                    });
+                }
+                
                 lastBallHitInfo = {
                     team: player.team,
                     isJump,
@@ -755,6 +916,45 @@ function setupCollisions() {
                 (bodyB.label === 'ball' && (bodyA.label === 'player1' || bodyA.label === 'player2'))) {
                 audioManager.playSound('kick');
             }
+
+            // Player collision with shield effect
+            if ((bodyA.label === 'player1' && bodyB.label === 'player2') ||
+                (bodyA.label === 'player2' && bodyB.label === 'player1')) {
+                const player1 = bodyA.label === 'player1' ? players[0] : players[1];
+                const player2 = bodyA.label === 'player1' ? players[1] : players[0];
+                
+                // اگر یکی از بازیکنان shield داشته باشد، حریف را به عقب پرتاب کن
+                if (player1.hasShield) {
+                    const forceX = bodyA.label === 'player1' ? 15 : -15;
+                    Body.setVelocity(player2.body, { x: forceX, y: -10 });
+                    createImpactParticles(player2.body.position.x, player2.body.position.y, 5, '#00CED1');
+                } else if (player2.hasShield) {
+                    const forceX = bodyA.label === 'player2' ? 15 : -15;
+                    Body.setVelocity(player1.body, { x: forceX, y: -10 });
+                    createImpactParticles(player1.body.position.x, player1.body.position.y, 5, '#00CED1');
+                }
+            }
+
+            // Power-up collision
+            if ((bodyA.label === 'powerUp' && (bodyB.label === 'player1' || bodyB.label === 'player2')) ||
+                (bodyB.label === 'powerUp' && (bodyA.label === 'player1' || bodyA.label === 'player2'))) {
+                const powerUp = bodyA.label === 'powerUp' ? bodyA : bodyB;
+                const playerBody = bodyA.label === 'powerUp' ? bodyB : bodyA;
+                const player = playerBody.label === 'player1' ? players[0] : players[1];
+                
+                // اعمال power-up
+                applyPowerUp(player, powerUp.powerUpType);
+                
+                // حذف power-up
+                World.remove(world, powerUp);
+                powerUps = powerUps.filter(p => p !== powerUp);
+                
+                // پخش صدای power-up
+                audioManager.playSound('powerup');
+                
+                // ایجاد ذرات
+                createImpactParticles(powerUp.position.x, powerUp.position.y, 8, powerUp.powerUpType.color);
+            }
         }
     });
 }
@@ -783,6 +983,23 @@ function handlePlayerControls() {
         p1.hasJumped = true; // فقط هنگام پرش واقعی
     } else if (keysPressed['w'] && !p1.isGrounded) {
         // Optional: sound for attempted jump in air? Probably not.
+    }
+
+    // منطق magnet برای جذب توپ
+    if (p1.hasMagnet) {
+        const distance = Math.sqrt(
+            Math.pow(ball.position.x - p1.body.position.x, 2) + 
+            Math.pow(ball.position.y - p1.body.position.y, 2)
+        );
+        if (distance < 100) { // فقط در فاصله 100 پیکسل
+            const force = 0.02;
+            const dx = p1.body.position.x - ball.position.x;
+            const dy = p1.body.position.y - ball.position.y;
+            Body.applyForce(ball, ball.position, { 
+                x: dx * force, 
+                y: dy * force 
+            });
+        }
     }
 
     // Player 2 (Blue Team) is now controlled by AI
@@ -941,18 +1158,44 @@ function handleGoalScored(scoringTeam) {
 }
 
 function resetPositions() {
+    // Reset ball position
+    Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 300 });
+    Body.setVelocity(ball, { x: 0, y: 0 });
+    Body.setAngularVelocity(ball, 0);
+
+    // Reset player positions
     Body.setPosition(players[0].body, { x: 200, y: 450 });
     Body.setVelocity(players[0].body, { x: 0, y: 0 });
-    Body.setAngle(players[0].body, 0);
     Body.setPosition(players[1].body, { x: 600, y: 450 });
     Body.setVelocity(players[1].body, { x: 0, y: 0 });
-    Body.setAngle(players[1].body, 0);
-    Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 100 });
-    Body.setVelocity(ball, { x: 0, y: 0 });
 
-    if (typeof window.resetAIState === "function") {
-        window.resetAIState();
-    }
+    // Reset player states
+    players.forEach(p => {
+        p.isGrounded = true;
+        p.hasJumped = false;
+        p.moveForce = MOVE_FORCE;
+        p.airMoveForce = MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
+        p.shootPower = 1;
+        p.hasShield = false;
+        p.hasMagnet = false;
+    });
+
+    // پاک کردن power-up ها
+    powerUps.forEach(powerUp => {
+        World.remove(world, powerUp);
+    });
+    powerUps = [];
+    
+    // لغو power-up های فعال
+    Object.keys(activePowerUps).forEach(team => {
+        if (activePowerUps[team]) {
+            clearTimeout(activePowerUps[team].timeout);
+            activePowerUps[team] = null;
+        }
+    });
+
+    // Reset ball state
+    ball.isChipped = false;
 }
 
 function startGame() {
