@@ -663,10 +663,10 @@ function setupCollisions() {
             // Ball hitting a goal post for screen shake and sound
             if (bodyA.label === 'ball' && (bodyB.label === 'goalPost1' || bodyB.label === 'goalPost2')) {
                 triggerScreenShake(5, 15);
-                audioManager.playSound('bounce'); // Using bounce for post hit too
+                audioManager.playSound('post'); // صدای مخصوص تیرک
             } else if (bodyB.label === 'ball' && (bodyA.label === 'goalPost1' || bodyA.label === 'goalPost2')) {
                 triggerScreenShake(5, 15);
-                audioManager.playSound('bounce');
+                audioManager.playSound('post'); // صدای مخصوص تیرک
             }
 
             // Player hitting ball (kick sound)
