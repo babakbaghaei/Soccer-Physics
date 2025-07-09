@@ -715,6 +715,21 @@ function handleGoalScored(scoringTeam) {
     }
 
     // --- Special Goal Scoring ---
+    let loserIndex = scoringTeam === 1 ? 1 : 0;
+    let loserPlayer = players[loserIndex];
+    // افکت طنزآمیز: بازیکن گل‌خورده به هوا پرتاب شود و پیام خنده‌دار نمایش داده شود
+    Body.applyForce(loserPlayer.body, loserPlayer.body.position, { x: 0, y: -0.25 });
+    setTimeout(() => {
+        gameMessageDisplay.textContent = "اوه نه! بازیکن پرت شد! 😂";
+        gameMessageDisplay.classList.add('has-text');
+        setTimeout(() => {
+            if (gameMessageDisplay.textContent === "اوه نه! بازیکن پرت شد! 😂") {
+                gameMessageDisplay.textContent = "";
+                gameMessageDisplay.classList.remove('has-text');
+            }
+        }, 1200);
+    }, 200);
+
     if (scoringTeam === 1) {
         if (isSpecialGoal) {
             team1Score += 2;
