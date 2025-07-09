@@ -602,10 +602,12 @@ function setupCollisions() {
                 playerBody = bodyA;
             }
             if (playerBody) {
-                // اگر کلید s نگه داشته شده باشد، توپ را به بالا پرتاب کن (برای هد)
+                // لاگ برای تست
+                console.log('S pressed:', keysPressed['s'], 'playerIndex:', playerIndex);
                 if (playerIndex === 0 && keysPressed['s']) {
                     Body.setVelocity(ball, { x: 0, y: -18 });
                     Body.setAngularVelocity(ball, 0);
+                    console.log('Ball launched up by S!');
                 }
                 // برای AI: اگر توپ نزدیک دروازه حریف یا مانع جلوی توپ بود، توپ را به بالا پرتاب کن
                 if (playerIndex === 1) {
