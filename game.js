@@ -1,4 +1,4 @@
-// --- Matter.js Aliases ---
+/// --- Matter.js Aliases ---
 const Engine = Matter.Engine;
 const Render = Matter.Render;
 const Runner = Matter.Runner;
