@@ -1,19 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa-IR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soccer Physics Game MVP</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Pixel Soccer Game</title>
+    <link rel="stylesheet" href="style.css"> <!-- Linking the main stylesheet -->
+    <style>
+        /* Minimal body style, rest is in style.css */
+        body { margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        /* Canvas border is now handled by tv-screen style in style.css, but keep a fallback if needed */
+        /* canvas { border: 1px solid white; } */
+    </style>
 </head>
 <body>
     <div id="retroTvContainer">
         <div class="tv-frame">
             <div class="tv-screen">
                 <div id="scoreBoard">
-                    <div id="team1ScoreDisplay">Team 1: 0</div>
-                    <div id="timerDisplay">Time: 0</div>
-                    <div id="team2ScoreDisplay">Team 2: 0</div>
+                    <span id="team1ScoreDisplay">Team 1: 0</span>
+                    <span id="timerDisplay">Time: 90</span>
+                    <span id="team2ScoreDisplay">Team 2: 0</span>
                 </div>
                 <canvas id="gameCanvas"></canvas>
                 <div id="gameMessage"></div>
@@ -21,18 +27,18 @@
             <div class="tv-controls">
                 <div class="knob"></div>
                 <div class="speaker">
-                    <div class="speaker-hole"></div>
-                    <div class="speaker-hole"></div>
-                    <div class="speaker-hole"></div>
-                    <div class="speaker-hole"></div>
-                    <div class="speaker-hole"></div>
-                    <div class="speaker-hole"></div>
+                    <div class="speaker-hole"></div><div class="speaker-hole"></div>
+                    <div class="speaker-hole"></div><div class="speaker-hole"></div>
+                    <div class="speaker-hole"></div><div class="speaker-hole"></div>
                 </div>
+                <div class="knob"></div>
             </div>
         </div>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <script src="game.js" defer></script>
+    <div id="controlsInfo">
+        Player 1: A/D to move, W to jump.
+    </div>
+    <!-- Ensure game.js is loaded as a module -->
+    <script type="module" src="game.js"></script>
 </body>
 </html>
