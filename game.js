@@ -680,7 +680,7 @@ function setupCollisions() {
 
 function handlePlayerControls() {
     const p1 = players[0];
-    const currentMoveForceP1 = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
+    const currentMoveForceP1 = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * 0.1; // روی هوا فقط ۱۰٪ قدرت حرکت
 
     // Debug log for key presses and player state
     if (Object.keys(keysPressed).some(key => keysPressed[key])) { // Log if any relevant key is pressed
