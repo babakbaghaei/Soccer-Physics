@@ -72,7 +72,9 @@ const PLAYER_HEIGHT = PLAYER_SIZE;
 // This requires relating JUMP_FORCE to gravity and mass.
 // For now, this will be an empirical adjustment. Let's start with a slightly reduced value
 // and test. Original was 0.4. Gravity is 1.5.
-const JUMP_FORCE = 0.30; // Needs testing to achieve ~90% of goal height
+// Previous adjustment to 0.30 was still "very very high".
+// New target: jump no higher than the goal's height.
+const JUMP_FORCE = 0.18; // Significantly reduced jump force. Needs testing.
 
 const MOVE_FORCE = 0.015; // Base move force
 const AIR_MOVE_FORCE_MULTIPLIER = 0.3; // Player has 30% of normal move force in air
@@ -211,7 +213,8 @@ function drawPixelatedSoccerBall(body) {
     const { x, y } = body.position;
     const radius = body.circleRadius; // BALL_RADIUS
     const segmentAngle = Math.PI / 3; // For a hexagon-like pattern base
-    const pixelSize = Math.max(2, Math.floor(radius / 8)); // Adjust pixel size based on ball radius
+    // Increased pixelSize for a chunkier ball pattern
+    const pixelSize = Math.max(4, Math.floor(radius / 4));
 
     // Draw white background first (or main color)
     ctx.beginPath();
@@ -434,7 +437,7 @@ let cloudPositions = [
 function drawPixelatedSun(x, y, radius) {
     ctx.fillStyle = '#FFD700'; // زرد طلایی برای خورشید
     // رسم دایره پیکسلی با استفاده از مربع‌های کوچک
-    const pixelSize = 5; // اندازه هر "پیکسل" خورشید
+    const pixelSize = 8; // Increased from 5 for chunkier sun pixels
     for (let i = -radius; i <= radius; i += pixelSize) {
         for (let j = -radius; j <= radius; j += pixelSize) {
             if (i * i + j * j <= radius * radius) {
@@ -491,9 +494,9 @@ function drawDynamicSky() {
 
 function drawPixelatedNet(x, y, width, height) {
     ctx.strokeStyle = 'rgba(200, 200, 200, 0.6)'; // Light grey, semi-transparent net
-    ctx.lineWidth = 2; // Pixel-like thick lines for the net
+    ctx.lineWidth = 3; // Increased from 2 for thicker net lines
 
-    const spacing = 10; // Spacing of the net lines
+    const spacing = 12; // Increased from 10 for wider net spacing
 
     // Vertical lines
     for (let i = 0; i <= width; i += spacing) {
@@ -576,9 +579,9 @@ function handleGoalScored(scoringTeam) {
     // برگرداندن بازیکنان و توپ به مکان اولیه پس از ۱ ثانیه
     setTimeout(() => {
         resetPositions();
-        gameMessageDisplay.textContent = "";
+        gameMessageDisplay.textContent = ""; // Clear message quickly too
         goalScoredThisTick = false; // Reset flag
-    }, 1000);
+    }, 50); // Reduced delay from 1000ms to 50ms for near-instant reset
 }
 
 // Add a flag to prevent multiple score registrations for a single goal event
