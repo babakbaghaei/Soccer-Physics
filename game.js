@@ -415,6 +415,8 @@ function triggerScreenShake(magnitude, duration) {
     shakeTimer = duration;
 }
 
+// متغیر موقت برای نمایش متن بزرگ چیپ
+let chipMessageTimer = 0;
 
 function draw() {
     if (isGameOver) return;
@@ -510,6 +512,21 @@ function draw() {
     mainCtx.mozImageSmoothingEnabled = false;
     mainCtx.webkitImageSmoothingEnabled = false;
     mainCtx.msImageSmoothingEnabled = false;
+
+    if (chipMessageTimer > 0) {
+        mainCtx.save();
+        mainCtx.font = 'bold 64px Tahoma, Arial, sans-serif';
+        mainCtx.fillStyle = 'rgba(255,255,0,' + Math.min(1, chipMessageTimer / 20) + ')';
+        mainCtx.textAlign = 'center';
+        mainCtx.textBaseline = 'middle';
+        mainCtx.strokeStyle = 'black';
+        mainCtx.lineWidth = 6;
+        mainCtx.strokeText('چیپ!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        mainCtx.fillText('چیپ!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        mainCtx.restore();
+        chipMessageTimer--;
+    }
+
     mainCtx.drawImage(
         lowResCanvas,
         0, 0, lowResCanvas.width, lowResCanvas.height,
@@ -631,6 +648,7 @@ function setupCollisions() {
                     setTimeout(() => { gameMessageDisplay.textContent = ''; gameMessageDisplay.classList.remove('has-text'); }, 700);
                     ball.isChipped = true;
                     setTimeout(() => { ball.isChipped = false; }, 100);
+                    chipMessageTimer = 40; // حدود 0.7 ثانیه با فرض 60fps
                 }
                 lastBallHitInfo = {
                     team: player.team,
