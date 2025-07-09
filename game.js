@@ -54,6 +54,20 @@ let goals = {};
 let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
 
+// --- Game Stats (For Stats Summary) ---
+let gameStats = {
+    team1: { shots: 0, jumps: 0, possessions: 0, tackles: 0, mistakes: 0, specialGoals: 0 },
+    team2: { shots: 0, jumps: 0, possessions: 0, tackles: 0, mistakes: 0, specialGoals: 0 },
+    totalPossessionTime: { team1: 0, team2: 0 },
+    lastPossession: null,
+    startTime: null,
+    endTime: null
+};
+
+// --- Field Type (For Special Physics) ---
+// Possible values: 'normal', 'ice', 'sand', 'moon'
+let fieldType = 'normal';
+
 // --- Field Constants ---
 const GROUND_Y = 580;
 const GROUND_THICKNESS = 40;
