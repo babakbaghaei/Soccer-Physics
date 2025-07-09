@@ -1610,9 +1610,18 @@ function customRenderAll() {
     gradient.addColorStop(1, finalSkyBottom);
     pixelCtx.fillStyle = gradient;
     pixelCtx.fillRect(0, 0, PIXEL_CANVAS_WIDTH, PIXEL_CANVAS_HEIGHT);
-    stadiumLights.forEach(light => drawStadiumLight(light));
-    // spectators.forEach(spectator => drawSpectator(spectator)); // Spectators removed
-    clouds.forEach(cloud => drawCloud(cloud));
+
+    console.log(`DEBUG: Rendering ${stadiumLights.length} stadium lights.`);
+    stadiumLights.forEach((light, index) => {
+        console.log(`DEBUG: Light ${index}: x=${light.x}, y=${light.y}, intensity=${light.intensity}`);
+        drawStadiumLight(light);
+    });
+
+    console.log(`DEBUG: Rendering ${clouds.length} clouds.`);
+    clouds.forEach((cloud, index) => {
+        console.log(`DEBUG: Cloud ${index}: x=${cloud.x}, y=${cloud.y}, size=${cloud.size}, opacity=${cloud.opacity}`);
+        drawCloud(cloud);
+    });
     // Sun rendering code... (no changes)
     /* ... */
 
@@ -1686,7 +1695,15 @@ function customRenderAll() {
     // Render dynamic bodies (players, ball)
     if (ball) {
         console.log(`DEBUG: Ball exists. Visible: ${ball.render.visible !== false}. Pos: x=${ball.position.x / PIXEL_SCALE}, y=${ball.position.y / PIXEL_SCALE}, Color used: ${BALL_PANEL_COLOR_PRIMARY}`);
-        if(ball.render.visible !== false) drawPixelIsoCircle(pixelCtx, ball, BALL_PANEL_COLOR_PRIMARY);
+        if(ball.render.visible !== false) {
+            // drawPixelIsoCircle(pixelCtx, ball, BALL_PANEL_COLOR_PRIMARY); // Original call commented out for testing
+            const ballRenderX = ball.position.x / PIXEL_SCALE;
+            const ballRenderY = ball.position.y / PIXEL_SCALE;
+            const ballRenderRadius = BALL_RADIUS / PIXEL_SCALE;
+            pixelCtx.fillStyle = 'red'; // Test color
+            pixelCtx.fillRect(ballRenderX - ballRenderRadius, ballRenderY - ballRenderRadius, ballRenderRadius * 2, ballRenderRadius * 2);
+            console.log(`DEBUG: Drew TEST RED SQUARE for ball at ${ballRenderX}, ${ballRenderY}`);
+        }
     } else {
         console.log("DEBUG: Ball object does not exist for rendering.");
     }
@@ -1695,7 +1712,15 @@ function customRenderAll() {
     players.forEach((p, index) => {
         if (p.playerBody) {
             console.log(`DEBUG: Player ${index + 1} (Team ${p.playerTeam}): Visible: ${p.playerBody.render.visible !== false}. Pos: x=${p.playerBody.position.x / PIXEL_SCALE}, y=${p.playerBody.position.y / PIXEL_SCALE}, Color: ${p.color}`);
-            if (p.playerBody.render.visible !== false) drawPlayer(pixelCtx, p.playerBody, p.color);
+            if (p.playerBody.render.visible !== false) {
+                // drawPlayer(pixelCtx, p.playerBody, p.color); // Original call commented out for testing
+                const playerRenderX = p.playerBody.position.x / PIXEL_SCALE;
+                const playerRenderY = p.playerBody.position.y / PIXEL_SCALE;
+                const playerRenderSize = PLAYER_RECT_SIZE / PIXEL_SCALE;
+                pixelCtx.fillStyle = p.color; // Use player's team color for test
+                pixelCtx.fillRect(playerRenderX - playerRenderSize / 2, playerRenderY - playerRenderSize / 2, playerRenderSize, playerRenderSize);
+                console.log(`DEBUG: Drew TEST SQUARE for player ${index + 1} at ${playerRenderX}, ${playerRenderY} with color ${p.color}`);
+            }
         } else {
             console.log(`DEBUG: Player ${index + 1} (Team ${p.playerTeam}): playerBody does not exist for rendering.`);
         }
@@ -1759,8 +1784,11 @@ function customRenderAll() {
     console.log("DEBUG: Goal nets rendering attempted.");
     // --- End of Goal Net Rendering ---
 
-    drawInGameScoreboard();
-    console.log("DEBUG: In-game scoreboard rendering attempted.");
+    // drawInGameScoreboard(); // Original call commented out for testing
+    pixelCtx.fillStyle = 'yellow';
+    pixelCtx.fillRect(10, 5, 50, 10); // Test position and size for scoreboard
+    console.log("DEBUG: Drew TEST YELLOW RECTANGLE for scoreboard at 10,5");
+    console.log("DEBUG: In-game scoreboard rendering attempted (original call commented out).");
     console.log("DEBUG: --- Exiting customRenderAll() ---");
 }
 // --- gameRenderLoop (with rounded corners, no changes from before) ---
