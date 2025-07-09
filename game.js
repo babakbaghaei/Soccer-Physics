@@ -54,6 +54,9 @@ let goals = {};
 let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
 
+// --- Goal Detection Flag ---
+let lastGoalScored = null;
+
 // --- Power-ups System ---
 let powerUps = [];
 let powerUpTypes = [
@@ -850,6 +853,8 @@ function draw() {
         window.updateAI();
     }
 
+    checkGoalByPosition();
+
     requestAnimationFrame(draw);
 }
 
@@ -1384,6 +1389,32 @@ function endGame() {
             `تیم ۲: شوت ${t2.shots} | پرش ${t2.jumps} | گل ویژه ${t2.specialGoals} | مالکیت ${pos2} ثانیه`
         );
     }, 1000);
+}
+
+function checkGoalByPosition() {
+    if (!ball) return;
+    // گل تیم ۲ (توپ وارد دروازه سمت چپ)
+    if (
+        ball.position.x - ball.circleRadius < GOAL_WIDTH &&
+        ball.position.y > GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT &&
+        ball.position.y < GROUND_Y - GROUND_THICKNESS / 2 + GOAL_HEIGHT &&
+        !lastGoalScored
+    ) {
+        lastGoalScored = 'team2';
+        handleGoalScored(2);
+        setTimeout(() => { lastGoalScored = null; }, 1000);
+    }
+    // گل تیم ۱ (توپ وارد دروازه سمت راست)
+    else if (
+        ball.position.x + ball.circleRadius > CANVAS_WIDTH - GOAL_WIDTH &&
+        ball.position.y > GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT &&
+        ball.position.y < GROUND_Y - GROUND_THICKNESS / 2 + GOAL_HEIGHT &&
+        !lastGoalScored
+    ) {
+        lastGoalScored = 'team1';
+        handleGoalScored(1);
+        setTimeout(() => { lastGoalScored = null; }, 1000);
+    }
 }
 
 window.addEventListener('DOMContentLoaded', setup);
