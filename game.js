@@ -591,8 +591,8 @@ function setupCollisions() {
                 const player = players[playerIndex];
                 const ballPos = { ...ball.position };
                 const ballVel = { ...ball.velocity };
-                // تشخیص پرش: اگر بازیکن روی زمین نباشد یا سرعت عمودی زیاد باشد
-                const isJump = !player.isGrounded || player.body.velocity.y < -1;
+                // تشخیص پرش: فقط اگر سرعت عمودی بازیکن کافی باشد
+                const isJump = player.body.velocity.y < -0.5;
                 // تشخیص هد: اگر توپ بالاتر از سر بازیکن باشد
                 const isHeader = ball.position.y < player.body.position.y - PLAYER_HEIGHT * 0.5;
                 // تشخیص شوت از راه دور: اگر فاصله افقی بازیکن تا دروازه حریف زیاد باشد
@@ -603,7 +603,7 @@ function setupCollisions() {
                     isLongShot = ball.position.x < CANVAS_WIDTH * 0.3;
                 }
                 // --- منطق چیپ ---
-                let isNearCorner = (ball.position.x < 100 || ball.position.x > CANVAS_WIDTH - 100);
+                let isNearCorner = (ball.position.x < 150 || ball.position.x > CANVAS_WIDTH - 150);
                 let isObstacleAhead = false;
                 const opponent = players[1 - playerIndex];
                 if (Math.abs(opponent.body.position.x - ball.position.x) < 40 &&
@@ -613,12 +613,12 @@ function setupCollisions() {
                 }
                 // لاگ دیباگ برای چیپ
                 console.log('CHIP DEBUG', {
-                  isJump, isNearCorner, isObstacleAhead, ballX: ball.position.x, playerX: player.body.position.x
+                  isJump, vy: player.body.velocity.y, isNearCorner, isObstacleAhead, ballX: ball.position.x, playerX: player.body.position.x
                 });
                 if (isJump && (isNearCorner || isObstacleAhead)) {
                     console.log('CHIP EXECUTED!');
-                    const chipVX = playerIndex === 0 ? 6 : -6;
-                    Body.setVelocity(ball, { x: chipVX, y: -14 });
+                    const chipVX = playerIndex === 0 ? 10 : -10;
+                    Body.setVelocity(ball, { x: chipVX, y: -16 });
                     setTimeout(() => {
                       console.log('Ball velocity after chip:', ball.velocity);
                     }, 50);
