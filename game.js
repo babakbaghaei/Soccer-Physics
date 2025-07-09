@@ -612,8 +612,8 @@ function setupCollisions() {
                     isObstacleAhead = true;
                 }
                 // چیپ واقعی: اگر توپ نزدیک زمین است و بازیکن با سرعت عمودی منفی کافی از بالا روی توپ بپرد
-                const isBallOnGround = Math.abs(ball.position.y + ball.circleRadius - GROUND_Y) < 8;
-                const isPlayerFalling = player.body.velocity.y < -1.5;
+                const isBallOnGround = Math.abs(ball.position.y + ball.circleRadius - GROUND_Y) < 25;
+                const isPlayerFalling = player.body.velocity.y < -0.2;
                 const isChipCondition = isBallOnGround && isPlayerFalling;
                 console.log('CHIP DEBUG', {isChipCondition, isBallOnGround, vy: player.body.velocity.y, ballY: ball.position.y, playerY: player.body.position.y});
                 if (isChipCondition) {
