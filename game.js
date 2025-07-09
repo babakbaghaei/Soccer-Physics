@@ -640,16 +640,19 @@ function setupCollisions() {
                     Body.setVelocity(ball, { x: chipVX, y: -16 });
                     Body.setAngularVelocity(ball, playerIndex === 0 ? 0.5 : -0.5);
                     chipMessageTimer = 40;
-                    // ناپدید کردن بازیکن مقابل
-                    const opponentIndex = 1 - playerIndex;
-                    const opponent = players[opponentIndex];
-                    if (!opponent._vanishTimeout) {
-                        opponent.body.render = opponent.body.render || {};
-                        opponent.body.render.opacity = 0;
-                        opponent._vanishTimeout = setTimeout(() => {
-                            opponent.body.render.opacity = 1;
-                            opponent._vanishTimeout = null;
-                        }, 1000);
+                    // ناپدید کردن بازیکن مقابل اگر بازیکن در حال سقوط باشد
+                    const isPlayerFalling = player.body.velocity.y < -0.2;
+                    if (isPlayerFalling) {
+                        const opponentIndex = 1 - playerIndex;
+                        const opponent = players[opponentIndex];
+                        if (!opponent._vanishTimeout) {
+                            opponent.body.render = opponent.body.render || {};
+                            opponent.body.render.opacity = 0;
+                            opponent._vanishTimeout = setTimeout(() => {
+                                opponent.body.render.opacity = 1;
+                                opponent._vanishTimeout = null;
+                            }, 1000);
+                        }
                     }
                     ball.isChipped = true;
                     setTimeout(() => { ball.isChipped = false; }, 100);
