@@ -186,12 +186,17 @@ function createFieldLines() {
     centerLine.position.set(400, 1, 300);
     scene.add(centerLine);
     
-    // Center circle
-    const centerCircleGeometry = new THREE.RingGeometry(50, 52, 32);
-    const centerCircle = new THREE.Mesh(centerCircleGeometry, lineMaterial);
-    centerCircle.rotation.x = -Math.PI / 2;
-    centerCircle.position.set(400, 1, 300);
-    scene.add(centerCircle);
+    // Center circle (using multiple small boxes instead of RingGeometry)
+    for (let i = 0; i < 32; i++) {
+        const angle = (i / 32) * Math.PI * 2;
+        const x = 400 + Math.cos(angle) * 50;
+        const z = 300 + Math.sin(angle) * 50;
+        
+        const circleSegmentGeometry = new THREE.BoxGeometry(4, 2, 4);
+        const circleSegment = new THREE.Mesh(circleSegmentGeometry, lineMaterial);
+        circleSegment.position.set(x, 1, z);
+        scene.add(circleSegment);
+    }
 }
 
 function createGoalPosts() {

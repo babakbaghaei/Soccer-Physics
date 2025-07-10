@@ -8,9 +8,12 @@
     </style>
 </head>
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
     <script>
-        console.log("Three.js version:", THREE.REVISION);
+        console.log("Three.js loaded:", typeof THREE !== 'undefined');
+        if (typeof THREE !== 'undefined') {
+            console.log("Three.js version:", THREE.REVISION);
+        }
         
         // Create scene
         const scene = new THREE.Scene();
@@ -43,7 +46,7 @@
         
         animate();
         
-        console.log("Three.js test completed successfully!");
+        console.log("Test completed successfully!");
     </script>
 </body>
 </html>
