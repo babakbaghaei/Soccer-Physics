@@ -160,11 +160,67 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const aiGoalRight = aiGoalX + aiGoalWidth / 2;
     if (ballPos.x > playerPos.x) {
         console.log('توپ سمت راست AI است', 'ballPos.x:', ballPos.x, 'playerPos.x:', playerPos.x);
-    } else {
-        console.log('توپ سمت چپ یا جلو AI است', 'ballPos.x:', ballPos.x, 'playerPos.x:', playerPos.x);
+        currentAiState = AI_STATE.IDLE;
+        return;
     }
-    currentAiState = AI_STATE.IDLE;
-    return;
+    // منطق کامل قبلی:
+    const ballInAiHalf = ballPos.x > halfX;
+    const ballNearPlayerX = Math.abs(ballPos.x - playerPos.x) < PLAYER_WIDTH * 2.5; // Player can reach horizontally
+    const ballNearPlayerY = Math.abs(ballPos.y - playerPos.y) < PLAYER_HEIGHT * 2.5; // Player can reach vertically (for jump/hit)
+    const ballAbovePlayer = playerPos.y > ballPos.y; // Ball is higher than player's feet
+    const ballBelowPlayerHead = ballPos.y > playerPos.y - PLAYER_HEIGHT; // Ball is below player's head (roughly)
+
+    const recoveryThreshold = PLAYER_WIDTH * 0.5; // How close to default position to be considered recovered
+
+    // GOALKEEPER state logic - check if ball is between AI and its own goal
+    // AI's goal is on the right side (CANVAS_WIDTH - GOAL_WIDTH/2)
+    // (این بخش را می‌توانید فعال یا غیرفعال کنید)
+    const ballBetweenAiAndGoal = (playerPos.x < ballPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight);
+    if (ballBetweenAiAndGoal) {
+        if (currentAiState !== AI_STATE.GOALKEEPER) {
+            goalkeeperPhase = 0;
+            goalkeeperStartTime = 0;
+        }
+        currentAiState = AI_STATE.GOALKEEPER;
+        return;
+    } else if (currentAiState === AI_STATE.GOALKEEPER) {
+        goalkeeperPhase = 0;
+        goalkeeperStartTime = 0;
+    }
+
+    if (currentAiState === AI_STATE.RECOVER) {
+        const recoveredX = Math.abs(playerPos.x - (CANVAS_WIDTH * 0.75)) < recoveryThreshold;
+        if (recoveredX && aiPlayer.isGrounded) {
+            currentAiState = ballInAiHalf ? AI_STATE.DEFEND : AI_STATE.IDLE;
+            return;
+        } else {
+            return;
+        }
+    }
+
+    if (ballInAiHalf && ballNearPlayerX && ballNearPlayerY) {
+        if (ballPos.y < GROUND_Y - BALL_RADIUS * 0.5 &&
+            ballAbovePlayer &&
+            ballBelowPlayerHead &&
+            (ballVel.x > -0.5 || playerPos.x < ballPos.x)) {
+            currentAiState = AI_STATE.ATTACK;
+            return;
+        }
+    }
+
+    if (ballInAiHalf) {
+        currentAiState = AI_STATE.DEFEND;
+        return;
+    }
+
+    if (!ballInAiHalf) {
+        currentAiState = AI_STATE.IDLE;
+        return;
+    }
+
+    if (currentAiState !== AI_STATE.RECOVER) {
+        currentAiState = ballInAiHalf ? AI_STATE.DEFEND : AI_STATE.IDLE;
+    }
 }
 
 // ===================================================================================
