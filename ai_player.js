@@ -9,7 +9,8 @@ const AI_STATE = {
     DEFEND: 'DEFEND',   // Ball is in AI's half
     ATTACK: 'ATTACK',   // Ball is near AI and in a good position to shoot
     RECOVER: 'RECOVER', // After conceding a goal or defensive disarray
-    GOALKEEPER: 'GOALKEEPER' // Ball is between AI and its own goal - special goalkeeper behavior
+    GOALKEEPER: 'GOALKEEPER', // Ball is between AI and its own goal - special goalkeeper behavior
+    GOALKEEPER_IDLE: 'GOALKEEPER_IDLE' // New: Stand still as a goalkeeper when ball is between AI and its goal
 };
 
 // --- Global constants that will be available from game.js ---
@@ -132,7 +133,8 @@ function updateAI() {
     }
     switch (currentAiState) {
         case AI_STATE.IDLE:
-            handleIdleState(playerPosition);
+        case AI_STATE.GOALKEEPER_IDLE:
+            // هیچ کاری نکن
             break;
         case AI_STATE.DEFEND:
             handleDefendState(ballPosition, playerPosition);
@@ -153,7 +155,17 @@ function updateAI() {
 // State Determination Logic
 // ===================================================================================
 function determineAiState(ballPos, playerPos, halfX, ballVel) {
-    // برای تست: AI همیشه در حالت IDLE باشد
+    // AI's goal is on the right side (CANVAS_WIDTH - GOAL_WIDTH/2)
+    const aiGoalX = CANVAS_WIDTH - GOAL_WIDTH / 2;
+    const aiGoalWidth = GOAL_WIDTH;
+    const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
+    const aiGoalRight = aiGoalX + aiGoalWidth / 2;
+    // اگر توپ سمت راست AI و بین AI و دروازه خودش بود
+    if (ballPos.x > playerPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight) {
+        currentAiState = AI_STATE.GOALKEEPER_IDLE;
+        return;
+    }
+    // در غیر این صورت، حالت IDLE
     currentAiState = AI_STATE.IDLE;
     return;
 }
