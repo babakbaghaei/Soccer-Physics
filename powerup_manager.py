@@ -52,13 +52,18 @@ class PowerUpManager:
 
             min_x, min_y, area_width, area_height = self.game_area_rect
 
-            # اطمینان از اینکه پاورآپ کاملا داخل زمین قرار می گیرد
-            # این بخش ممکن است نیاز به تنظیم دقیق تری داشته باشد
-            # مثلا با توجه به اندازه واقعی پاورآپ ها و نقاط ممنوعه
+            # محدودیت ارتفاع پاورآپ ها تا بالای دروازه
+            GOAL_HEIGHT = 120  # اگر مقدار دیگری دارید اینجا جایگزین کنید
+            GROUND_Y = 580     # مقدار زمین از game.js
+            GROUND_THICKNESS = 40
+            # بالاترین نقطه مجاز برای پاورآپ (بالای دروازه)
+            max_y = GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT
+            # پایین‌ترین نقطه مجاز (سطح زمین)
+            min_y_powerup = max(min_y, int(max_y))
+            max_y_powerup = GROUND_Y - GROUND_THICKNESS / 2 - powerup_height
             try:
-                # ممکن است area_width یا area_height کوچکتر از powerup_width/height باشند
                 rand_x = random.randint(min_x, min_x + area_width - powerup_width)
-                rand_y = random.randint(min_y, min_y + area_height - powerup_height)
+                rand_y = random.randint(min_y_powerup, int(max_y_powerup))
             except ValueError:
                 print(f"خطا: محدوده زمین ({self.game_area_rect}) برای ایجاد پاورآپ ({powerup_width}x{powerup_height}) خیلی کوچک است.")
                 return
