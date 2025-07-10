@@ -249,7 +249,7 @@ function handleAttackState(ballPos, playerPos) {
     // More advanced: check if opponent P1 is far from their goal, or if ball is in good spot for chip.
     if (!aiPlayer.kickCooldown && Math.random() < 0.15) { // 15% chance to attempt a chip if in attack state and not on cooldown
         aiPlayer.chipShotAttempt = true;
-        // console.log("AI decided to attempt chip shot");
+        console.log(`AI ${aiPlayer.body.label} decided to chip. Cooldown: ${aiPlayer.kickCooldown}`); // DEBUG LOG
     } else {
         // Default attack behavior if not chipping
         // (ensure chipShotAttempt is false if not actively trying one this tick, though it's reset on successful kick)
