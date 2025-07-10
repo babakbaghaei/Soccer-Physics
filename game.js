@@ -388,7 +388,7 @@ function drawFootballFieldLines(ctx) {
     ctx.stroke();
 
     // Center circle
-    const centerCircleRadius = 70 * scale;
+    const centerCircleRadius = 30 * scale; // Reduced from 70 to fit new grass height
     ctx.beginPath();
     // The Y position of the center circle should be halfway between FIELD_SURFACE_Y and CANVAS_HEIGHT
     ctx.arc(CANVAS_WIDTH / 2 * scale, (FIELD_SURFACE_Y * scale + CANVAS_HEIGHT * scale) / 2, centerCircleRadius, 0, 2 * Math.PI);
@@ -429,25 +429,36 @@ function drawFootballFieldLines(ctx) {
     // The Y of the center of the penalty box: FIELD_SURFACE_Y + ( (CANVAS_HEIGHT*scale - FIELD_SURFACE_Y*scale)/2 ) - penaltyBoxHeight/2
     // The penalty box is typically drawn with its top edge some distance from the center line, or related to goal.
     // Let's keep it simple: if it was `OLD_SURFACE_Y - some_offset`, now it's `NEW_SURFACE_Y - some_offset`.
-    const penaltyBoxCenterY = FIELD_SURFACE_Y + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) / 2); // Midpoint of the grass height
-    ctx.strokeRect(0, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
+    // const penaltyBoxCenterY = FIELD_SURFACE_Y + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) / 2); // Midpoint of the grass height
+    // ctx.strokeRect(0, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
+    // ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
+
+    // Corrected Y for penalty box top (centering the box on FIELD_SURFACE_Y line)
+    const penaltyBoxTopY = (FIELD_SURFACE_Y - penaltyBoxHeight / 2);
+    ctx.strokeRect(0, penaltyBoxTopY * scale, penaltyBoxWidth, penaltyBoxHeight);
+    ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxTopY * scale, penaltyBoxWidth, penaltyBoxHeight);
 
     // Goal boxes (smaller)
     const goalBoxWidth = 50 * scale;
     const goalBoxHeight = 160 * scale;
-    ctx.strokeRect(0, penaltyBoxCenterY - (goalBoxHeight / 2), goalBoxWidth, goalBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - goalBoxWidth) * scale, penaltyBoxCenterY - (goalBoxHeight / 2), goalBoxWidth, goalBoxHeight);
+    // Corrected Y for goal box top (centering the box on FIELD_SURFACE_Y line)
+    const goalBoxTopY = (FIELD_SURFACE_Y - goalBoxHeight / 2);
+    ctx.strokeRect(0, goalBoxTopY * scale, goalBoxWidth, goalBoxHeight);
+    ctx.strokeRect((CANVAS_WIDTH - goalBoxWidth) * scale, goalBoxTopY * scale, goalBoxWidth, goalBoxHeight);
 
     // Penalty spots
+    // Penalty spots should be on the FIELD_SURFACE_Y line if they were originally centered there.
+    // Or, if they are traditionally a fixed distance from the goal line (which is FIELD_SURFACE_Y at the ends of the box).
+    // The original Y for penalty spot was: (GROUND_Y - GROUND_THICKNESS / 2 + (CANVAS_HEIGHT - GROUND_Y + GROUND_THICKNESS / 2) / 2)
+    // This was the midpoint of the old grass area. So the new Y should be the midpoint of the new grass area.
+    const penaltySpotY = (FIELD_SURFACE_Y + (CANVAS_HEIGHT - FIELD_SURFACE_Y) / 2);
     const penaltySpotRadius = 5 * scale;
     ctx.beginPath();
-    // Penalty spot Y should be on the penaltyBoxCenterY line, effectively.
-    ctx.arc(80 * scale, penaltyBoxCenterY, penaltySpotRadius, 0, 2 * Math.PI);
+    ctx.arc(80 * scale, penaltySpotY * scale, penaltySpotRadius, 0, 2 * Math.PI);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.beginPath();
-    ctx.arc((CANVAS_WIDTH - 80) * scale, penaltyBoxCenterY, penaltySpotRadius, 0, 2 * Math.PI);
+    ctx.arc((CANVAS_WIDTH - 80) * scale, penaltySpotY * scale, penaltySpotRadius, 0, 2 * Math.PI);
     ctx.fill();
 
     // Corner arcs
