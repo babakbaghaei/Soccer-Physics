@@ -133,8 +133,17 @@ function updateAI() {
     }
     switch (currentAiState) {
         case AI_STATE.IDLE:
+            handleIdleState(playerPosition);
+            break;
         case AI_STATE.GOALKEEPER_IDLE:
-            // هیچ کاری نکن
+            // اگر توپ پشت AI است (سمت راستش)
+            if (ballPosition.x > playerPosition.x) {
+                // کاملاً متوقف
+                break;
+            } else {
+                // رفتار IDLE
+                handleIdleState(playerPosition);
+            }
             break;
         case AI_STATE.DEFEND:
             handleDefendState(ballPosition, playerPosition);
