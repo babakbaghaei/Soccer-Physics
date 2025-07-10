@@ -219,7 +219,7 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
 // State Handling Functions (Initial stubs)
 // ===================================================================================
 function handleIdleState(playerPos) {
-    let targetX = CANVAS_WIDTH * 0.85; // نزدیک‌تر به دروازه خودش
+    let targetX = CANVAS_WIDTH * 0.2; // سمت چپ زمین برای تست
     moveHorizontally(playerPos, targetX, MOVE_FORCE * 2); // حرکت سریع‌تر برای تست
 }
 
@@ -324,12 +324,12 @@ function handleGoalkeeperState(ballPos, playerPos) {
 // AI Action Functions (Movement and Jumping)
 // ===================================================================================
 function moveHorizontally(playerPosition, targetX, force) {
+    // deadZone را حذف کن و لاگ بگذار
+    console.log('moveHorizontally', playerPosition.x, targetX, force);
     const currentMoveForce = aiPlayer.isGrounded ? force : force * AIR_MOVE_FORCE_MULTIPLIER;
-    // Add a small dead zone to prevent jittering if AI is very close to targetX
-    const deadZone = PLAYER_WIDTH * 0.1;
-    if (targetX < playerPosition.x - deadZone) { // Target is to the left
+    if (targetX < playerPosition.x) {
         Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: -currentMoveForce, y: 0 });
-    } else if (targetX > playerPosition.x + deadZone) { // Target is to the right
+    } else if (targetX > playerPosition.x) {
         Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: currentMoveForce, y: 0 });
     }
 }
