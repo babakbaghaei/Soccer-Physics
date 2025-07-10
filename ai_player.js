@@ -8,7 +8,8 @@ const AI_STATE = {
     IDLE: 'IDLE',       // Ball is in opponent's half
     DEFEND: 'DEFEND',   // Ball is in AI's half
     ATTACK: 'ATTACK',   // Ball is near AI and in a good position to shoot
-    RECOVER: 'RECOVER'  // After conceding a goal or defensive disarray
+    RECOVER: 'RECOVER', // After conceding a goal or defensive disarray
+    GOALKEEPER: 'GOALKEEPER' // Ball is between AI and its own goal - special goalkeeper behavior
 };
 
 // --- Global constants that will be available from game.js ---
@@ -29,6 +30,10 @@ let isGameOver = false;
 let currentAiState = AI_STATE.IDLE;
 let lastJumpTime = 0;
 const JUMP_COOLDOWN = 500; // Milliseconds (0.5 seconds)
+
+// --- Goalkeeper Variables ---
+let goalkeeperPhase = 0; // 0: approaching, 1: jumping, 2: defending
+let goalkeeperStartTime = 0;
 
 // --- AI Player Object (to be initialized) ---
 let aiPlayer = null; // Reference to the AI player's body and data from game.js
@@ -57,6 +62,8 @@ function initializeAI(player, ball, engine) {
     recentOpponentActions = [];
     opponentAttackZones = { left: 0, center: 0, right: 0 };
     opponentJumpFrequency = 0;
+    goalkeeperPhase = 0;
+    goalkeeperStartTime = 0;
 }
 
 /**
@@ -136,6 +143,9 @@ function updateAI() {
         case AI_STATE.RECOVER:
             handleRecoverState(playerPosition);
             break;
+        case AI_STATE.GOALKEEPER:
+            handleGoalkeeperState(ballPosition, playerPosition);
+            break;
     }
 }
 
@@ -150,6 +160,31 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const ballBelowPlayerHead = ballPos.y > playerPos.y - PLAYER_HEIGHT; // Ball is below player's head (roughly)
 
     const recoveryThreshold = PLAYER_WIDTH * 0.5; // How close to default position to be considered recovered
+
+    // GOALKEEPER state logic - check if ball is between AI and its own goal
+    const aiGoalX = CANVAS_WIDTH / 2;
+    const aiGoalWidth = GOAL_WIDTH;
+    const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
+    const aiGoalRight = aiGoalX + aiGoalWidth / 2;
+    
+    // Check if ball is between AI player and AI's own goal
+    const ballBetweenAiAndGoal = ballPos.x < playerPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight;
+    
+    // If ball is between AI and its goal, enter goalkeeper mode
+    if (ballBetweenAiAndGoal) {
+        if (currentAiState !== AI_STATE.GOALKEEPER) {
+            // Just entering goalkeeper state, reset variables
+            goalkeeperPhase = 0;
+            goalkeeperStartTime = 0;
+        }
+        currentAiState = AI_STATE.GOALKEEPER;
+        // console.log("AI State -> GOALKEEPER");
+        return;
+    } else if (currentAiState === AI_STATE.GOALKEEPER) {
+        // Exiting goalkeeper state, reset variables
+        goalkeeperPhase = 0;
+        goalkeeperStartTime = 0;
+    }
 
     // RECOVER state logic:
     // If in RECOVER state, check if player has reached the recovery position.
@@ -288,6 +323,72 @@ function handleRecoverState(playerPos) {
     const defaultPositionX = CANVAS_WIDTH * 0.75; // Player 2 default side
     moveHorizontally(playerPos, defaultPositionX, MOVE_FORCE);
     // If player is significantly out of position (e.g., y too high), maybe a small corrective action
+}
+
+function handleGoalkeeperState(ballPos, playerPos) {
+    // Goalkeeper behavior when ball is between AI and its own goal:
+    // 1. Stop moving initially
+    // 2. Carefully approach the ball without touching it
+    // 3. Jump over the ball and go towards the goal to defend
+    // 4. After this condition ends, return to normal behavior
+
+    const aiGoalX = CANVAS_WIDTH / 2;
+    const aiGoalWidth = GOAL_WIDTH;
+    const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
+    const aiGoalRight = aiGoalX + aiGoalWidth / 2;
+    
+    // Initialize goalkeeper phase if just entering this state
+    if (goalkeeperPhase === 0 && goalkeeperStartTime === 0) {
+        goalkeeperStartTime = Date.now();
+        goalkeeperPhase = 1; // Start with approaching phase
+    }
+    
+    // Calculate distances
+    const distanceToBall = Math.abs(ballPos.x - playerPos.x);
+    const distanceToGoal = Math.abs(playerPos.x - aiGoalX);
+    
+    // Phase 1: Stop and carefully approach the ball
+    if (goalkeeperPhase === 1) {
+        if (distanceToBall > PLAYER_WIDTH * 1.5) {
+            // Move slowly towards the ball, but stop if too close
+            const targetX = ballPos.x - PLAYER_WIDTH * 1.0; // Stop well before the ball
+            moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.2); // Very slow movement
+        } else {
+            // Close enough to the ball, move to jumping phase
+            goalkeeperPhase = 2;
+        }
+        return;
+    }
+    
+    // Phase 2: Jump over the ball when close enough
+    if (goalkeeperPhase === 2) {
+        if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
+            // Jump over the ball towards the goal
+            const jumpDirection = playerPos.x > ballPos.x ? -0.03 : 0.03; // Small horizontal force towards goal
+            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { 
+                x: jumpDirection, 
+                y: -JUMP_FORCE * 1.3 // Stronger jump to clear the ball
+            });
+            aiPlayer.isGrounded = false;
+            lastJumpTime = Date.now();
+            goalkeeperPhase = 3; // Move to defending phase
+        }
+        return;
+    }
+    
+    // Phase 3: After jumping, move towards the goal to defend
+    if (goalkeeperPhase === 3) {
+        // Move towards the goal center to defend
+        const goalCenter = aiGoalX;
+        moveHorizontally(playerPos, goalCenter, MOVE_FORCE * 0.8);
+        
+        // If we're close to the goal and grounded, we can reset the goalkeeper state
+        if (distanceToGoal < PLAYER_WIDTH * 1.5 && aiPlayer.isGrounded) {
+            // Reset goalkeeper variables for next time
+            goalkeeperPhase = 0;
+            goalkeeperStartTime = 0;
+        }
+    }
 }
 
 // ===================================================================================
@@ -480,6 +581,8 @@ function predictBallLandingX(ballPos, ballVel, gravityY) {
 function resetAIState() {
     currentAiState = AI_STATE.RECOVER; // Or IDLE, depending on desired post-goal behavior
     // Reset any temporary AI variables if needed
+    goalkeeperPhase = 0;
+    goalkeeperStartTime = 0;
     console.log("AI State Reset to RECOVER.");
 }
 
