@@ -153,6 +153,11 @@ function updateAI() {
 // State Determination Logic
 // ===================================================================================
 function determineAiState(ballPos, playerPos, halfX, ballVel) {
+    // اگر توپ سمت راست AI بود، حالت را IDLE کن (برای تست)
+    if (ballPos.x > playerPos.x) {
+        currentAiState = AI_STATE.IDLE;
+        return;
+    }
     const ballInAiHalf = ballPos.x > halfX;
     const ballNearPlayerX = Math.abs(ballPos.x - playerPos.x) < PLAYER_WIDTH * 2.5; // Player can reach horizontally
     const ballNearPlayerY = Math.abs(ballPos.y - playerPos.y) < PLAYER_HEIGHT * 2.5; // Player can reach vertically (for jump/hit)
