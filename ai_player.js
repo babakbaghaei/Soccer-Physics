@@ -122,7 +122,8 @@ function updateAI() {
         const dx = ballPosition.x - footX;
         const dy = ballPosition.y - footY;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < PLAYER_WIDTH * 0.8) {
+        // فقط اگر توپ جلوتر از AI است مجاز به شوت/چیپ
+        if (dist < PLAYER_WIDTH * 0.8 && ballPosition.x > playerPosition.x) {
             window.aiKicking = true;
         } else {
             window.aiKicking = false;
@@ -243,20 +244,41 @@ function handleIdleState(playerPos) {
     moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.5); // Slower movement in idle
 }
 
+// Add a safeMoveHorizontally function to replace moveHorizontally in defense
+function safeMoveHorizontally(playerPosition, targetX, force, ballPos) {
+    // اگر توپ پشت سر AI و نزدیک باشد، حرکت نکن!
+    if (ballPos.x < playerPosition.x - PLAYER_WIDTH/2 && Math.abs(ballPos.x - playerPosition.x) < PLAYER_WIDTH * 1.2) {
+        // توقف کامل
+        return;
+    }
+    // اگر توپ بین AI و دروازه خودی است و فاصله کم است، سرعت را کم کن یا متوقف شو
+    if (ballPos.x < playerPosition.x && Math.abs(ballPos.x - playerPosition.x) < PLAYER_WIDTH * 1.2) {
+        // سرعت حرکت را به شدت کاهش بده یا متوقف شو
+        return;
+    }
+    // در غیر این صورت حرکت کن
+    moveHorizontally(playerPosition, targetX, force);
+}
+
+// In handleDefendState, use safeMoveHorizontally and add cautious jump logic
 function handleDefendState(ballPos, playerPos) {
     const scaledGravity = gameEngine.gravity.y * gameEngine.timing.timeScale * gameEngine.timing.timeScale;
     let predictedLandingX = predictBallLandingX(ballPos, gameBall.velocity, scaledGravity);
 
-    moveHorizontally(playerPos, predictedLandingX, MOVE_FORCE);
+    // Use safe move
+    safeMoveHorizontally(playerPos, predictedLandingX, MOVE_FORCE, ballPos);
 
-    // If the ball is behind the AI, jump to get behind it (avoid own goal)
-    if (ballPos.x < playerPos.x - PLAYER_WIDTH/2 && Math.abs(ballPos.y - playerPos.y) < PLAYER_HEIGHT * 1.5) {
+    // اگر توپ پشت سر AI و نزدیک است، فقط پرش کن و حرکت نکن
+    if (ballPos.x < playerPos.x - PLAYER_WIDTH/2 && Math.abs(ballPos.x - playerPos.y) < PLAYER_HEIGHT * 1.5) {
         if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
-            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: -0.012, y: -JUMP_FORCE });
+            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: -0.008, y: -JUMP_FORCE });
             aiPlayer.isGrounded = false;
             lastJumpTime = Date.now();
         }
-    } else if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
+        return; // بعد از پرش دیگر حرکت نکن
+    }
+    // حالت عادی دفاع
+    else if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
         performJump();
     }
 }
