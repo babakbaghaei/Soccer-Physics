@@ -87,6 +87,10 @@ const JUMP_FORCE = 0.18;
 const MOVE_FORCE = 0.015;
 const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
+// Chip Shot Constants
+const CHIP_SHOT_UP_FORCE = 0.15; // Increased upward force for a higher arc
+const CHIP_SHOT_FORWARD_FORCE = 0.008; // Forward force component for chip
+
 const keysPressed = {};
 
 // ===================================================================================
@@ -174,13 +178,29 @@ function createPlayers() {
         density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player1',
         collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
     });
-    players.push({ body: player1Body, team: 1, isGrounded: false, color: '#D9534F' });
+    players.push({
+        body: player1Body,
+        team: 1,
+        isGrounded: false,
+        color: '#D9534F',
+        chipShotAttempt: false,
+        sKeyProcessed: false, // Specifically for player 1 human controls
+        kickCooldown: false
+    });
 
     const player2Body = Bodies.rectangle(CANVAS_WIDTH - 200, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
         density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player2',
         collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
     });
-    players.push({ body: player2Body, team: 2, isGrounded: false, color: '#428BCA' });
+    players.push({
+        body: player2Body,
+        team: 2,
+        isGrounded: false,
+        color: '#428BCA',
+        chipShotAttempt: false, // For AI
+        kickCooldown: false
+        // sKeyProcessed is not needed for AI
+    });
     World.add(world, [player1Body, player2Body]);
     console.log("Players created");
 }
@@ -387,64 +407,79 @@ function drawFootballFieldLines(ctx) {
     ctx.lineTo(CANVAS_WIDTH / 2 * scale, CANVAS_HEIGHT * scale);
     ctx.stroke();
 
-    // Center circle
-    const centerCircleRadius = 30 * scale; // Reduced from 70 to fit new grass height
+    // Center circle - now drawn as two semi-circles
+    const centerCircleRadius = 30 * scale; // Radius in scaled pixels
+    const circleCenterY_scaled = (FIELD_SURFACE_Y * scale + CANVAS_HEIGHT * scale) / 2;
+    const circleCenterX_scaled = CANVAS_WIDTH / 2 * scale;
+
+    // Left semi-circle (arc from 90 to -90 degrees, or PI/2 to -PI/2)
     ctx.beginPath();
-    // The Y position of the center circle should be halfway between FIELD_SURFACE_Y and CANVAS_HEIGHT
-    ctx.arc(CANVAS_WIDTH / 2 * scale, (FIELD_SURFACE_Y * scale + CANVAS_HEIGHT * scale) / 2, centerCircleRadius, 0, 2 * Math.PI);
+    ctx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, Math.PI / 2, -Math.PI / 2, true); // true for counter-clockwise
+    ctx.stroke();
+
+    // Right semi-circle (arc from -90 to 90 degrees, or -PI/2 to PI/2)
+    ctx.beginPath();
+    ctx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, -Math.PI / 2, Math.PI / 2, false); // false for clockwise
     ctx.stroke();
 
     // Penalty boxes
-    const penaltyBoxWidth = 120 * scale;
-    const penaltyBoxHeight = 320 * scale; // This is the full height of the box on the field
-    // Y position for penalty box should be centered on FIELD_SURFACE_Y if it were a horizontal line.
-    // Since it's a rect, its top Y is FIELD_SURFACE_Y - penaltyBoxHeight / 2.
-    // However, the original was (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
-    // This means the center of the penalty box's height was aligned with the old field surface.
-    // We want to keep the same visual, so the Y is relative to FIELD_SURFACE_Y.
-    // The penalty box should be drawn on the field, so its Y needs to be calculated from FIELD_SURFACE_Y.
-    // Let's assume the penalty box was defined from the center of the field extending upwards.
-    // The old code: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
-    // This means the top of the penalty box was at (FIELD_SURFACE_Y - penaltyBoxHeight/2)
-    // And bottom at (FIELD_SURFACE_Y + penaltyBoxHeight/2), if it were centered on FIELD_SURFACE_Y.
-    // The question is whether penaltyBoxHeight is the full height ON the field, or if it extends above/below the old surface.
-    // Given the name, it's likely on the field.
-    // Old Y for top of penalty box: (GROUND_Y - GROUND_THICKNESS / 2) - penaltyBoxHeight / 2
-    // Corrected Y for top of penalty box: FIELD_SURFACE_Y - penaltyBoxHeight / 2 - THIS IS WRONG.
-    // The Y for strokeRect is the top-left corner.
-    // The penalty box is typically drawn from the goal line outwards.
-    // The old Y was: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2). This is the Y of the *center* of the penalty box.
-    // Let's use FIELD_SURFACE_Y as the reference for the top of the goal line.
-    // The penalty box extends from the goal line.
-    // The problem is how penaltyBoxHeight (320) relates to GOAL_HEIGHT (120). It's much larger.
-    // This implies the penalty box is drawn around the goal area on the flat surface.
-    // The Y coordinates for these rects are their top-left Y.
-    // Original Y for penalty box top: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
-    // This should be: (FIELD_SURFACE_Y + ( (CANVAS_HEIGHT-FIELD_SURFACE_Y)/2 ) ) - penaltyBoxHeight / 2
-    // No, this is simpler: the field markings are on the surface.
-    // The center of the field's height (playable grass area) is (FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2.
-    // Penalty box Y was (OLD_FIELD_SURFACE_Y - penaltyBoxHeight / 2).
-    // It should be (FIELD_SURFACE_Y - penaltyBoxHeight / 2) if it extends above the surface.
-    // Let's assume the features are drawn on the grass surface.
-    // The Y of the center of the penalty box: FIELD_SURFACE_Y + ( (CANVAS_HEIGHT*scale - FIELD_SURFACE_Y*scale)/2 ) - penaltyBoxHeight/2
-    // The penalty box is typically drawn with its top edge some distance from the center line, or related to goal.
-    // Let's keep it simple: if it was `OLD_SURFACE_Y - some_offset`, now it's `NEW_SURFACE_Y - some_offset`.
-    // const penaltyBoxCenterY = FIELD_SURFACE_Y + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) / 2); // Midpoint of the grass height
-    // ctx.strokeRect(0, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
-    // ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
+    // Define new world dimensions for markings to fit on the grass strip
+    const penaltyAreaDepth_world = 60; // How far it extends onto the field (drawn as height)
+    const penaltyAreaLength_world = 200; // How long it is along the goal line (drawn as width)
+    const goalBoxDepth_world = 30;
+    const goalBoxLength_world = 100;
 
-    // Corrected Y for penalty box top (centering the box on FIELD_SURFACE_Y line)
-    const penaltyBoxTopY = (FIELD_SURFACE_Y - penaltyBoxHeight / 2);
-    ctx.strokeRect(0, penaltyBoxTopY * scale, penaltyBoxWidth, penaltyBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxTopY * scale, penaltyBoxWidth, penaltyBoxHeight);
+    // Old variables that might be referenced later if not careful - these are scaled values.
+    // const penaltyBoxWidth = 120 * scale;
+    // const penaltyBoxHeight = 320 * scale;
+    // const goalBoxWidth = 50 * scale;
+    // const goalBoxHeight = 160 * scale;
 
-    // Goal boxes (smaller)
-    const goalBoxWidth = 50 * scale;
-    const goalBoxHeight = 160 * scale;
-    // Corrected Y for goal box top (centering the box on FIELD_SURFACE_Y line)
-    const goalBoxTopY = (FIELD_SURFACE_Y - goalBoxHeight / 2);
-    ctx.strokeRect(0, goalBoxTopY * scale, goalBoxWidth, goalBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - goalBoxWidth) * scale, goalBoxTopY * scale, goalBoxWidth, goalBoxHeight);
+    // Note: The following lines for penaltyBoxTopY and goalBoxTopY are now superseded by the new approach
+    // const penaltyBoxTopY = (FIELD_SURFACE_Y - (penaltyAreaDepth_world * scale) / 2); // This was for centering on line
+    // const goalBoxTopY = (FIELD_SURFACE_Y - (goalBoxDepth_world * scale) / 2); // This was for centering on line
+
+    // Draw Penalty Boxes
+    const penaltyBoxScaledY = FIELD_SURFACE_Y * scale;
+    const penaltyAreaDepthScaled = penaltyAreaDepth_world * scale;
+    const penaltyAreaLengthScaled = penaltyAreaLength_world * scale;
+
+    // Left Penalty Box
+    ctx.strokeRect(
+        0, // X: Starts from the left edge
+        penaltyBoxScaledY, // Y: Starts from the field surface line
+        penaltyAreaLengthScaled, // Width: Length along the goal line
+        penaltyAreaDepthScaled // Height: Depth into the field
+    );
+
+    // Right Penalty Box
+    ctx.strokeRect(
+        (CANVAS_WIDTH * scale) - penaltyAreaLengthScaled, // X: Starts from right edge, drawn leftwards
+        penaltyBoxScaledY, // Y: Starts from the field surface line
+        penaltyAreaLengthScaled, // Width: Length along the goal line
+        penaltyAreaDepthScaled // Height: Depth into the field
+    );
+
+    // Draw Goal Boxes
+    const goalBoxScaledY = FIELD_SURFACE_Y * scale; // Same Y as penalty boxes
+    const goalBoxDepthScaled = goalBoxDepth_world * scale;
+    const goalBoxLengthScaled = goalBoxLength_world * scale;
+
+    // Left Goal Box
+    ctx.strokeRect(
+        0, // X: Starts from the left edge
+        goalBoxScaledY,   // Y: Starts from the field surface line
+        goalBoxLengthScaled,  // Width: Length along the goal line
+        goalBoxDepthScaled    // Height: Depth into the field
+    );
+
+    // Right Goal Box
+    ctx.strokeRect(
+        (CANVAS_WIDTH * scale) - goalBoxLengthScaled, // X: Starts from right edge, drawn leftwards
+        goalBoxScaledY,   // Y: Starts from the field surface line
+        goalBoxLengthScaled,  // Width: Length along the goal line
+        goalBoxDepthScaled    // Height: Depth into the field
+    );
 
     // Penalty spots
     // Penalty spots should be on the FIELD_SURFACE_Y line if they were originally centered there.
@@ -647,9 +682,24 @@ function initializeAudio() {
 function setupControls() {
     window.addEventListener('keydown', (e) => {
         initializeAudio(); // Initialize audio on first keydown
-        keysPressed[e.key.toLowerCase()] = true;
+        const key = e.key.toLowerCase();
+        keysPressed[key] = true;
+
+        // Handle chip shot attempt on 's' press once
+        if (key === 's' && players.length > 0 && !players[0].chipShotAttempt && !players[0].kickCooldown) {
+            // We set chipShotAttempt here, but actual kick is on collision.
+            // This is a simplified way to handle it. A better way might be a short "charge" time.
+            // For now, just flag it. It will be consumed in handlePlayerControls or collision.
+            // players[0].chipShotAttempt = true; // This will be set in handlePlayerControls
+        }
     });
-    window.addEventListener('keyup', (e) => { keysPressed[e.key.toLowerCase()] = false; });
+    window.addEventListener('keyup', (e) => {
+        const key = e.key.toLowerCase();
+        keysPressed[key] = false;
+        if (key === 's') { // Allow re-chipping if key is released and pressed again
+            if(players.length > 0) players[0].sKeyProcessed = false;
+        }
+    });
 }
 
 function setupCollisions() {
@@ -659,6 +709,41 @@ function setupCollisions() {
             const pair = pairs[i];
             const bodyA = pair.bodyA;
             const bodyB = pair.bodyB;
+
+            let playerBody, ballBody;
+            if ((bodyA.label === 'player1' || bodyA.label === 'player2') && bodyB.label === 'ball') {
+                playerBody = bodyA;
+                ballBody = bodyB;
+            } else if (bodyB.label === 'player1' || bodyB.label === 'player2') && bodyA.label === 'ball') {
+                playerBody = bodyB;
+                ballBody = bodyA;
+            }
+
+            if (playerBody && ballBody) {
+                const playerObject = players.find(p => p.body === playerBody);
+                if (playerObject && !playerObject.kickCooldown) {
+                    if (playerObject.chipShotAttempt) {
+                        let kickDirection = (playerObject.team === 1) ? 1 : -1; // Team 1 kicks right, Team 2 kicks left
+                        // Apply chip shot force
+                        Body.applyForce(ballBody, ballBody.position, {
+                            x: kickDirection * CHIP_SHOT_FORWARD_FORCE,
+                            y: -CHIP_SHOT_UP_FORCE // Negative Y is upwards
+                        });
+                        audioManager.playSound('kick'); // Or a new 'chip' sound
+                        console.log(`${playerObject.body.label} performed a chip shot!`);
+                        playerObject.chipShotAttempt = false; // Consume the attempt
+                        playerObject.sKeyProcessed = true; // Mark s key as processed for this press
+                    } else {
+                        // Standard kick (currently mostly physics-driven, but could add a small nudge)
+                        audioManager.playSound('kick');
+                    }
+                    // Add kick cooldown
+                    playerObject.kickCooldown = true;
+                    setTimeout(() => {
+                        if(playerObject) playerObject.kickCooldown = false;
+                    }, 500); // 500ms cooldown
+                }
+            }
 
             // Goal scoring
             if (bodyA.label === 'ball' && bodyB.label === 'goal2') {
@@ -684,49 +769,37 @@ function setupCollisions() {
 
             // Ball hitting ground
             if ((bodyA.label === 'ball' && bodyB.label === 'Rectangle Body') || (bodyB.label === 'ball' && bodyA.label === 'Rectangle Body')) {
-                const ballBody = bodyA.label === 'ball' ? bodyA : bodyB;
-                const groundBody = bodyA.label === 'Rectangle Body' ? bodyA : bodyB; // just to be clear
-
-                const ballWorldY = ballBody.position.y + ballBody.circleRadius;
-                createImpactParticles(ballBody.position.x, ballWorldY);
+                const currentBallBody = bodyA.label === 'ball' ? bodyA : bodyB;
+                createImpactParticles(currentBallBody.position.x, currentBallBody.position.y + currentBallBody.circleRadius);
                 audioManager.playSound('bounce');
             }
 
             // Ball hitting a wall (leftWall, rightWall, ceiling)
-            // Walls don't have specific labels, but they are static and not 'Rectangle Body' (ground) or goal posts
             if (bodyA.label === 'ball' && bodyB.isStatic && bodyB.label !== 'Rectangle Body' && !bodyB.label?.startsWith('goal')) {
                 audioManager.playSound('bounce');
             } else if (bodyB.label === 'ball' && bodyA.isStatic && bodyA.label !== 'Rectangle Body' && !bodyA.label?.startsWith('goal')) {
                 audioManager.playSound('bounce');
             }
 
-
             // Ball hitting a goal post for screen shake and sound
             if (bodyA.label === 'ball' && (bodyB.label === 'goalPost1' || bodyB.label === 'goalPost2')) {
                 triggerScreenShake(5, 15);
-                audioManager.playSound('bounce'); // Using bounce for post hit too
+                audioManager.playSound('bounce');
             } else if (bodyB.label === 'ball' && (bodyA.label === 'goalPost1' || bodyA.label === 'goalPost2')) {
                 triggerScreenShake(5, 15);
                 audioManager.playSound('bounce');
-            }
-
-            // Player hitting ball (kick sound)
-            if ((bodyA.label === 'ball' && (bodyB.label === 'player1' || bodyB.label === 'player2')) ||
-                (bodyB.label === 'ball' && (bodyA.label === 'player1' || bodyA.label === 'player2'))) {
-                audioManager.playSound('kick');
             }
         }
     });
 }
 
 function handlePlayerControls() {
+    if (players.length === 0) return;
     const p1 = players[0];
     const currentMoveForceP1 = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
 
-    // Debug log for key presses and player state
-    if (Object.keys(keysPressed).some(key => keysPressed[key])) { // Log if any relevant key is pressed
-         initializeAudio(); // Also try initializing here if not done by keydown
-        // console.log(`Keys: a:${keysPressed['a']}, d:${keysPressed['d']}, w:${keysPressed['w']}. P1 Grounded: ${p1.isGrounded}, Velocity: {x: ${p1.body.velocity.x.toFixed(2)}, y: ${p1.body.velocity.y.toFixed(2)}}`);
+    if (Object.keys(keysPressed).some(key => keysPressed[key])) {
+         initializeAudio();
     }
 
     if (keysPressed['a']) {
@@ -739,9 +812,18 @@ function handlePlayerControls() {
         Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
         p1.isGrounded = false;
         audioManager.playSound('jump');
-    } else if (keysPressed['w'] && !p1.isGrounded) {
-        // Optional: sound for attempted jump in air? Probably not.
     }
+
+    // Chip shot attempt for Player 1
+    if (keysPressed['s'] && !p1.sKeyProcessed && !p1.kickCooldown) {
+        p1.chipShotAttempt = true;
+        p1.sKeyProcessed = true; // Mark as processed for this key press
+        // console.log("Player 1 attempting chip shot");
+    }
+    if (!keysPressed['s'] && p1.sKeyProcessed) { // Reset if key is released
+        p1.sKeyProcessed = false;
+    }
+
 
     // Player 2 (Blue Team) is now controlled by AI
     // const p2 = players[1];
