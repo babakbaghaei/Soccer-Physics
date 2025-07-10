@@ -168,8 +168,8 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
     const aiGoalRight = aiGoalX + aiGoalWidth / 2;
     
-    // Check if ball is between AI player and AI's own goal (right side)
-    const ballBetweenAiAndGoal = ballPos.x > playerPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight;
+    // Check if ball is strictly between AI player and AI's own goal (right side)
+    const ballBetweenAiAndGoal = (playerPos.x < ballPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight);
     
     // If ball is between AI and its goal, enter goalkeeper mode
     if (ballBetweenAiAndGoal) {
@@ -327,32 +327,32 @@ function handleRecoverState(playerPos) {
 }
 
 function handleGoalkeeperState(ballPos, playerPos) {
-    // Goalkeeper behavior when ball is between AI and its own goal:
+    // Goalkeeper behavior when ball is between AI and its own goal (right):
     // 1. Stop moving initially
     // 2. Carefully approach the ball without touching it
-    // 3. Jump over the ball and go towards the goal to defend
-    // 4. After this condition ends, return to normal behavior
+    // 3. Jump over the ball و به سمت راست (دروازه AI) برود
+    // 4. پس از پایان این شرط همه چیز ریست شود
 
     // AI's goal is on the right side
     const aiGoalX = CANVAS_WIDTH - GOAL_WIDTH / 2;
     const aiGoalWidth = GOAL_WIDTH;
     const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
     const aiGoalRight = aiGoalX + aiGoalWidth / 2;
-    
+
     // Initialize goalkeeper phase if just entering this state
     if (goalkeeperPhase === 0 && goalkeeperStartTime === 0) {
         goalkeeperStartTime = Date.now();
         goalkeeperPhase = 1; // Start with approaching phase
     }
-    
+
     // Calculate distances
     const distanceToBall = Math.abs(ballPos.x - playerPos.x);
     const distanceToGoal = Math.abs(playerPos.x - aiGoalX);
-    
+
     // Phase 1: Stop and carefully approach the ball
     if (goalkeeperPhase === 1) {
-        if (distanceToBall > PLAYER_WIDTH * 1.5) {
-            // Move slowly towards the ball, but stop if too close
+        if (ballPos.x > playerPos.x && distanceToBall > PLAYER_WIDTH * 1.5) {
+            // فقط اگر توپ سمت راست AI است نزدیک شود
             const targetX = ballPos.x - PLAYER_WIDTH * 1.0; // Stop well before the ball
             moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.2); // Very slow movement
         } else {
@@ -361,14 +361,14 @@ function handleGoalkeeperState(ballPos, playerPos) {
         }
         return;
     }
-    
-    // Phase 2: Jump over the ball when close enough
+
+    // Phase 2: Jump over the ball when close enough (همیشه به سمت راست)
     if (goalkeeperPhase === 2) {
         if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
             // Jump over the ball towards the goal (right side)
-            const jumpDirection = playerPos.x < ballPos.x ? 0.03 : -0.03; // Small horizontal force towards AI's goal (right)
-            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { 
-                x: jumpDirection, 
+            const jumpDirection = 0.03; // همیشه به سمت راست
+            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, {
+                x: jumpDirection,
                 y: -JUMP_FORCE * 1.3 // Stronger jump to clear the ball
             });
             aiPlayer.isGrounded = false;
@@ -377,13 +377,13 @@ function handleGoalkeeperState(ballPos, playerPos) {
         }
         return;
     }
-    
+
     // Phase 3: After jumping, move towards the goal to defend
     if (goalkeeperPhase === 3) {
         // Move towards the goal center to defend
         const goalCenter = aiGoalX;
         moveHorizontally(playerPos, goalCenter, MOVE_FORCE * 0.8);
-        
+
         // If we're close to the goal and grounded, we can reset the goalkeeper state
         if (distanceToGoal < PLAYER_WIDTH * 1.5 && aiPlayer.isGrounded) {
             // Reset goalkeeper variables for next time
