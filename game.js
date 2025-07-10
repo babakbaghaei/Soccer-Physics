@@ -55,8 +55,21 @@ let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
 
 // --- Field Constants ---
-const GROUND_Y = 580;
-const GROUND_THICKNESS = 40;
+// Original values:
+// const ORIGINAL_GROUND_Y_PHYSICS_CENTER = 580;
+const ORIGINAL_GROUND_THICKNESS = 40;
+// const ORIGINAL_FIELD_SURFACE_Y = ORIGINAL_GROUND_Y_PHYSICS_CENTER - ORIGINAL_GROUND_THICKNESS / 2; // 560
+
+// New calculated values based on plan:
+const NEW_GROUND_THICKNESS = ORIGINAL_GROUND_THICKNESS * 2; // 80
+const NEW_FIELD_SURFACE_Y = (580 - ORIGINAL_GROUND_THICKNESS / 2) - ORIGINAL_GROUND_THICKNESS; // 560 - 40 = 520
+const NEW_GROUND_Y_PHYSICS_CENTER = NEW_FIELD_SURFACE_Y + NEW_GROUND_THICKNESS / 2; // 520 + 40 = 560
+
+// Constants to be used throughout the code:
+const GROUND_Y = NEW_GROUND_Y_PHYSICS_CENTER; // Renaming for minimal diff, but refers to the new physics center
+const GROUND_THICKNESS = NEW_GROUND_THICKNESS;
+const FIELD_SURFACE_Y = NEW_FIELD_SURFACE_Y; // Explicit name for the top of the playable surface
+
 const WALL_THICKNESS = 40;
 const GOAL_HEIGHT = 120;
 const GOAL_WIDTH = 30; // Original goal area width
@@ -118,6 +131,7 @@ function setup() {
 // Entity Creation Functions
 // ===================================================================================
 function createField() {
+    // Ground uses GROUND_Y (new physics center) and GROUND_THICKNESS (new thickness)
     const ground = Bodies.rectangle(CANVAS_WIDTH / 2, GROUND_Y, CANVAS_WIDTH, GROUND_THICKNESS, {
         isStatic: true,
         render: { fillStyle: '#228B22' },
@@ -127,22 +141,24 @@ function createField() {
     const rightWall = Bodies.rectangle(CANVAS_WIDTH + WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, render: { fillStyle: '#666666' } });
     const ceiling = Bodies.rectangle(CANVAS_WIDTH / 2, -WALL_THICKNESS / 2, CANVAS_WIDTH, WALL_THICKNESS, { isStatic: true, render: { fillStyle: '#666666' } });
 
-    // Goal posts are now thinner
-    const goal1Post = Bodies.rectangle(GOAL_POST_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_POST_WIDTH, GOAL_HEIGHT, {
+    // Goal posts and sensors are positioned relative to FIELD_SURFACE_Y
+    // The center Y of the goal posts/sensors will be FIELD_SURFACE_Y - GOAL_HEIGHT / 2
+    const goalY = FIELD_SURFACE_Y - GOAL_HEIGHT / 2;
+
+    const goal1Post = Bodies.rectangle(GOAL_POST_WIDTH / 2, goalY, GOAL_POST_WIDTH, GOAL_HEIGHT, {
         isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost1",
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
-    // Sensor remains wider to define scoring area
-    const goal1Sensor = Bodies.rectangle(GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
+    const goal1Sensor = Bodies.rectangle(GOAL_WIDTH / 2, goalY, GOAL_WIDTH, GOAL_HEIGHT, {
         isStatic: true, isSensor: true, label: 'goal1', render: { visible: false }
     });
     goals.team1 = [goal1Post, goal1Sensor];
 
-    const goal2Post = Bodies.rectangle(CANVAS_WIDTH - GOAL_POST_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_POST_WIDTH, GOAL_HEIGHT, {
+    const goal2Post = Bodies.rectangle(CANVAS_WIDTH - GOAL_POST_WIDTH / 2, goalY, GOAL_POST_WIDTH, GOAL_HEIGHT, {
         isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost2",
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
-    const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH / 2, GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT / 2, GOAL_WIDTH, GOAL_HEIGHT, {
+    const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH / 2, goalY, GOAL_WIDTH, GOAL_HEIGHT, {
         isStatic: true, isSensor: true, label: 'goal2', render: { visible: false }
     });
     goals.team2 = [goal2Post, goal2Sensor];
@@ -152,13 +168,15 @@ function createField() {
 }
 
 function createPlayers() {
-    const player1Body = Bodies.rectangle(200, 450, PLAYER_WIDTH, PLAYER_HEIGHT, {
+    const playerStartY = 450 - 40; // Original 450, field moved up by 40px
+
+    const player1Body = Bodies.rectangle(200, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
         density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player1',
         collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
     });
     players.push({ body: player1Body, team: 1, isGrounded: false, color: '#D9534F' });
 
-    const player2Body = Bodies.rectangle(CANVAS_WIDTH - 200, 450, PLAYER_WIDTH, PLAYER_HEIGHT, {
+    const player2Body = Bodies.rectangle(CANVAS_WIDTH - 200, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
         density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player2',
         collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
     });
@@ -365,53 +383,86 @@ function drawFootballFieldLines(ctx) {
 
     // Center line
     ctx.beginPath();
-    ctx.moveTo(CANVAS_WIDTH / 2 * scale, (GROUND_Y - GROUND_THICKNESS / 2) * scale);
+    ctx.moveTo(CANVAS_WIDTH / 2 * scale, FIELD_SURFACE_Y * scale);
     ctx.lineTo(CANVAS_WIDTH / 2 * scale, CANVAS_HEIGHT * scale);
     ctx.stroke();
 
     // Center circle
     const centerCircleRadius = 70 * scale;
     ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH / 2 * scale, (GROUND_Y - GROUND_THICKNESS / 2 + (CANVAS_HEIGHT - GROUND_Y + GROUND_THICKNESS / 2) / 2) * scale, centerCircleRadius, 0, 2 * Math.PI);
+    // The Y position of the center circle should be halfway between FIELD_SURFACE_Y and CANVAS_HEIGHT
+    ctx.arc(CANVAS_WIDTH / 2 * scale, (FIELD_SURFACE_Y * scale + CANVAS_HEIGHT * scale) / 2, centerCircleRadius, 0, 2 * Math.PI);
     ctx.stroke();
 
     // Penalty boxes
     const penaltyBoxWidth = 120 * scale;
-    const penaltyBoxHeight = 320 * scale;
-    // Left penalty box
-    ctx.strokeRect(0, (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2) * scale, penaltyBoxWidth, penaltyBoxHeight);
-    // Right penalty box
-    ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2) * scale, penaltyBoxWidth, penaltyBoxHeight);
+    const penaltyBoxHeight = 320 * scale; // This is the full height of the box on the field
+    // Y position for penalty box should be centered on FIELD_SURFACE_Y if it were a horizontal line.
+    // Since it's a rect, its top Y is FIELD_SURFACE_Y - penaltyBoxHeight / 2.
+    // However, the original was (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
+    // This means the center of the penalty box's height was aligned with the old field surface.
+    // We want to keep the same visual, so the Y is relative to FIELD_SURFACE_Y.
+    // The penalty box should be drawn on the field, so its Y needs to be calculated from FIELD_SURFACE_Y.
+    // Let's assume the penalty box was defined from the center of the field extending upwards.
+    // The old code: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
+    // This means the top of the penalty box was at (FIELD_SURFACE_Y - penaltyBoxHeight/2)
+    // And bottom at (FIELD_SURFACE_Y + penaltyBoxHeight/2), if it were centered on FIELD_SURFACE_Y.
+    // The question is whether penaltyBoxHeight is the full height ON the field, or if it extends above/below the old surface.
+    // Given the name, it's likely on the field.
+    // Old Y for top of penalty box: (GROUND_Y - GROUND_THICKNESS / 2) - penaltyBoxHeight / 2
+    // Corrected Y for top of penalty box: FIELD_SURFACE_Y - penaltyBoxHeight / 2 - THIS IS WRONG.
+    // The Y for strokeRect is the top-left corner.
+    // The penalty box is typically drawn from the goal line outwards.
+    // The old Y was: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2). This is the Y of the *center* of the penalty box.
+    // Let's use FIELD_SURFACE_Y as the reference for the top of the goal line.
+    // The penalty box extends from the goal line.
+    // The problem is how penaltyBoxHeight (320) relates to GOAL_HEIGHT (120). It's much larger.
+    // This implies the penalty box is drawn around the goal area on the flat surface.
+    // The Y coordinates for these rects are their top-left Y.
+    // Original Y for penalty box top: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
+    // This should be: (FIELD_SURFACE_Y + ( (CANVAS_HEIGHT-FIELD_SURFACE_Y)/2 ) ) - penaltyBoxHeight / 2
+    // No, this is simpler: the field markings are on the surface.
+    // The center of the field's height (playable grass area) is (FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2.
+    // Penalty box Y was (OLD_FIELD_SURFACE_Y - penaltyBoxHeight / 2).
+    // It should be (FIELD_SURFACE_Y - penaltyBoxHeight / 2) if it extends above the surface.
+    // Let's assume the features are drawn on the grass surface.
+    // The Y of the center of the penalty box: FIELD_SURFACE_Y + ( (CANVAS_HEIGHT*scale - FIELD_SURFACE_Y*scale)/2 ) - penaltyBoxHeight/2
+    // The penalty box is typically drawn with its top edge some distance from the center line, or related to goal.
+    // Let's keep it simple: if it was `OLD_SURFACE_Y - some_offset`, now it's `NEW_SURFACE_Y - some_offset`.
+    const penaltyBoxCenterY = FIELD_SURFACE_Y + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) / 2); // Midpoint of the grass height
+    ctx.strokeRect(0, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
+    ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
 
     // Goal boxes (smaller)
     const goalBoxWidth = 50 * scale;
     const goalBoxHeight = 160 * scale;
-    ctx.strokeRect(0, (GROUND_Y - GROUND_THICKNESS / 2 - goalBoxHeight / 2) * scale, goalBoxWidth, goalBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - goalBoxWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 - goalBoxHeight / 2) * scale, goalBoxWidth, goalBoxHeight);
+    ctx.strokeRect(0, penaltyBoxCenterY - (goalBoxHeight / 2), goalBoxWidth, goalBoxHeight);
+    ctx.strokeRect((CANVAS_WIDTH - goalBoxWidth) * scale, penaltyBoxCenterY - (goalBoxHeight / 2), goalBoxWidth, goalBoxHeight);
 
     // Penalty spots
     const penaltySpotRadius = 5 * scale;
     ctx.beginPath();
-    ctx.arc(80 * scale, (GROUND_Y - GROUND_THICKNESS / 2 + (CANVAS_HEIGHT - GROUND_Y + GROUND_THICKNESS / 2) / 2) * scale, penaltySpotRadius, 0, 2 * Math.PI);
+    // Penalty spot Y should be on the penaltyBoxCenterY line, effectively.
+    ctx.arc(80 * scale, penaltyBoxCenterY, penaltySpotRadius, 0, 2 * Math.PI);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.beginPath();
-    ctx.arc((CANVAS_WIDTH - 80) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + (CANVAS_HEIGHT - GROUND_Y + GROUND_THICKNESS / 2) / 2) * scale, penaltySpotRadius, 0, 2 * Math.PI);
+    ctx.arc((CANVAS_WIDTH - 80) * scale, penaltyBoxCenterY, penaltySpotRadius, 0, 2 * Math.PI);
     ctx.fill();
 
     // Corner arcs
     const cornerArcRadius = 12 * scale;
-    // Top left
+    // Top left (top refers to FIELD_SURFACE_Y)
     ctx.beginPath();
-    ctx.arc(0, (GROUND_Y - GROUND_THICKNESS / 2) * scale, cornerArcRadius, 0, 0.5 * Math.PI);
+    ctx.arc(0, FIELD_SURFACE_Y * scale, cornerArcRadius, 0, 0.5 * Math.PI);
     ctx.stroke();
-    // Bottom left
+    // Bottom left (bottom refers to CANVAS_HEIGHT)
     ctx.beginPath();
     ctx.arc(0, CANVAS_HEIGHT * scale, cornerArcRadius, 1.5 * Math.PI, 2 * Math.PI);
     ctx.stroke();
     // Top right
     ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH * scale, (GROUND_Y - GROUND_THICKNESS / 2) * scale, cornerArcRadius, 0.5 * Math.PI, Math.PI);
+    ctx.arc(CANVAS_WIDTH * scale, FIELD_SURFACE_Y * scale, cornerArcRadius, 0.5 * Math.PI, Math.PI);
     ctx.stroke();
     // Bottom right
     ctx.beginPath();
@@ -422,16 +473,16 @@ function drawFootballFieldLines(ctx) {
     const flagHeight = 18 * scale;
     const flagWidth = 4 * scale;
     const flagColor = '#FFD700'; // Gold/yellow
-    // Top left
+    // Top left flag base is at FIELD_SURFACE_Y
     ctx.fillStyle = flagColor;
-    ctx.fillRect(2 * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale, flagWidth, flagHeight);
+    ctx.fillRect(2 * scale, (FIELD_SURFACE_Y + 2) * scale, flagWidth, flagHeight); // Flag stands on the surface
     ctx.beginPath();
-    ctx.moveTo((2 + flagWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale);
-    ctx.lineTo((2 + flagWidth + 6) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 6) * scale);
-    ctx.lineTo((2 + flagWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 10) * scale);
+    ctx.moveTo((2 + flagWidth) * scale, (FIELD_SURFACE_Y + 2) * scale);
+    ctx.lineTo((2 + flagWidth + 6) * scale, (FIELD_SURFACE_Y + 6) * scale);
+    ctx.lineTo((2 + flagWidth) * scale, (FIELD_SURFACE_Y + 10) * scale);
     ctx.closePath();
     ctx.fill();
-    // Bottom left
+    // Bottom left flag base is at CANVAS_HEIGHT
     ctx.fillRect(2 * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale, flagWidth, flagHeight);
     ctx.beginPath();
     ctx.moveTo((2 + flagWidth) * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale);
@@ -439,15 +490,15 @@ function drawFootballFieldLines(ctx) {
     ctx.lineTo((2 + flagWidth) * scale, (CANVAS_HEIGHT - flagHeight + 6) * scale);
     ctx.closePath();
     ctx.fill();
-    // Top right
-    ctx.fillRect((CANVAS_WIDTH - flagWidth - 2) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale, flagWidth, flagHeight);
+    // Top right flag base is at FIELD_SURFACE_Y
+    ctx.fillRect((CANVAS_WIDTH - flagWidth - 2) * scale, (FIELD_SURFACE_Y + 2) * scale, flagWidth, flagHeight);
     ctx.beginPath();
-    ctx.moveTo((CANVAS_WIDTH - 2) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale);
-    ctx.lineTo((CANVAS_WIDTH - 2 - 6) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 6) * scale);
-    ctx.lineTo((CANVAS_WIDTH - 2) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 10) * scale);
+    ctx.moveTo((CANVAS_WIDTH - 2) * scale, (FIELD_SURFACE_Y + 2) * scale); // Anchor point of flag triangle
+    ctx.lineTo((CANVAS_WIDTH - 2 - 6) * scale, (FIELD_SURFACE_Y + 6) * scale);
+    ctx.lineTo((CANVAS_WIDTH - 2) * scale, (FIELD_SURFACE_Y + 10) * scale);
     ctx.closePath();
     ctx.fill();
-    // Bottom right
+    // Bottom right flag base is at CANVAS_HEIGHT
     ctx.fillRect((CANVAS_WIDTH - flagWidth - 2) * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale, flagWidth, flagHeight);
     ctx.beginPath();
     ctx.moveTo((CANVAS_WIDTH - 2) * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale);
@@ -486,8 +537,8 @@ function draw() {
     drawDynamicSky(lowResCtx); // Sun and clouds will be drawn on top of this blue
 
     // 3. Grass on low-res canvas - Striped pattern
-    const grassStartY_scaled = (GROUND_Y - GROUND_THICKNESS/2) * PIXELATION_SCALE_FACTOR;
-    const grassHeight_scaled = (CANVAS_HEIGHT - (GROUND_Y - GROUND_THICKNESS/2)) * PIXELATION_SCALE_FACTOR;
+    const grassStartY_scaled = FIELD_SURFACE_Y * PIXELATION_SCALE_FACTOR;
+    const grassHeight_scaled = (CANVAS_HEIGHT - FIELD_SURFACE_Y) * PIXELATION_SCALE_FACTOR;
     const STRIPE_WIDTH_WORLD = 50; // Width of each stripe in world units
     const stripeWidth_scaled = STRIPE_WIDTH_WORLD * PIXELATION_SCALE_FACTOR;
     const GRASS_COLOR_DARK = "#228B22";  // ForestGreen
@@ -503,12 +554,12 @@ function draw() {
     drawFootballFieldLines(lowResCtx);
 
     drawSimplifiedNet(lowResCtx,
-        0, (GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
+        0, (FIELD_SURFACE_Y - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
         GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
     );
     drawSimplifiedNet(lowResCtx,
         (CANVAS_WIDTH - GOAL_WIDTH) * PIXELATION_SCALE_FACTOR,
-        (GROUND_Y - GROUND_THICKNESS / 2 - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
+        (FIELD_SURFACE_Y - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR,
         GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR
     );
 
