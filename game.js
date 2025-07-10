@@ -395,56 +395,63 @@ function drawFootballFieldLines(ctx) {
     ctx.stroke();
 
     // Penalty boxes
-    const penaltyBoxWidth = 120 * scale;
-    const penaltyBoxHeight = 320 * scale; // This is the full height of the box on the field
-    // Y position for penalty box should be centered on FIELD_SURFACE_Y if it were a horizontal line.
-    // Since it's a rect, its top Y is FIELD_SURFACE_Y - penaltyBoxHeight / 2.
-    // However, the original was (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
-    // This means the center of the penalty box's height was aligned with the old field surface.
-    // We want to keep the same visual, so the Y is relative to FIELD_SURFACE_Y.
-    // The penalty box should be drawn on the field, so its Y needs to be calculated from FIELD_SURFACE_Y.
-    // Let's assume the penalty box was defined from the center of the field extending upwards.
-    // The old code: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
-    // This means the top of the penalty box was at (FIELD_SURFACE_Y - penaltyBoxHeight/2)
-    // And bottom at (FIELD_SURFACE_Y + penaltyBoxHeight/2), if it were centered on FIELD_SURFACE_Y.
-    // The question is whether penaltyBoxHeight is the full height ON the field, or if it extends above/below the old surface.
-    // Given the name, it's likely on the field.
-    // Old Y for top of penalty box: (GROUND_Y - GROUND_THICKNESS / 2) - penaltyBoxHeight / 2
-    // Corrected Y for top of penalty box: FIELD_SURFACE_Y - penaltyBoxHeight / 2 - THIS IS WRONG.
-    // The Y for strokeRect is the top-left corner.
-    // The penalty box is typically drawn from the goal line outwards.
-    // The old Y was: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2). This is the Y of the *center* of the penalty box.
-    // Let's use FIELD_SURFACE_Y as the reference for the top of the goal line.
-    // The penalty box extends from the goal line.
-    // The problem is how penaltyBoxHeight (320) relates to GOAL_HEIGHT (120). It's much larger.
-    // This implies the penalty box is drawn around the goal area on the flat surface.
-    // The Y coordinates for these rects are their top-left Y.
-    // Original Y for penalty box top: (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2)
-    // This should be: (FIELD_SURFACE_Y + ( (CANVAS_HEIGHT-FIELD_SURFACE_Y)/2 ) ) - penaltyBoxHeight / 2
-    // No, this is simpler: the field markings are on the surface.
-    // The center of the field's height (playable grass area) is (FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2.
-    // Penalty box Y was (OLD_FIELD_SURFACE_Y - penaltyBoxHeight / 2).
-    // It should be (FIELD_SURFACE_Y - penaltyBoxHeight / 2) if it extends above the surface.
-    // Let's assume the features are drawn on the grass surface.
-    // The Y of the center of the penalty box: FIELD_SURFACE_Y + ( (CANVAS_HEIGHT*scale - FIELD_SURFACE_Y*scale)/2 ) - penaltyBoxHeight/2
-    // The penalty box is typically drawn with its top edge some distance from the center line, or related to goal.
-    // Let's keep it simple: if it was `OLD_SURFACE_Y - some_offset`, now it's `NEW_SURFACE_Y - some_offset`.
-    // const penaltyBoxCenterY = FIELD_SURFACE_Y + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) / 2); // Midpoint of the grass height
-    // ctx.strokeRect(0, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
-    // ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxCenterY - (penaltyBoxHeight / 2), penaltyBoxWidth, penaltyBoxHeight);
+    // Define new world dimensions for markings to fit on the grass strip
+    const penaltyAreaDepth_world = 60; // How far it extends onto the field (drawn as height)
+    const penaltyAreaLength_world = 200; // How long it is along the goal line (drawn as width)
+    const goalBoxDepth_world = 30;
+    const goalBoxLength_world = 100;
 
-    // Corrected Y for penalty box top (centering the box on FIELD_SURFACE_Y line)
-    const penaltyBoxTopY = (FIELD_SURFACE_Y - penaltyBoxHeight / 2);
-    ctx.strokeRect(0, penaltyBoxTopY * scale, penaltyBoxWidth, penaltyBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, penaltyBoxTopY * scale, penaltyBoxWidth, penaltyBoxHeight);
+    // Old variables that might be referenced later if not careful - these are scaled values.
+    // const penaltyBoxWidth = 120 * scale;
+    // const penaltyBoxHeight = 320 * scale;
+    // const goalBoxWidth = 50 * scale;
+    // const goalBoxHeight = 160 * scale;
 
-    // Goal boxes (smaller)
-    const goalBoxWidth = 50 * scale;
-    const goalBoxHeight = 160 * scale;
-    // Corrected Y for goal box top (centering the box on FIELD_SURFACE_Y line)
-    const goalBoxTopY = (FIELD_SURFACE_Y - goalBoxHeight / 2);
-    ctx.strokeRect(0, goalBoxTopY * scale, goalBoxWidth, goalBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - goalBoxWidth) * scale, goalBoxTopY * scale, goalBoxWidth, goalBoxHeight);
+    // Note: The following lines for penaltyBoxTopY and goalBoxTopY are now superseded by the new approach
+    // const penaltyBoxTopY = (FIELD_SURFACE_Y - (penaltyAreaDepth_world * scale) / 2); // This was for centering on line
+    // const goalBoxTopY = (FIELD_SURFACE_Y - (goalBoxDepth_world * scale) / 2); // This was for centering on line
+
+    // Draw Penalty Boxes
+    const penaltyBoxScaledY = FIELD_SURFACE_Y * scale;
+    const penaltyAreaDepthScaled = penaltyAreaDepth_world * scale;
+    const penaltyAreaLengthScaled = penaltyAreaLength_world * scale;
+
+    // Left Penalty Box
+    ctx.strokeRect(
+        0, // X: Starts from the left edge
+        penaltyBoxScaledY, // Y: Starts from the field surface line
+        penaltyAreaLengthScaled, // Width: Length along the goal line
+        penaltyAreaDepthScaled // Height: Depth into the field
+    );
+
+    // Right Penalty Box
+    ctx.strokeRect(
+        (CANVAS_WIDTH * scale) - penaltyAreaLengthScaled, // X: Starts from right edge, drawn leftwards
+        penaltyBoxScaledY, // Y: Starts from the field surface line
+        penaltyAreaLengthScaled, // Width: Length along the goal line
+        penaltyAreaDepthScaled // Height: Depth into the field
+    );
+
+    // Draw Goal Boxes
+    const goalBoxScaledY = FIELD_SURFACE_Y * scale; // Same Y as penalty boxes
+    const goalBoxDepthScaled = goalBoxDepth_world * scale;
+    const goalBoxLengthScaled = goalBoxLength_world * scale;
+
+    // Left Goal Box
+    ctx.strokeRect(
+        0, // X: Starts from the left edge
+        goalBoxScaledY,   // Y: Starts from the field surface line
+        goalBoxLengthScaled,  // Width: Length along the goal line
+        goalBoxDepthScaled    // Height: Depth into the field
+    );
+
+    // Right Goal Box
+    ctx.strokeRect(
+        (CANVAS_WIDTH * scale) - goalBoxLengthScaled, // X: Starts from right edge, drawn leftwards
+        goalBoxScaledY,   // Y: Starts from the field surface line
+        goalBoxLengthScaled,  // Width: Length along the goal line
+        goalBoxDepthScaled    // Height: Depth into the field
+    );
 
     // Penalty spots
     // Penalty spots should be on the FIELD_SURFACE_Y line if they were originally centered there.
