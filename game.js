@@ -714,7 +714,7 @@ function setupCollisions() {
             if ((bodyA.label === 'player1' || bodyA.label === 'player2') && bodyB.label === 'ball') {
                 playerBody = bodyA;
                 ballBody = bodyB;
-            } else if (bodyB.label === 'player1' || bodyB.label === 'player2') && bodyA.label === 'ball') {
+            } else if ((bodyB.label === 'player1' || bodyB.label === 'player2') && bodyA.label === 'ball') { // Corrected: Added parentheses
                 playerBody = bodyB;
                 ballBody = bodyA;
             }
