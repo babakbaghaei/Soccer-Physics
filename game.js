@@ -12,47 +12,21 @@ const Constraint = Matter.Constraint;
 
 import audioManager from './audioManager.js';
 
-// --- DOM Element References ---
-const mainCanvas = document.getElementById('gameCanvas');
-const mainCtx = mainCanvas.getContext('2d');
-const team1ScoreDisplay = document.getElementById('team1ScoreDisplay');
-const team2ScoreDisplay = document.getElementById('team2ScoreDisplay');
-const timerDisplay = document.getElementById('timerDisplay');
-const gameMessageDisplay = document.getElementById('gameMessage');
-
-// --- Game Constants ---
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
-const ROUND_DURATION_SECONDS = 90;
-const BALL_RADIUS = 15;
-
-// --- Pixelation / Low-Resolution Rendering ---
-const PIXELATION_SCALE_FACTOR = 0.25; // Further reduced for more pixelation
-let lowResCanvas;
-let lowResCtx;
-
-// --- Collision Categories ---
-const playerCategory = 0x0001;
-const goalPostCategory = 0x0002;
-const ballCategory = 0x0004;
-const worldCategory = 0x0008;
-
-// --- Game Constants ---
-// ... (other constants)
-const AI_PLAYER_INDEX = 1; // Player 2 is at index 1 in the players array
-
-// --- Game Variables ---
-let engine;
-let world;
-let runner;
+// ===================================================================================
+// Global Variables
+// ===================================================================================
+let mainCanvas, lowResCanvas, lowResCtx;
+let engine, world, runner;
+let players = [];
+let ball;
+let goals = { team1: [], team2: [] };
+let particles = [];
+let screenShake = { magnitude: 0, duration: 0, startTime: 0 };
+let gameTimeRemaining = 120;
+let roundTimerId;
 let isGameOver = false;
 let team1Score = 0;
 let team2Score = 0;
-let ball;
-let players = [];
-let goals = {};
-let gameTimeRemaining = ROUND_DURATION_SECONDS;
-let roundTimerId = null;
 let kickCooldown = 0;
 let isKicking = false;
 let aiKicking = false;
@@ -62,16 +36,26 @@ const KICK_ANIM_DURATION = 120; // ms for forward or back
 // Change KICK_MAX_ANGLE sign for reverse rotation
 const KICK_MAX_ANGLE = -18 * Math.PI / 180;
 
-// --- Field Constants ---
+// Three.js variables
+let scene, camera, renderer;
+let field, player1Mesh, player2Mesh, ballMesh;
+let directionalLight, ambientLight;
+
+// ===================================================================================
+// Constants
+// ===================================================================================
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
+const PIXELATION_SCALE_FACTOR = 4; // Global pixelation factor
+const ROUND_DURATION_SECONDS = 120;
+
+// Physics constants
 const GROUND_Y = 580;
 const GROUND_THICKNESS = 40;
-const WALL_THICKNESS = 40;
-const GOAL_HEIGHT = 120;
-const GOAL_WIDTH = 30; // Original goal area width
-const GOAL_POST_WIDTH = 6; // Thinner goal posts (was 10)
+const WALL_THICKNESS = 20;
+const BALL_RADIUS = 15;
 
-
-// --- Player Constants ---
+// Player Constants
 const PLAYER_FRICTION = 0.8;
 const PLAYER_RESTITUTION = 0;
 const PLAYER_DENSITY = 0.003;
@@ -82,7 +66,38 @@ const JUMP_FORCE = 0.18;
 const MOVE_FORCE = 0.015;
 const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
+// Goal constants
+const GOAL_HEIGHT = 120;
+const GOAL_WIDTH = 30; // Original goal area width
+const GOAL_POST_WIDTH = 6; // Thinner goal posts (was 10)
+
+// Collision categories
+const worldCategory = 0x0001;
+const playerCategory = 0x0002;
+const ballCategory = 0x0004;
+const goalPostCategory = 0x0008;
+
+// AI Player index
+const AI_PLAYER_INDEX = 1; // Player 2 is AI
+
 const keysPressed = {};
+
+// ===================================================================================
+// Export Constants for AI
+// ===================================================================================
+window.CANVAS_WIDTH = CANVAS_WIDTH;
+window.CANVAS_HEIGHT = CANVAS_HEIGHT;
+window.PLAYER_SIZE = PLAYER_SIZE;
+window.PLAYER_WIDTH = PLAYER_WIDTH;
+window.PLAYER_HEIGHT = PLAYER_HEIGHT;
+window.JUMP_FORCE = JUMP_FORCE;
+window.MOVE_FORCE = MOVE_FORCE;
+window.AIR_MOVE_FORCE_MULTIPLIER = AIR_MOVE_FORCE_MULTIPLIER;
+window.BALL_RADIUS = BALL_RADIUS;
+window.GROUND_Y = GROUND_Y;
+window.GOAL_HEIGHT = GOAL_HEIGHT;
+window.GOAL_WIDTH = GOAL_WIDTH;
+window.aiKicking = aiKicking;
 
 // ===================================================================================
 // Setup Function
@@ -90,36 +105,136 @@ const keysPressed = {};
 function setup() {
     console.log("Starting game setup...");
     
-    mainCanvas.width = CANVAS_WIDTH;
-    mainCanvas.height = CANVAS_HEIGHT;
-
-    lowResCanvas = document.createElement('canvas');
-    lowResCanvas.width = CANVAS_WIDTH * PIXELATION_SCALE_FACTOR;
-    lowResCanvas.height = CANVAS_HEIGHT * PIXELATION_SCALE_FACTOR;
-    lowResCtx = lowResCanvas.getContext('2d');
-    lowResCtx.imageSmoothingEnabled = false;
-
-    engine = Engine.create();
-    world = engine.world;
-    engine.gravity.y = 1.5;
-
-    createField();
-    createPlayers();
-    createBall();
-    setupControls();
-    setupCollisions();
-
-    // Initialize AI for Player 2
-    // Ensure players array is populated and ball exists.
-    if (typeof window.initializeAI === "function" && players.length > 1 && ball && ball.velocity) {
-        window.initializeAI(players[AI_PLAYER_INDEX], ball, engine); // AI_PLAYER_INDEX should be 1 for P2
-        console.log("AI initialized successfully");
-    } else {
-        console.error("AI could not be initialized. Ensure ai_player.js is loaded and initializeAI is defined, and ball is created properly.");
-    }
-
+    // Initialize Three.js
+    initThreeJS();
+    
+    // Initialize UI elements
+    initUI();
+    
+    // Initialize audio
+    initializeAudio();
+    
+    // Start game loop
     startGame();
     console.log("Game setup completed!");
+}
+
+function initThreeJS() {
+    // Create scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+    
+    // Create camera with better isometric view
+    camera = new THREE.PerspectiveCamera(60, CANVAS_WIDTH / CANVAS_HEIGHT, 0.1, 2000);
+    camera.position.set(400, 500, 800); // Better isometric position
+    camera.lookAt(400, 0, 300); // Look at center of field
+    
+    // Create renderer
+    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
+    renderer.setSize(CANVAS_WIDTH, CANVAS_HEIGHT);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    
+    // Create lights
+    ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    scene.add(ambientLight);
+    
+    directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(200, 400, 200);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 1000;
+    directionalLight.shadow.camera.left = -400;
+    directionalLight.shadow.camera.right = 400;
+    directionalLight.shadow.camera.top = 400;
+    directionalLight.shadow.camera.bottom = -400;
+    scene.add(directionalLight);
+    
+    // Create field
+    createField3D();
+    
+    // Create players
+    createPlayers3D();
+    
+    // Create ball
+    createBall3D();
+    
+    // Setup controls
+    setupControls();
+    
+    // Setup camera controls
+    setupCameraControls();
+}
+
+function setupCameraControls() {
+    let isMouseDown = false;
+    let mouseX = 0;
+    let mouseY = 0;
+    let cameraDistance = 800;
+    let cameraAngleX = 45;
+    let cameraAngleY = 45;
+    
+    const canvas = document.getElementById('gameCanvas');
+    
+    canvas.addEventListener('mousedown', (event) => {
+        isMouseDown = true;
+        mouseX = event.clientX;
+        mouseY = event.clientY;
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+        isMouseDown = false;
+    });
+    
+    canvas.addEventListener('mousemove', (event) => {
+        if (isMouseDown) {
+            const deltaX = event.clientX - mouseX;
+            const deltaY = event.clientY - mouseY;
+            
+            cameraAngleY += deltaX * 0.5;
+            cameraAngleX += deltaY * 0.5;
+            
+            // Clamp camera angles
+            cameraAngleX = Math.max(10, Math.min(80, cameraAngleX));
+            
+            updateCameraPosition();
+            
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        }
+    });
+    
+    canvas.addEventListener('wheel', (event) => {
+        cameraDistance += event.deltaY * 0.5;
+        cameraDistance = Math.max(400, Math.min(1200, cameraDistance));
+        updateCameraPosition();
+    });
+    
+    function updateCameraPosition() {
+        const radiansX = cameraAngleX * Math.PI / 180;
+        const radiansY = cameraAngleY * Math.PI / 180;
+        
+        camera.position.x = 400 + cameraDistance * Math.sin(radiansY) * Math.cos(radiansX);
+        camera.position.y = cameraDistance * Math.sin(radiansX);
+        camera.position.z = 300 + cameraDistance * Math.cos(radiansY) * Math.cos(radiansX);
+        
+        camera.lookAt(400, 0, 300);
+    }
+}
+
+function initUI() {
+    // Update UI element references
+    team1ScoreDisplay = document.getElementById('team1Score');
+    team2ScoreDisplay = document.getElementById('team2Score');
+    timerDisplay = document.getElementById('timer');
+    gameMessageDisplay = document.getElementById('gameMessage');
+    
+    // Initialize scores
+    team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
+    team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
+    timerDisplay.textContent = `Time: ${gameTimeRemaining}`;
 }
 
 // ===================================================================================
@@ -626,24 +741,6 @@ function initializeAudio() {
     }
 }
 
-function setupControls() {
-    window.addEventListener('keydown', (e) => {
-        initializeAudio(); // Initialize audio on first keydown
-        const key = e.key.toLowerCase();
-        if (key === 's' && !keysPressed['s']) {
-            keysPressed['s'] = true;
-            isKicking = true;
-        } else {
-            keysPressed[key] = true;
-        }
-    });
-    window.addEventListener('keyup', (e) => {
-        const key = e.key.toLowerCase();
-        keysPressed[key] = false;
-        if (key === 's') isKicking = false;
-    });
-}
-
 function setupCollisions() {
     Events.on(engine, 'collisionStart', (event) => {
         const pairs = event.pairs;
@@ -835,9 +932,441 @@ function resetPositions() {
     }
 }
 
+// ===================================================================================
+// 3D Creation Functions
+// ===================================================================================
+function createField3D() {
+    // Create field ground
+    const fieldGeometry = new THREE.PlaneGeometry(800, 600);
+    const fieldMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 }); // Green
+    field = new THREE.Mesh(fieldGeometry, fieldMaterial);
+    field.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    field.receiveShadow = true;
+    scene.add(field);
+    
+    // Create field lines
+    createFieldLines();
+    
+    // Create goal posts
+    createGoalPosts();
+    
+    // Create corner flags
+    createCornerFlags();
+}
+
+function createFieldLines() {
+    const lineMaterial = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+    
+    // Center line
+    const centerLineGeometry = new THREE.BoxGeometry(2, 600, 2);
+    const centerLine = new THREE.Mesh(centerLineGeometry, lineMaterial);
+    centerLine.position.set(400, 1, 300);
+    scene.add(centerLine);
+    
+    // Center circle
+    const centerCircleGeometry = new THREE.RingGeometry(50, 52, 32);
+    const centerCircle = new THREE.Mesh(centerCircleGeometry, lineMaterial);
+    centerCircle.rotation.x = -Math.PI / 2;
+    centerCircle.position.set(400, 1, 300);
+    scene.add(centerCircle);
+    
+    // Penalty areas
+    const penaltyAreaGeometry = new THREE.BoxGeometry(200, 2, 2);
+    
+    // Left penalty area (top)
+    const leftPenaltyTop = new THREE.Mesh(penaltyAreaGeometry, lineMaterial);
+    leftPenaltyTop.position.set(300, 1, 200);
+    scene.add(leftPenaltyTop);
+    
+    // Left penalty area (bottom)
+    const leftPenaltyBottom = new THREE.Mesh(penaltyAreaGeometry, lineMaterial);
+    leftPenaltyBottom.position.set(300, 1, 400);
+    scene.add(leftPenaltyBottom);
+    
+    // Right penalty area (top)
+    const rightPenaltyTop = new THREE.Mesh(penaltyAreaGeometry, lineMaterial);
+    rightPenaltyTop.position.set(500, 1, 200);
+    scene.add(rightPenaltyTop);
+    
+    // Right penalty area (bottom)
+    const rightPenaltyBottom = new THREE.Mesh(penaltyAreaGeometry, lineMaterial);
+    rightPenaltyBottom.position.set(500, 1, 400);
+    scene.add(rightPenaltyBottom);
+    
+    // Penalty area vertical lines
+    const penaltyVerticalGeometry = new THREE.BoxGeometry(2, 2, 200);
+    
+    // Left penalty area vertical lines
+    const leftPenaltyLeft = new THREE.Mesh(penaltyVerticalGeometry, lineMaterial);
+    leftPenaltyLeft.position.set(200, 1, 300);
+    scene.add(leftPenaltyLeft);
+    
+    const leftPenaltyRight = new THREE.Mesh(penaltyVerticalGeometry, lineMaterial);
+    leftPenaltyRight.position.set(400, 1, 300);
+    scene.add(leftPenaltyRight);
+    
+    // Right penalty area vertical lines
+    const rightPenaltyLeft = new THREE.Mesh(penaltyVerticalGeometry, lineMaterial);
+    rightPenaltyLeft.position.set(400, 1, 300);
+    scene.add(rightPenaltyLeft);
+    
+    const rightPenaltyRight = new THREE.Mesh(penaltyVerticalGeometry, lineMaterial);
+    rightPenaltyRight.position.set(600, 1, 300);
+    scene.add(rightPenaltyRight);
+}
+
+function createGoalPosts() {
+    const goalPostGeometry = new THREE.BoxGeometry(GOAL_POST_WIDTH, GOAL_HEIGHT, GOAL_POST_WIDTH);
+    const goalPostMaterial = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+    
+    // Left goal posts
+    const leftGoalLeft = new THREE.Mesh(goalPostGeometry, goalPostMaterial);
+    leftGoalLeft.position.set(GOAL_POST_WIDTH/2, GOAL_HEIGHT/2, 300 - GOAL_WIDTH/2);
+    leftGoalLeft.castShadow = true;
+    scene.add(leftGoalLeft);
+    
+    const leftGoalRight = new THREE.Mesh(goalPostGeometry, goalPostMaterial);
+    leftGoalRight.position.set(GOAL_POST_WIDTH/2, GOAL_HEIGHT/2, 300 + GOAL_WIDTH/2);
+    leftGoalRight.castShadow = true;
+    scene.add(leftGoalRight);
+    
+    // Left goal crossbar
+    const leftCrossbarGeometry = new THREE.BoxGeometry(GOAL_WIDTH + GOAL_POST_WIDTH, GOAL_POST_WIDTH, GOAL_POST_WIDTH);
+    const leftCrossbar = new THREE.Mesh(leftCrossbarGeometry, goalPostMaterial);
+    leftCrossbar.position.set(GOAL_POST_WIDTH/2, GOAL_HEIGHT, 300);
+    leftCrossbar.castShadow = true;
+    scene.add(leftCrossbar);
+    
+    // Right goal posts
+    const rightGoalLeft = new THREE.Mesh(goalPostGeometry, goalPostMaterial);
+    rightGoalLeft.position.set(CANVAS_WIDTH - GOAL_POST_WIDTH/2, GOAL_HEIGHT/2, 300 - GOAL_WIDTH/2);
+    rightGoalLeft.castShadow = true;
+    scene.add(rightGoalLeft);
+    
+    const rightGoalRight = new THREE.Mesh(goalPostGeometry, goalPostMaterial);
+    rightGoalRight.position.set(CANVAS_WIDTH - GOAL_POST_WIDTH/2, GOAL_HEIGHT/2, 300 + GOAL_WIDTH/2);
+    rightGoalRight.castShadow = true;
+    scene.add(rightGoalRight);
+    
+    // Right goal crossbar
+    const rightCrossbarGeometry = new THREE.BoxGeometry(GOAL_WIDTH + GOAL_POST_WIDTH, GOAL_POST_WIDTH, GOAL_POST_WIDTH);
+    const rightCrossbar = new THREE.Mesh(rightCrossbarGeometry, goalPostMaterial);
+    rightCrossbar.position.set(CANVAS_WIDTH - GOAL_POST_WIDTH/2, GOAL_HEIGHT, 300);
+    rightCrossbar.castShadow = true;
+    scene.add(rightCrossbar);
+}
+
+function createCornerFlags() {
+    const flagPoleGeometry = new THREE.CylinderGeometry(1, 1, 60, 8);
+    const flagPoleMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 }); // Brown
+    
+    const flagGeometry = new THREE.PlaneGeometry(20, 15);
+    const flagMaterial = new THREE.MeshLambertMaterial({ color: 0xFF0000 }); // Red
+    
+    // Corner flag positions
+    const cornerPositions = [
+        { x: 0, z: 0 },      // Top-left
+        { x: CANVAS_WIDTH, z: 0 }, // Top-right
+        { x: 0, z: CANVAS_HEIGHT }, // Bottom-left
+        { x: CANVAS_WIDTH, z: CANVAS_HEIGHT } // Bottom-right
+    ];
+    
+    cornerPositions.forEach((pos, index) => {
+        // Create flag pole
+        const flagPole = new THREE.Mesh(flagPoleGeometry, flagPoleMaterial);
+        flagPole.position.set(pos.x, 30, pos.z);
+        flagPole.castShadow = true;
+        scene.add(flagPole);
+        
+        // Create flag
+        const flag = new THREE.Mesh(flagGeometry, flagMaterial);
+        flag.position.set(pos.x + (pos.x === 0 ? 10 : -10), 45, pos.z);
+        flag.castShadow = true;
+        scene.add(flag);
+    });
+}
+
+function createPlayers3D() {
+    // Player 1 (Red)
+    const playerGeometry = new THREE.BoxGeometry(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_WIDTH);
+    const player1Material = new THREE.MeshLambertMaterial({ color: 0xD9534F });
+    player1Mesh = new THREE.Mesh(playerGeometry, player1Material);
+    player1Mesh.position.set(200, PLAYER_HEIGHT/2, 450);
+    player1Mesh.castShadow = true;
+    scene.add(player1Mesh);
+    
+    // Player 2 (Blue) - AI
+    const player2Material = new THREE.MeshLambertMaterial({ color: 0x428BCA });
+    player2Mesh = new THREE.Mesh(playerGeometry, player2Material);
+    player2Mesh.position.set(600, PLAYER_HEIGHT/2, 450);
+    player2Mesh.castShadow = true;
+    scene.add(player2Mesh);
+    
+    // Store player data
+    players = [
+        { mesh: player1Mesh, team: 1, isGrounded: false, color: '#D9534F' },
+        { mesh: player2Mesh, team: 2, isGrounded: false, color: '#428BCA' }
+    ];
+}
+
+function createBall3D() {
+    const ballGeometry = new THREE.SphereGeometry(BALL_RADIUS, 16, 16);
+    const ballMaterial = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+    ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+    ballMesh.position.set(CANVAS_WIDTH / 2, BALL_RADIUS, 100);
+    ballMesh.castShadow = true;
+    scene.add(ballMesh);
+    
+    // Store ball data
+    ball = { 
+        mesh: ballMesh, 
+        position: ballMesh.position,
+        velocity: { x: 0, y: 0, z: 0 }
+    };
+}
+
+// ===================================================================================
+// Collision Detection & Game Logic
+// ===================================================================================
+function checkCollisions() {
+    if (!ball || !players) return;
+    
+    // Check ball-player collisions
+    players.forEach((player, index) => {
+        const distance = Math.sqrt(
+            Math.pow(ball.mesh.position.x - player.mesh.position.x, 2) +
+            Math.pow(ball.mesh.position.z - player.mesh.position.z, 2) +
+            Math.pow(ball.mesh.position.y - player.mesh.position.y, 2)
+        );
+        
+        if (distance < BALL_RADIUS + PLAYER_SIZE / 2) {
+            handleBallPlayerCollision(player, index);
+        }
+    });
+    
+    // Check goal scoring
+    checkGoalScoring();
+    
+    // Check wall collisions
+    checkWallCollisions();
+}
+
+function handleBallPlayerCollision(player, playerIndex) {
+    // Calculate collision response
+    const dx = ball.mesh.position.x - player.mesh.position.x;
+    const dz = ball.mesh.position.z - player.mesh.position.z;
+    const dy = ball.mesh.position.y - player.mesh.position.y;
+    
+    const distance = Math.sqrt(dx * dx + dz * dz + dy * dy);
+    
+    if (distance > 0) {
+        // Normalize direction
+        const nx = dx / distance;
+        const nz = dz / distance;
+        const ny = dy / distance;
+        
+        // Push ball away from player
+        const pushDistance = BALL_RADIUS + PLAYER_SIZE / 2 - distance;
+        ball.mesh.position.x += nx * pushDistance;
+        ball.mesh.position.z += nz * pushDistance;
+        ball.mesh.position.y += ny * pushDistance;
+        
+        // Apply kick force if player is kicking
+        if ((playerIndex === 0 && isKicking) || (playerIndex === 1 && window.aiKicking)) {
+            applyKickForce(player, nx, nz, ny);
+            if (typeof window.playKickSound === 'function') {
+                window.playKickSound();
+            }
+        }
+    }
+}
+
+function applyKickForce(player, nx, nz, ny) {
+    const kickForce = 20;
+    const kickDirectionX = nx * kickForce;
+    const kickDirectionZ = nz * kickForce;
+    const kickDirectionY = Math.abs(ny) * kickForce * 0.5; // Reduced upward force
+    
+    ball.velocity.x = kickDirectionX;
+    ball.velocity.z = kickDirectionZ;
+    ball.velocity.y = kickDirectionY;
+    
+    // Add some randomness
+    ball.velocity.x += (Math.random() - 0.5) * 5;
+    ball.velocity.z += (Math.random() - 0.5) * 5;
+}
+
+function checkGoalScoring() {
+    const ballX = ball.mesh.position.x;
+    const ballY = ball.mesh.position.y;
+    const ballZ = ball.mesh.position.z;
+    
+    // Left goal (Team 1 scores)
+    if (ballX < GOAL_POST_WIDTH && ballY < GOAL_HEIGHT && 
+        ballZ > 300 - GOAL_WIDTH/2 && ballZ < 300 + GOAL_WIDTH/2) {
+        scoreGoal(1);
+    }
+    
+    // Right goal (Team 2 scores)
+    if (ballX > CANVAS_WIDTH - GOAL_POST_WIDTH && ballY < GOAL_HEIGHT && 
+        ballZ > 300 - GOAL_WIDTH/2 && ballZ < 300 + GOAL_WIDTH/2) {
+        scoreGoal(2);
+    }
+}
+
+function scoreGoal(team) {
+    if (team === 1) {
+        team1Score++;
+        team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
+    } else {
+        team2Score++;
+        team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
+    }
+    
+    // Play goal sound
+    if (typeof window.playGoalSound === 'function') {
+        window.playGoalSound();
+    }
+    
+    // Show goal message
+    const teamName = team === 1 ? "قرمز" : "آبی";
+    gameMessageDisplay.textContent = `گل! تیم ${teamName}`;
+    gameMessageDisplay.classList.add('has-text');
+    
+    // Reset ball position
+    resetBall();
+    
+    // Clear message after 2 seconds
+    setTimeout(() => {
+        gameMessageDisplay.textContent = '';
+        gameMessageDisplay.classList.remove('has-text');
+    }, 2000);
+}
+
+function resetBall() {
+    ball.mesh.position.set(CANVAS_WIDTH / 2, BALL_RADIUS, 100);
+    ball.velocity.x = 0;
+    ball.velocity.y = 0;
+    ball.velocity.z = 0;
+}
+
+function checkWallCollisions() {
+    const ballX = ball.mesh.position.x;
+    const ballZ = ball.mesh.position.z;
+    
+    // Left wall
+    if (ballX < BALL_RADIUS) {
+        ball.mesh.position.x = BALL_RADIUS;
+        ball.velocity.x = Math.abs(ball.velocity.x) * 0.8; // Bounce with friction
+    }
+    
+    // Right wall
+    if (ballX > CANVAS_WIDTH - BALL_RADIUS) {
+        ball.mesh.position.x = CANVAS_WIDTH - BALL_RADIUS;
+        ball.velocity.x = -Math.abs(ball.velocity.x) * 0.8; // Bounce with friction
+    }
+    
+    // Top wall (z-axis)
+    if (ballZ < BALL_RADIUS) {
+        ball.mesh.position.z = BALL_RADIUS;
+        ball.velocity.z = Math.abs(ball.velocity.z) * 0.8; // Bounce with friction
+    }
+    
+    // Bottom wall (z-axis)
+    if (ballZ > CANVAS_HEIGHT - BALL_RADIUS) {
+        ball.mesh.position.z = CANVAS_HEIGHT - BALL_RADIUS;
+        ball.velocity.z = -Math.abs(ball.velocity.z) * 0.8; // Bounce with friction
+    }
+}
+
+// ===================================================================================
+// Updated Drawing Functions
+// ===================================================================================
+function draw3D() {
+    // Update player positions based on physics (simplified for now)
+    updatePlayerPositions();
+    
+    // Update ball position
+    updateBallPosition();
+    
+    // Check collisions
+    checkCollisions();
+    
+    // Render the scene
+    renderer.render(scene, camera);
+}
+
+function updatePlayerPositions() {
+    // Player 1 movement
+    if (keysPressed['a']) {
+        player1Mesh.position.x -= 5;
+    }
+    if (keysPressed['d']) {
+        player1Mesh.position.x += 5;
+    }
+    if (keysPressed['q']) {
+        player1Mesh.position.z -= 5;
+    }
+    if (keysPressed['e']) {
+        player1Mesh.position.z += 5;
+    }
+    if (keysPressed['w'] && players[0].isGrounded) {
+        player1Mesh.position.y += 10;
+        players[0].isGrounded = false;
+        if (typeof window.playJumpSound === 'function') {
+            window.playJumpSound();
+        }
+        setTimeout(() => {
+            player1Mesh.position.y = PLAYER_HEIGHT/2;
+            players[0].isGrounded = true;
+        }, 500);
+    }
+    
+    // AI movement (simplified)
+    if (typeof window.updateAI === "function") {
+        window.updateAI();
+    }
+    
+    // Keep players within bounds
+    players.forEach(player => {
+        player.mesh.position.x = Math.max(PLAYER_SIZE/2, Math.min(CANVAS_WIDTH - PLAYER_SIZE/2, player.mesh.position.x));
+        player.mesh.position.z = Math.max(PLAYER_SIZE/2, Math.min(CANVAS_HEIGHT - PLAYER_SIZE/2, player.mesh.position.z));
+    });
+}
+
+function updateBallPosition() {
+    // Apply velocity
+    ball.mesh.position.x += ball.velocity.x;
+    ball.mesh.position.y += ball.velocity.y;
+    ball.mesh.position.z += ball.velocity.z;
+    
+    // Apply gravity
+    ball.velocity.y -= 0.8;
+    
+    // Ground collision
+    if (ball.mesh.position.y < BALL_RADIUS) {
+        ball.mesh.position.y = BALL_RADIUS;
+        ball.velocity.y = 0;
+        
+        // Apply friction to horizontal movement
+        ball.velocity.x *= 0.95;
+        ball.velocity.z *= 0.95;
+    }
+    
+    // Update ball data
+    ball.position = ball.mesh.position;
+}
+
+// ===================================================================================
+// Game Loop
+// ===================================================================================
 function startGame() {
-    runner = Runner.create();
-    Runner.run(runner, engine);
+    // Initialize AI
+    if (typeof window.initializeAI === "function") {
+        window.initializeAI(players[AI_PLAYER_INDEX], ball, null);
+    }
+    
+    // Start game timer
     roundTimerId = setInterval(() => {
         gameTimeRemaining--;
         timerDisplay.textContent = `Time: ${gameTimeRemaining}`;
@@ -845,13 +1374,54 @@ function startGame() {
             endGame();
         }
     }, 1000);
-    draw();
+    
+    // Start render loop
+    animate();
+}
+
+function animate() {
+    if (!isGameOver) {
+        requestAnimationFrame(animate);
+        draw3D();
+    }
+}
+
+// ===================================================================================
+// Control Functions
+// ===================================================================================
+function setupControls() {
+    document.addEventListener('keydown', (event) => {
+        keysPressed[event.key.toLowerCase()] = true;
+        if (event.key.toLowerCase() === 's') {
+            isKicking = true;
+        }
+    });
+    
+    document.addEventListener('keyup', (event) => {
+        keysPressed[event.key.toLowerCase()] = false;
+        if (event.key.toLowerCase() === 's') {
+            isKicking = false;
+        }
+    });
+    
+    // Prevent default behavior for game keys
+    document.addEventListener('keydown', (event) => {
+        if (['w', 'a', 's', 'd', 'q', 'e'].includes(event.key.toLowerCase())) {
+            event.preventDefault();
+        }
+    });
+}
+
+// ===================================================================================
+// Utility Functions
+// ===================================================================================
+function initializeAudio() {
+    // Audio initialization will be handled by audioManager.js
 }
 
 function endGame() {
     clearInterval(roundTimerId);
     isGameOver = true;
-    Runner.stop(runner);
     let winnerMessage = "مساوی!";
     if (team1Score > team2Score) winnerMessage = "تیم قرمز برنده شد!";
     if (team2Score > team1Score) winnerMessage = "تیم آبی برنده شد!";
@@ -859,4 +1429,5 @@ function endGame() {
     gameMessageDisplay.classList.add('has-text');
 }
 
+// Initialize game when page loads
 window.addEventListener('DOMContentLoaded', setup);

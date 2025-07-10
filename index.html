@@ -1,51 +1,123 @@
 <!DOCTYPE html>
-<html lang="fa-IR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel Soccer Game</title>
-    <link rel="stylesheet" href="style.css"> <!-- Linking the main stylesheet -->
+    <title>Soccer Game</title>
     <style>
-        /* Minimal body style, rest is in style.css */
-        body { margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        /* Canvas border is now handled by tv-screen style in style.css, but keep a fallback if needed */
-        /* canvas { border: 1px solid white; } */
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #87CEEB, #98FB98);
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .game-container {
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        #gameCanvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            background: #228B22;
+        }
+        
+        .ui-panel {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .score-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin: 5px 0;
+        }
+        
+        .timer-display {
+            font-size: 20px;
+            color: #666;
+            margin: 5px 0;
+        }
+        
+        .game-message {
+            font-size: 28px;
+            font-weight: bold;
+            color: #D9534F;
+            margin: 10px 0;
+            min-height: 40px;
+            transition: all 0.3s ease;
+        }
+        
+        .game-message.has-text {
+            transform: scale(1.1);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .controls-info {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .controls-info h3 {
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+        
+        .controls-info ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .controls-info li {
+            margin: 3px 0;
+        }
     </style>
 </head>
 <body>
-    <div id="retroTvContainer">
-        <div class="tv-frame">
-            <div class="tv-screen">
-                <div id="scoreBoard">
-                    <span id="team1ScoreDisplay">Team 1: 0</span>
-                    <span id="timerDisplay">Time: 90</span>
-                    <span id="team2ScoreDisplay">Team 2: 0</span>
-                </div>
-                <canvas id="gameCanvas"></canvas>
-                <div id="gameMessage"></div>
-            </div>
-            <div class="tv-controls">
-                <div class="knob"></div>
-                <div class="speaker">
-                    <div class="speaker-hole"></div><div class="speaker-hole"></div>
-                    <div class="speaker-hole"></div><div class="speaker-hole"></div>
-                    <div class="speaker-hole"></div><div class="speaker-hole"></div>
-                </div>
-                <div class="knob"></div>
-            </div>
-        </div>
-    </div>
-    <div id="controlsInfo">
-        Player 1: A/D to move, W to jump.
+    <div class="ui-panel">
+        <div class="score-display" id="team1Score">Team 1: 0</div>
+        <div class="score-display" id="team2Score">Team 2: 0</div>
+        <div class="timer-display" id="timer">Time: 120</div>
+        <div class="game-message" id="gameMessage"></div>
     </div>
     
-    <!-- Load Matter.js from CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <!-- Load AI player first -->
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+    
+    <div class="controls-info">
+        <h3>کنترل‌ها:</h3>
+        <ul>
+            <li><strong>W:</strong> پرش</li>
+            <li><strong>A/D:</strong> حرکت چپ/راست</li>
+            <li><strong>Q/E:</strong> حرکت جلو/عقب</li>
+            <li><strong>S:</strong> شوت (نگه دارید)</li>
+            <li><strong>Mouse:</strong> چرخش دوربین</li>
+            <li><strong>Scroll:</strong> زوم دوربین</li>
+        </ul>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Game Scripts -->
+    <script src="audioManager.js"></script>
     <script src="ai_player.js"></script>
-    <!-- Load audio manager -->
-    <script type="module" src="audioManager.js"></script>
-    <!-- Load main game -->
-    <script type="module" src="game.js"></script>
+    <script src="game.js"></script>
 </body>
 </html>
