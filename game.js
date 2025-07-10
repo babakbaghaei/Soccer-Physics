@@ -73,7 +73,7 @@ const GOAL_POST_WIDTH = 6; // Thinner goal posts (was 10)
 
 // --- Player Constants ---
 const PLAYER_FRICTION = 0.8;
-const PLAYER_RESTITUTION = 0.1;
+const PLAYER_RESTITUTION = 0;
 const PLAYER_DENSITY = 0.003;
 const PLAYER_SIZE = 40;
 const PLAYER_WIDTH = PLAYER_SIZE;
