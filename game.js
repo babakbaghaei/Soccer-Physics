@@ -88,8 +88,8 @@ const MOVE_FORCE = 0.015;
 const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
 // Chip Shot Constants
-const CHIP_SHOT_UP_FORCE = 0.13; // Adjusted from 0.15
-const CHIP_SHOT_FORWARD_FORCE = 0.025; // Increased from 0.010
+const CHIP_SHOT_UP_FORCE = 0.30; // Significantly increased from 0.13
+const CHIP_SHOT_FORWARD_FORCE = 0.05; // Significantly increased from 0.025
 
 const keysPressed = {};
 
