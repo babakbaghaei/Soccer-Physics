@@ -247,16 +247,16 @@ function handleDefendState(ballPos, playerPos) {
     const scaledGravity = gameEngine.gravity.y * gameEngine.timing.timeScale * gameEngine.timing.timeScale;
     let predictedLandingX = predictBallLandingX(ballPos, gameBall.velocity, scaledGravity);
 
-    // Optional: Minor adjustment to predictedLandingX based on opponent habits if ball is very far.
-    // This is more complex and might make AI jittery if not careful.
-    // Example: If opponent strongly prefers their left and ball is coming from P1's side,
-    // slightly bias prediction towards covering AI's right side of goal.
-    // For now, direct prediction is usually better in active defense.
-
     moveHorizontally(playerPos, predictedLandingX, MOVE_FORCE);
 
-    // Pass opponent jump frequency hint to shouldJump
-    if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
+    // If the ball is behind the AI, jump to get behind it (avoid own goal)
+    if (ballPos.x < playerPos.x - PLAYER_WIDTH/2 && Math.abs(ballPos.y - playerPos.y) < PLAYER_HEIGHT * 1.5) {
+        if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
+            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: -0.012, y: -JUMP_FORCE });
+            aiPlayer.isGrounded = false;
+            lastJumpTime = Date.now();
+        }
+    } else if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
         performJump();
     }
 }
