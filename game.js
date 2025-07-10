@@ -53,6 +53,8 @@ let players = [];
 let goals = {};
 let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
+let kickCooldown = 0;
+let isKicking = false;
 
 // --- Field Constants ---
 const GROUND_Y = 580;
@@ -505,6 +507,28 @@ function draw() {
             const player = (body.label === 'player1') ? players[0] : players[1];
             lowResCtx.fillStyle = player.color;
             lowResCtx.fill();
+            // --- Draw foot animation for player1 if S is held ---
+            if (body.label === 'player1' && isKicking) {
+                // Draw a simple foot/leg in a kicking pose
+                lowResCtx.save();
+                lowResCtx.strokeStyle = '#222';
+                lowResCtx.lineWidth = Math.max(2, Math.floor(3 * PIXELATION_SCALE_FACTOR));
+                const px = body.position.x * PIXELATION_SCALE_FACTOR;
+                const py = body.position.y * PIXELATION_SCALE_FACTOR;
+                const legLen = PLAYER_HEIGHT * 0.7 * PIXELATION_SCALE_FACTOR;
+                const footDir = (body.position.x < ball.position.x) ? 1 : -1;
+                // Leg from bottom center of player
+                lowResCtx.beginPath();
+                lowResCtx.moveTo(px, py + PLAYER_HEIGHT/2 * PIXELATION_SCALE_FACTOR);
+                lowResCtx.lineTo(px + footDir * legLen, py + (PLAYER_HEIGHT/2 + 8) * PIXELATION_SCALE_FACTOR);
+                lowResCtx.stroke();
+                // Foot (small oval)
+                lowResCtx.beginPath();
+                lowResCtx.ellipse(px + footDir * (legLen + 6), py + (PLAYER_HEIGHT/2 + 8) * PIXELATION_SCALE_FACTOR, 6 * PIXELATION_SCALE_FACTOR, 3 * PIXELATION_SCALE_FACTOR, 0, 0, 2 * Math.PI);
+                lowResCtx.fillStyle = '#444';
+                lowResCtx.fill();
+                lowResCtx.restore();
+            }
         } else if (body.label === 'ball') {
             drawSimplifiedSoccerBall(lowResCtx, body);
         } else if (body.isStatic) {
@@ -563,9 +587,19 @@ function initializeAudio() {
 function setupControls() {
     window.addEventListener('keydown', (e) => {
         initializeAudio(); // Initialize audio on first keydown
-        keysPressed[e.key.toLowerCase()] = true;
+        const key = e.key.toLowerCase();
+        if (key === 's' && !keysPressed['s']) {
+            keysPressed['s'] = true;
+            isKicking = true;
+        } else {
+            keysPressed[key] = true;
+        }
     });
-    window.addEventListener('keyup', (e) => { keysPressed[e.key.toLowerCase()] = false; });
+    window.addEventListener('keyup', (e) => {
+        const key = e.key.toLowerCase();
+        keysPressed[key] = false;
+        if (key === 's') isKicking = false;
+    });
 }
 
 function setupCollisions() {
@@ -655,28 +689,25 @@ function handlePlayerControls() {
         Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
         p1.isGrounded = false;
         audioManager.playSound('jump');
-    } else if (keysPressed['w'] && !p1.isGrounded) {
-        // Optional: sound for attempted jump in air? Probably not.
     }
 
-    // Player 2 (Blue Team) is now controlled by AI
-    // const p2 = players[1];
-    // const currentMoveForceP2 = p2.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
-    // if (keysPressed['arrowleft']) {
-    //     Body.applyForce(p2.body, p2.body.position, { x: -currentMoveForceP2, y: 0 });
-    //     console.log("Player 2 (Blue) Action: 'ArrowLeft' (Move Left). Grounded: " + p2.isGrounded);
-    // }
-    // if (keysPressed['arrowright']) {
-    //     Body.applyForce(p2.body, p2.body.position, { x: currentMoveForceP2, y: 0 });
-    //     console.log("Player 2 (Blue) Action: 'ArrowRight' (Move Right). Grounded: " + p2.isGrounded);
-    // }
-    // if (keysPressed['arrowup'] && p2.isGrounded) {
-    //     Body.applyForce(p2.body, p2.body.position, { x: 0, y: -JUMP_FORCE });
-    //     p2.isGrounded = false;
-    //     console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump). Was Grounded: true");
-    // } else if (keysPressed['arrowup'] && !p2.isGrounded) {
-    //     console.log("Player 2 (Blue) Action: 'ArrowUp' (Jump attempted in air). Was Grounded: false");
-    // }
+    // --- S key: Kick logic ---
+    if (isKicking && kickCooldown <= 0 && p1.isGrounded) {
+        // Check if ball is close enough to player1's foot
+        const footX = p1.body.position.x + (p1.body.position.x < ball.position.x ? PLAYER_WIDTH/2 : -PLAYER_WIDTH/2);
+        const footY = p1.body.position.y + PLAYER_HEIGHT/2;
+        const dx = ball.position.x - footX;
+        const dy = ball.position.y - footY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < PLAYER_WIDTH * 0.8) {
+            // Apply a strong forward and slight upward force to the ball
+            const kickDir = p1.body.position.x < ball.position.x ? 1 : -1;
+            Body.applyForce(ball, ball.position, { x: 0.04 * kickDir, y: -0.015 });
+            audioManager.playSound('kick');
+            kickCooldown = 20; // ~0.33s at 60fps
+        }
+    }
+    if (kickCooldown > 0) kickCooldown--;
 }
 
 let goalScoredThisTick = false;
