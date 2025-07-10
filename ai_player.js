@@ -244,12 +244,23 @@ function handleDefendState(ballPos, playerPos) {
 }
 
 function handleAttackState(ballPos, playerPos) {
+    // Decide whether to attempt a chip shot
+    // Basic condition: AI is not on kick cooldown and has a random chance.
+    // More advanced: check if opponent P1 is far from their goal, or if ball is in good spot for chip.
+    if (!aiPlayer.kickCooldown && Math.random() < 0.15) { // 15% chance to attempt a chip if in attack state and not on cooldown
+        aiPlayer.chipShotAttempt = true;
+        // console.log("AI decided to attempt chip shot");
+    } else {
+        // Default attack behavior if not chipping
+        // (ensure chipShotAttempt is false if not actively trying one this tick, though it's reset on successful kick)
+        // aiPlayer.chipShotAttempt = false; // This might prematurely cancel an attempt if collision doesn't happen immediately
+    }
+
     // Move towards the ball to hit it
     moveHorizontally(playerPos, ballPos.x, MOVE_FORCE * 1.2); // Slightly faster for attack
 
     // Jump if ball is above and close
-    // No direct adaptation here, but could make AI more/less aggressive on jumps if P1 is often caught off-ground.
-    if (shouldJump(ballPos, playerPos, true, opponentJumpFrequency > 0.6 && ballPos.y < PLAYER_HEIGHT * 1.5)) { // Consider opponent jumpiness for aggressive attack jumps too
+    if (shouldJump(ballPos, playerPos, true, opponentJumpFrequency > 0.6 && ballPos.y < PLAYER_HEIGHT * 1.5)) {
         performJump();
     }
 }
