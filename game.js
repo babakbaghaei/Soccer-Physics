@@ -357,102 +357,80 @@ function triggerScreenShake(magnitude, duration) {
 
 // Draw football field lines and corner flags (chalk lines)
 function drawFootballFieldLines(ctx) {
-    // Use world units, then scale
+    // Side-view: all lines are drawn on the grass line (GROUND_Y - GROUND_THICKNESS/2)
     const scale = PIXELATION_SCALE_FACTOR;
+    const grassY = (GROUND_Y - GROUND_THICKNESS / 2) * scale;
     ctx.save();
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = Math.max(2, Math.floor(4 * scale));
 
-    // Center line
+    // Center mark (short vertical line)
     ctx.beginPath();
-    ctx.moveTo(CANVAS_WIDTH / 2 * scale, (GROUND_Y - GROUND_THICKNESS / 2) * scale);
-    ctx.lineTo(CANVAS_WIDTH / 2 * scale, CANVAS_HEIGHT * scale);
+    ctx.moveTo((CANVAS_WIDTH / 2 - 10) * scale, grassY);
+    ctx.lineTo((CANVAS_WIDTH / 2 + 10) * scale, grassY);
     ctx.stroke();
 
-    // Center circle
-    const centerCircleRadius = 70 * scale;
-    ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH / 2 * scale, (GROUND_Y - GROUND_THICKNESS / 2 + (CANVAS_HEIGHT - GROUND_Y + GROUND_THICKNESS / 2) / 2) * scale, centerCircleRadius, 0, 2 * Math.PI);
-    ctx.stroke();
-
-    // Penalty boxes
+    // Penalty box lines (short verticals at each end)
     const penaltyBoxWidth = 120 * scale;
-    const penaltyBoxHeight = 320 * scale;
-    // Left penalty box
-    ctx.strokeRect(0, (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2) * scale, penaltyBoxWidth, penaltyBoxHeight);
-    // Right penalty box
-    ctx.strokeRect((CANVAS_WIDTH - penaltyBoxWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 - penaltyBoxHeight / 2) * scale, penaltyBoxWidth, penaltyBoxHeight);
-
-    // Goal boxes (smaller)
-    const goalBoxWidth = 50 * scale;
-    const goalBoxHeight = 160 * scale;
-    ctx.strokeRect(0, (GROUND_Y - GROUND_THICKNESS / 2 - goalBoxHeight / 2) * scale, goalBoxWidth, goalBoxHeight);
-    ctx.strokeRect((CANVAS_WIDTH - goalBoxWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 - goalBoxHeight / 2) * scale, goalBoxWidth, goalBoxHeight);
-
-    // Penalty spots
-    const penaltySpotRadius = 5 * scale;
     ctx.beginPath();
-    ctx.arc(80 * scale, (GROUND_Y - GROUND_THICKNESS / 2 + (CANVAS_HEIGHT - GROUND_Y + GROUND_THICKNESS / 2) / 2) * scale, penaltySpotRadius, 0, 2 * Math.PI);
+    ctx.moveTo(penaltyBoxWidth, grassY);
+    ctx.lineTo(penaltyBoxWidth, grassY - 20 * scale);
+    ctx.moveTo((CANVAS_WIDTH - penaltyBoxWidth) * scale, grassY);
+    ctx.lineTo((CANVAS_WIDTH - penaltyBoxWidth) * scale, grassY - 20 * scale);
+    ctx.stroke();
+
+    // Goal box lines (shorter verticals at each end)
+    const goalBoxWidth = 50 * scale;
+    ctx.beginPath();
+    ctx.moveTo(goalBoxWidth, grassY);
+    ctx.lineTo(goalBoxWidth, grassY - 12 * scale);
+    ctx.moveTo((CANVAS_WIDTH - goalBoxWidth) * scale, grassY);
+    ctx.lineTo((CANVAS_WIDTH - goalBoxWidth) * scale, grassY - 12 * scale);
+    ctx.stroke();
+
+    // Penalty spots (small circles)
+    const penaltySpotRadius = 3 * scale;
+    ctx.beginPath();
+    ctx.arc(80 * scale, grassY, penaltySpotRadius, 0, 2 * Math.PI);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.beginPath();
-    ctx.arc((CANVAS_WIDTH - 80) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + (CANVAS_HEIGHT - GROUND_Y + GROUND_THICKNESS / 2) / 2) * scale, penaltySpotRadius, 0, 2 * Math.PI);
+    ctx.arc((CANVAS_WIDTH - 80) * scale, grassY, penaltySpotRadius, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Corner arcs
-    const cornerArcRadius = 12 * scale;
-    // Top left
+    // Center spot (small circle)
     ctx.beginPath();
-    ctx.arc(0, (GROUND_Y - GROUND_THICKNESS / 2) * scale, cornerArcRadius, 0, 0.5 * Math.PI);
+    ctx.arc((CANVAS_WIDTH / 2) * scale, grassY, penaltySpotRadius, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Corner arcs (small quarter arcs at ground corners)
+    const cornerArcRadius = 10 * scale;
+    ctx.beginPath();
+    ctx.arc(0, grassY, cornerArcRadius, 0, 0.5 * Math.PI);
     ctx.stroke();
-    // Bottom left
     ctx.beginPath();
-    ctx.arc(0, CANVAS_HEIGHT * scale, cornerArcRadius, 1.5 * Math.PI, 2 * Math.PI);
-    ctx.stroke();
-    // Top right
-    ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH * scale, (GROUND_Y - GROUND_THICKNESS / 2) * scale, cornerArcRadius, 0.5 * Math.PI, Math.PI);
-    ctx.stroke();
-    // Bottom right
-    ctx.beginPath();
-    ctx.arc(CANVAS_WIDTH * scale, CANVAS_HEIGHT * scale, cornerArcRadius, Math.PI, 1.5 * Math.PI);
+    ctx.arc(CANVAS_WIDTH * scale, grassY, cornerArcRadius, Math.PI, 1.5 * Math.PI, true);
     ctx.stroke();
 
-    // Corner flags (simple pixel style)
+    // Corner flags (unchanged)
     const flagHeight = 18 * scale;
     const flagWidth = 4 * scale;
     const flagColor = '#FFD700'; // Gold/yellow
-    // Top left
+    // Left
     ctx.fillStyle = flagColor;
-    ctx.fillRect(2 * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale, flagWidth, flagHeight);
+    ctx.fillRect(2 * scale, grassY - flagHeight, flagWidth, flagHeight);
     ctx.beginPath();
-    ctx.moveTo((2 + flagWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale);
-    ctx.lineTo((2 + flagWidth + 6) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 6) * scale);
-    ctx.lineTo((2 + flagWidth) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 10) * scale);
+    ctx.moveTo((2 + flagWidth) * scale, grassY - flagHeight);
+    ctx.lineTo((2 + flagWidth + 6) * scale, grassY - flagHeight + 4 * scale);
+    ctx.lineTo((2 + flagWidth) * scale, grassY - flagHeight + 8 * scale);
     ctx.closePath();
     ctx.fill();
-    // Bottom left
-    ctx.fillRect(2 * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale, flagWidth, flagHeight);
+    // Right
+    ctx.fillRect((CANVAS_WIDTH - flagWidth - 2) * scale, grassY - flagHeight, flagWidth, flagHeight);
     ctx.beginPath();
-    ctx.moveTo((2 + flagWidth) * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale);
-    ctx.lineTo((2 + flagWidth + 6) * scale, (CANVAS_HEIGHT - flagHeight + 2) * scale);
-    ctx.lineTo((2 + flagWidth) * scale, (CANVAS_HEIGHT - flagHeight + 6) * scale);
-    ctx.closePath();
-    ctx.fill();
-    // Top right
-    ctx.fillRect((CANVAS_WIDTH - flagWidth - 2) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale, flagWidth, flagHeight);
-    ctx.beginPath();
-    ctx.moveTo((CANVAS_WIDTH - 2) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 2) * scale);
-    ctx.lineTo((CANVAS_WIDTH - 2 - 6) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 6) * scale);
-    ctx.lineTo((CANVAS_WIDTH - 2) * scale, (GROUND_Y - GROUND_THICKNESS / 2 + 10) * scale);
-    ctx.closePath();
-    ctx.fill();
-    // Bottom right
-    ctx.fillRect((CANVAS_WIDTH - flagWidth - 2) * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale, flagWidth, flagHeight);
-    ctx.beginPath();
-    ctx.moveTo((CANVAS_WIDTH - 2) * scale, (CANVAS_HEIGHT - flagHeight - 2) * scale);
-    ctx.lineTo((CANVAS_WIDTH - 2 - 6) * scale, (CANVAS_HEIGHT - flagHeight + 2) * scale);
-    ctx.lineTo((CANVAS_WIDTH - 2) * scale, (CANVAS_HEIGHT - flagHeight + 6) * scale);
+    ctx.moveTo((CANVAS_WIDTH - 2) * scale, grassY - flagHeight);
+    ctx.lineTo((CANVAS_WIDTH - 2 - 6) * scale, grassY - flagHeight + 4 * scale);
+    ctx.lineTo((CANVAS_WIDTH - 2) * scale, grassY - flagHeight + 8 * scale);
     ctx.closePath();
     ctx.fill();
 
