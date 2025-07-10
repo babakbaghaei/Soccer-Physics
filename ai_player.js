@@ -162,13 +162,14 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const recoveryThreshold = PLAYER_WIDTH * 0.5; // How close to default position to be considered recovered
 
     // GOALKEEPER state logic - check if ball is between AI and its own goal
-    const aiGoalX = CANVAS_WIDTH / 2;
+    // AI's goal is on the right side (CANVAS_WIDTH - GOAL_WIDTH/2)
+    const aiGoalX = CANVAS_WIDTH - GOAL_WIDTH / 2;
     const aiGoalWidth = GOAL_WIDTH;
     const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
     const aiGoalRight = aiGoalX + aiGoalWidth / 2;
     
-    // Check if ball is between AI player and AI's own goal
-    const ballBetweenAiAndGoal = ballPos.x < playerPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight;
+    // Check if ball is between AI player and AI's own goal (right side)
+    const ballBetweenAiAndGoal = ballPos.x > playerPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight;
     
     // If ball is between AI and its goal, enter goalkeeper mode
     if (ballBetweenAiAndGoal) {
@@ -332,7 +333,8 @@ function handleGoalkeeperState(ballPos, playerPos) {
     // 3. Jump over the ball and go towards the goal to defend
     // 4. After this condition ends, return to normal behavior
 
-    const aiGoalX = CANVAS_WIDTH / 2;
+    // AI's goal is on the right side
+    const aiGoalX = CANVAS_WIDTH - GOAL_WIDTH / 2;
     const aiGoalWidth = GOAL_WIDTH;
     const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
     const aiGoalRight = aiGoalX + aiGoalWidth / 2;
@@ -363,8 +365,8 @@ function handleGoalkeeperState(ballPos, playerPos) {
     // Phase 2: Jump over the ball when close enough
     if (goalkeeperPhase === 2) {
         if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
-            // Jump over the ball towards the goal
-            const jumpDirection = playerPos.x > ballPos.x ? -0.03 : 0.03; // Small horizontal force towards goal
+            // Jump over the ball towards the goal (right side)
+            const jumpDirection = playerPos.x < ballPos.x ? 0.03 : -0.03; // Small horizontal force towards AI's goal (right)
             Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { 
                 x: jumpDirection, 
                 y: -JUMP_FORCE * 1.3 // Stronger jump to clear the ball
