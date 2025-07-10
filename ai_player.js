@@ -354,10 +354,9 @@ function handleGoalkeeperState(ballPos, playerPos) {
         return;
     }
 
-    // اگر توپ بین AI و دروازه است اما هنوز خطرناک نیست
+    // اگر توپ سمت راست AI است (بین AI و دروازه خودش)
     if (aiToBall > 0 && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight) {
-        // فقط موقعیت خود را بین توپ و دروازه حفظ کند و به توپ نزدیک نشود
-        moveHorizontally(playerPos, ballPos.x + PLAYER_WIDTH * 1.2, MOVE_FORCE * 0.2);
+        // AI باید کاملاً متوقف شود و هیچ حرکتی نکند
         return;
     }
 
