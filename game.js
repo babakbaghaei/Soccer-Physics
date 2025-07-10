@@ -728,22 +728,22 @@ function setupCollisions() {
                             Body.applyForce(ballBody, forceApplicationPoint, chipForceVector);
                             console.log(`Applying chip force: { x: ${forceX}, y: ${forceY} } at point { x: ${forceApplicationPoint.x.toFixed(2)}, y: ${forceApplicationPoint.y.toFixed(2)} }`);
                             audioManager.playSound('kick');
-                            playerObject.chipShotAttempt = false;
+                            playerObject.chipShotAttempt = false; // Consume the attempt
                             if (playerObject.body.label === 'player1') playerObject.sKeyProcessed = true;
-                        } else {
-                            // For a regular "kick" on collisionActive, we might not want to apply force every frame.
-                            // The original sound played on collisionStart. If we want a sound for continuous contact,
-                            // it might get spammy. For now, let's assume regular kicks are mostly momentum transfer.
-                            // If a distinct "regular kick action" is added (e.g. another key), it would go here.
-                            // audioManager.playSound('kick'); // This might be too frequent here
-                        }
-                        // Common logic for any kick type (chip or future regular action based kick)
-                        if (playerObject.chipShotAttempt) { // Only set cooldown if a kick (chip) actually happened
+
+                            // CORRECTED: Apply cooldown immediately after chip shot
                             playerObject.kickCooldown = true;
                             setTimeout(() => {
                                 if (playerObject) playerObject.kickCooldown = false;
-                            }, 500);
+                            }, 500); // 500ms cooldown
+
+                        } else {
+                            // For a regular "kick" on collisionActive, we might not want to apply force every frame.
+                            // If a distinct "regular kick action" (e.g. another key) were added, its logic & cooldown would go here.
+                            // audioManager.playSound('kick'); // This might be too frequent for just contact
                         }
+                        // REMOVED faulty cooldown logic from here:
+                        // if (playerObject.chipShotAttempt) { ... }
                     }
                 }
             }
