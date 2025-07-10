@@ -102,6 +102,7 @@ function updateAdaptationParameters() {
 // ===================================================================================
 function updateAI() {
     if (!aiPlayer || !gameBall || !gameBall.velocity || isGameOver) { // اضافه شدن بررسی velocity
+        window.aiKicking = false;
         return;
     }
 
@@ -112,6 +113,23 @@ function updateAI() {
 
     // Update current state based on game conditions
     determineAiState(ballPosition, playerPosition, playerHalfX, ballVelocity);
+
+    // --- AI chip/kick animation logic ---
+    // If in ATTACK state and close enough to ball, set aiKicking = true
+    if (currentAiState === AI_STATE.ATTACK && aiPlayer.isGrounded) {
+        const footX = playerPosition.x + (playerPosition.x < ballPosition.x ? PLAYER_WIDTH/2 : -PLAYER_WIDTH/2);
+        const footY = playerPosition.y + PLAYER_HEIGHT/2;
+        const dx = ballPosition.x - footX;
+        const dy = ballPosition.y - footY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < PLAYER_WIDTH * 0.8) {
+            window.aiKicking = true;
+        } else {
+            window.aiKicking = false;
+        }
+    } else {
+        window.aiKicking = false;
+    }
 
     // Execute actions based on the current state
     switch (currentAiState) {

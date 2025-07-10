@@ -55,6 +55,7 @@ let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
 let kickCooldown = 0;
 let isKicking = false;
+let aiKicking = false;
 
 // --- Field Constants ---
 const GROUND_Y = 580;
@@ -505,8 +506,9 @@ function draw() {
 
         if (body.label === 'player1' || body.label === 'player2') {
             const player = (body.label === 'player1') ? players[0] : players[1];
-            // --- Player1: rotate when S is held and kicking is possible ---
-            if (body.label === 'player1' && isKicking) {
+            // --- Rotate when S is held (player1) or AI is kicking (player2) ---
+            const shouldKick = (body.label === 'player1' && isKicking) || (body.label === 'player2' && aiKicking);
+            if (shouldKick) {
                 lowResCtx.save();
                 const px = body.position.x * PIXELATION_SCALE_FACTOR;
                 const py = body.position.y * PIXELATION_SCALE_FACTOR;
@@ -672,6 +674,7 @@ function setupCollisions() {
 }
 
 function handlePlayerControls() {
+    aiKicking = false;
     const p1 = players[0];
     const currentMoveForceP1 = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
 
