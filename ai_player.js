@@ -13,17 +13,17 @@ const AI_STATE = {
 };
 
 // --- Global constants that will be available from game.js ---
-let CANVAS_WIDTH = 800;
-let CANVAS_HEIGHT = 600;
-let PLAYER_WIDTH = 40;
-let PLAYER_HEIGHT = 40;
-let JUMP_FORCE = 0.18;
-let MOVE_FORCE = 0.015;
-let AIR_MOVE_FORCE_MULTIPLIER = 0.1;
-let BALL_RADIUS = 15;
-let GROUND_Y = 580;
-let GOAL_HEIGHT = 120;
-let GOAL_WIDTH = 30;
+let CANVAS_WIDTH = window.CANVAS_WIDTH;
+let CANVAS_HEIGHT = window.CANVAS_HEIGHT;
+let PLAYER_WIDTH = window.PLAYER_WIDTH;
+let PLAYER_HEIGHT = window.PLAYER_HEIGHT;
+let JUMP_FORCE = window.JUMP_FORCE;
+let MOVE_FORCE = window.MOVE_FORCE;
+let AIR_MOVE_FORCE_MULTIPLIER = window.AIR_MOVE_FORCE_MULTIPLIER;
+let BALL_RADIUS = window.BALL_RADIUS;
+let GROUND_Y = window.GROUND_Y;
+let GOAL_HEIGHT = window.GOAL_HEIGHT;
+let GOAL_WIDTH = window.GOAL_WIDTH;
 let isGameOver = false;
 
 // --- AI Variables ---
