@@ -1,17 +1,3 @@
-/// --- Matter.js Aliases ---
-const Engine = Matter.Engine;
-const Render = Matter.Render;
-const Runner = Matter.Runner;
-const World = Matter.World;
-const Bodies = Matter.Bodies;
-const Body = Matter.Body;
-const Events = Matter.Events;
-const Composite = Matter.Composite;
-const Composites = Matter.Composites;
-const Constraint = Matter.Constraint;
-
-import audioManager from './audioManager.js';
-
 // ===================================================================================
 // Global Variables
 // ===================================================================================
