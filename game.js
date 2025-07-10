@@ -524,14 +524,14 @@ function draw() {
                         kickAnimState[idx] = 2;
                         kickAnimStart[idx] = now;
                     }
-                    angle = -sign * KICK_MAX_ANGLE * Math.sin(t * Math.PI/2);
+                    angle = sign * KICK_MAX_ANGLE * Math.sin(t * Math.PI/2);
                 } else if (kickAnimState[idx] === 2) { // animating back
                     if (t >= 1) {
                         t = 1;
                         kickAnimState[idx] = 3; // Start smooth return
                         kickAnimStart[idx] = now;
                     }
-                    angle = -sign * KICK_MAX_ANGLE * Math.sin((1-t) * Math.PI/2);
+                    angle = sign * KICK_MAX_ANGLE * Math.sin((1-t) * Math.PI/2);
                 } else if (kickAnimState[idx] === 3) { // smooth return to zero
                     let t2 = (now - kickAnimStart[idx]) / (KICK_ANIM_DURATION * 1.2); // slower return
                     if (t2 >= 1) {
@@ -539,7 +539,7 @@ function draw() {
                         kickAnimState[idx] = 0;
                     }
                     // Ease out
-                    angle = -sign * KICK_MAX_ANGLE * (1-t2) * 0.2; // small overshoot
+                    angle = sign * KICK_MAX_ANGLE * (1-t2) * 0.2; // small overshoot
                 }
             }
             if (angle !== 0) {
