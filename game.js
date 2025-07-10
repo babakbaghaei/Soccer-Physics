@@ -83,13 +83,13 @@ const PLAYER_DENSITY = 0.003;
 const PLAYER_SIZE = 40;
 const PLAYER_WIDTH = PLAYER_SIZE;
 const PLAYER_HEIGHT = PLAYER_SIZE;
-const JUMP_FORCE = 0.18;
+const JUMP_FORCE = 0.09; // Halved from 0.18
 const MOVE_FORCE = 0.015;
 const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
 // Chip Shot Constants
 const CHIP_SHOT_UP_FORCE = 0.15; // Increased upward force for a higher arc
-const CHIP_SHOT_FORWARD_FORCE = 0.008; // Forward force component for chip
+const CHIP_SHOT_FORWARD_FORCE = 0.010; // Forward force component for chip (increased from 0.008)
 
 const keysPressed = {};
 
@@ -407,27 +407,21 @@ function drawFootballFieldLines(ctx) {
     ctx.lineTo(CANVAS_WIDTH / 2 * scale, CANVAS_HEIGHT * scale);
     ctx.stroke();
 
-    // Center circle - now drawn as two semi-circles
-    const centerCircleRadius = 30 * scale; // Radius in scaled pixels
+    // Center circle - restored to full circle
+    const centerCircleRadius = 30 * scale; // Radius in scaled pixels (remains small)
     const circleCenterY_scaled = (FIELD_SURFACE_Y * scale + CANVAS_HEIGHT * scale) / 2;
     const circleCenterX_scaled = CANVAS_WIDTH / 2 * scale;
 
-    // Left semi-circle (arc from 90 to -90 degrees, or PI/2 to -PI/2)
     ctx.beginPath();
-    ctx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, Math.PI / 2, -Math.PI / 2, true); // true for counter-clockwise
-    ctx.stroke();
-
-    // Right semi-circle (arc from -90 to 90 degrees, or -PI/2 to PI/2)
-    ctx.beginPath();
-    ctx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, -Math.PI / 2, Math.PI / 2, false); // false for clockwise
+    ctx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, 0, 2 * Math.PI);
     ctx.stroke();
 
     // Penalty boxes
     // Define new world dimensions for markings to fit on the grass strip
-    const penaltyAreaDepth_world = 60; // How far it extends onto the field (drawn as height)
-    const penaltyAreaLength_world = 200; // How long it is along the goal line (drawn as width)
-    const goalBoxDepth_world = 30;
-    const goalBoxLength_world = 100;
+    const penaltyAreaDepth_world = 40; // Reduced from 60
+    const penaltyAreaLength_world = 150; // Reduced from 200
+    const goalBoxDepth_world = 20; // Reduced from 30
+    const goalBoxLength_world = 75; // Reduced from 100
 
     // Old variables that might be referenced later if not careful - these are scaled values.
     // const penaltyBoxWidth = 120 * scale;
@@ -721,27 +715,35 @@ function setupCollisions() {
 
             if (playerBody && ballBody) {
                 const playerObject = players.find(p => p.body === playerBody);
-                if (playerObject && !playerObject.kickCooldown) {
-                    if (playerObject.chipShotAttempt) {
-                        let kickDirection = (playerObject.team === 1) ? 1 : -1; // Team 1 kicks right, Team 2 kicks left
-                        // Apply chip shot force
-                        Body.applyForce(ballBody, ballBody.position, {
-                            x: kickDirection * CHIP_SHOT_FORWARD_FORCE,
-                            y: -CHIP_SHOT_UP_FORCE // Negative Y is upwards
-                        });
-                        audioManager.playSound('kick'); // Or a new 'chip' sound
-                        console.log(`${playerObject.body.label} performed a chip shot!`);
-                        playerObject.chipShotAttempt = false; // Consume the attempt
-                        playerObject.sKeyProcessed = true; // Mark s key as processed for this press
-                    } else {
-                        // Standard kick (currently mostly physics-driven, but could add a small nudge)
-                        audioManager.playSound('kick');
+                if (playerObject) { // Check if playerObject is found first
+                    // DEBUG LOG before cooldown check
+                    console.log(`Collision: ${playerObject.body.label} & ball, chipAttempt: ${playerObject.chipShotAttempt}, onCooldown: ${playerObject.kickCooldown}`);
+                    if (!playerObject.kickCooldown) {
+                        if (playerObject.chipShotAttempt) {
+                            let kickDirection = (playerObject.team === 1) ? 1 : -1; // Team 1 kicks right, Team 2 kicks left
+                            const forceX = kickDirection * CHIP_SHOT_FORWARD_FORCE;
+                            const forceY = -CHIP_SHOT_UP_FORCE;
+                            // Apply chip shot force
+                            Body.applyForce(ballBody, ballBody.position, {
+                                x: forceX,
+                                y: forceY
+                            });
+                            console.log(`Applying chip force: { x: ${forceX}, y: ${forceY} }`); // DEBUG LOG
+                            audioManager.playSound('kick'); // Or a new 'chip' sound
+                            // console.log(`${playerObject.body.label} performed a chip shot!`); // Original log was good
+                            playerObject.chipShotAttempt = false; // Consume the attempt
+                            // sKeyProcessed is primarily for human player input, might not need to be set by AI collision
+                            if (playerObject.body.label === 'player1') playerObject.sKeyProcessed = true;
+                        } else {
+                            // Standard kick (currently mostly physics-driven, but could add a small nudge)
+                            audioManager.playSound('kick');
+                        }
+                        // Add kick cooldown
+                        playerObject.kickCooldown = true;
+                        setTimeout(() => {
+                            if (playerObject) playerObject.kickCooldown = false;
+                        }, 500); // 500ms cooldown
                     }
-                    // Add kick cooldown
-                    playerObject.kickCooldown = true;
-                    setTimeout(() => {
-                        if(playerObject) playerObject.kickCooldown = false;
-                    }, 500); // 500ms cooldown
                 }
             }
 
@@ -818,7 +820,7 @@ function handlePlayerControls() {
     if (keysPressed['s'] && !p1.sKeyProcessed && !p1.kickCooldown) {
         p1.chipShotAttempt = true;
         p1.sKeyProcessed = true; // Mark as processed for this key press
-        // console.log("Player 1 attempting chip shot");
+        console.log("Player 1 chip intent: true"); // DEBUG LOG
     }
     if (!keysPressed['s'] && p1.sKeyProcessed) { // Reset if key is released
         p1.sKeyProcessed = false;
