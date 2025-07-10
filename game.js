@@ -697,7 +697,8 @@ function setupControls() {
 }
 
 function setupCollisions() {
-    Events.on(engine, 'collisionStart', (event) => {
+    // Player-ball interaction logic moved to collisionActive
+    Events.on(engine, 'collisionActive', (event) => {
         const pairs = event.pairs;
         for (let i = 0; i < pairs.length; i++) {
             const pair = pairs[i];
@@ -708,43 +709,71 @@ function setupCollisions() {
             if ((bodyA.label === 'player1' || bodyA.label === 'player2') && bodyB.label === 'ball') {
                 playerBody = bodyA;
                 ballBody = bodyB;
-            } else if ((bodyB.label === 'player1' || bodyB.label === 'player2') && bodyA.label === 'ball') { // Corrected: Added parentheses
+            } else if ((bodyB.label === 'player1' || bodyB.label === 'player2') && bodyA.label === 'ball') {
                 playerBody = bodyB;
                 ballBody = bodyA;
             }
 
             if (playerBody && ballBody) {
                 const playerObject = players.find(p => p.body === playerBody);
-                if (playerObject) { // Check if playerObject is found first
-                    // DEBUG LOG before cooldown check
-                    console.log(`Collision: ${playerObject.body.label} & ball, chipAttempt: ${playerObject.chipShotAttempt}, onCooldown: ${playerObject.kickCooldown}`);
+                if (playerObject) {
+                    console.log(`CollisionActive: ${playerObject.body.label} & ball, chipAttempt: ${playerObject.chipShotAttempt}, onCooldown: ${playerObject.kickCooldown}`);
                     if (!playerObject.kickCooldown) {
                         if (playerObject.chipShotAttempt) {
-                            let kickDirection = (playerObject.team === 1) ? 1 : -1; // Team 1 kicks right, Team 2 kicks left
+                            let kickDirection = (playerObject.team === 1) ? 1 : -1;
                             const forceX = kickDirection * CHIP_SHOT_FORWARD_FORCE;
                             const forceY = -CHIP_SHOT_UP_FORCE;
                             const chipForceVector = { x: forceX, y: forceY };
                             const forceApplicationPoint = { x: ballBody.position.x, y: ballBody.position.y + BALL_RADIUS * 0.3 };
-                            // Apply chip shot force
                             Body.applyForce(ballBody, forceApplicationPoint, chipForceVector);
-                            console.log(`Applying chip force: { x: ${forceX}, y: ${forceY} } at point { x: ${forceApplicationPoint.x.toFixed(2)}, y: ${forceApplicationPoint.y.toFixed(2)} }`); // DEBUG LOG
-                            audioManager.playSound('kick'); // Or a new 'chip' sound
-                            // console.log(`${playerObject.body.label} performed a chip shot!`); // Original log was good
-                            playerObject.chipShotAttempt = false; // Consume the attempt
-                            // sKeyProcessed is primarily for human player input, might not need to be set by AI collision
+                            console.log(`Applying chip force: { x: ${forceX}, y: ${forceY} } at point { x: ${forceApplicationPoint.x.toFixed(2)}, y: ${forceApplicationPoint.y.toFixed(2)} }`);
+                            audioManager.playSound('kick');
+                            playerObject.chipShotAttempt = false;
                             if (playerObject.body.label === 'player1') playerObject.sKeyProcessed = true;
                         } else {
-                            // Standard kick (currently mostly physics-driven, but could add a small nudge)
-                            audioManager.playSound('kick');
+                            // For a regular "kick" on collisionActive, we might not want to apply force every frame.
+                            // The original sound played on collisionStart. If we want a sound for continuous contact,
+                            // it might get spammy. For now, let's assume regular kicks are mostly momentum transfer.
+                            // If a distinct "regular kick action" is added (e.g. another key), it would go here.
+                            // audioManager.playSound('kick'); // This might be too frequent here
                         }
-                        // Add kick cooldown
-                        playerObject.kickCooldown = true;
-                        setTimeout(() => {
-                            if (playerObject) playerObject.kickCooldown = false;
-                        }, 500); // 500ms cooldown
+                        // Common logic for any kick type (chip or future regular action based kick)
+                        if (playerObject.chipShotAttempt) { // Only set cooldown if a kick (chip) actually happened
+                            playerObject.kickCooldown = true;
+                            setTimeout(() => {
+                                if (playerObject) playerObject.kickCooldown = false;
+                            }, 500);
+                        }
                     }
                 }
             }
+        }
+    });
+
+    Events.on(engine, 'collisionStart', (event) => {
+        const pairs = event.pairs;
+        for (let i = 0; i < pairs.length; i++) {
+            const pair = pairs[i];
+            const bodyA = pair.bodyA;
+            const bodyB = pair.bodyB;
+
+            // Play kick sound on initial contact if not on cooldown and no chip was made in collisionActive
+            // This is a bit tricky because collisionActive might have just handled it.
+            // A simpler approach: if player touches ball, and a kick action ISN'T processed by collisionActive
+            // (e.g. chipShotAttempt was false), then play generic touch/kick sound.
+            // For now, the kick sound is tied to the chip shot action or a generic kick in collisionActive.
+            // The chip shot logic already plays 'kick'. If we want a sound for *any* player-ball touch,
+            // it could be here, but needs care to avoid double sounds with chip.
+            // The original code for regular kick sound on collisionStart:
+            /*
+            if (playerBody && ballBody) { // This was part of the old collisionStart
+                const playerObject = players.find(p => p.body === playerBody);
+                if (playerObject && !playerObject.kickCooldown && !playerObject.chipShotAttempt) {
+                     audioManager.playSound('kick'); // Play for regular touch/kick
+                     // Potentially set cooldown here too for regular touches if desired
+                }
+            }
+            */
 
             // Goal scoring
             if (bodyA.label === 'ball' && bodyB.label === 'goal2') {
