@@ -18,7 +18,7 @@ let CANVAS_HEIGHT = window.CANVAS_HEIGHT || 600;
 let PLAYER_WIDTH = window.PLAYER_WIDTH || 40;
 let PLAYER_HEIGHT = window.PLAYER_HEIGHT || 40;
 let JUMP_FORCE = window.JUMP_FORCE || 0.18;
-let MOVE_FORCE = window.MOVE_FORCE || 0.015;
+let MOVE_FORCE = (typeof window.MOVE_FORCE !== 'undefined' && !isNaN(window.MOVE_FORCE)) ? window.MOVE_FORCE : 0.015;
 let AIR_MOVE_FORCE_MULTIPLIER = window.AIR_MOVE_FORCE_MULTIPLIER || 0.1;
 let BALL_RADIUS = window.BALL_RADIUS || 15;
 let GROUND_Y = window.GROUND_Y || 580;
