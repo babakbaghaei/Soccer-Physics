@@ -59,7 +59,8 @@ let aiKicking = false;
 let kickAnimState = [0, 0]; // 0: idle, 1: animating forward, 2: animating back
 let kickAnimStart = [0, 0]; // timestamp (ms) when animation started for each player
 const KICK_ANIM_DURATION = 120; // ms for forward or back
-const KICK_MAX_ANGLE = 18 * Math.PI / 180;
+// Change KICK_MAX_ANGLE sign for reverse rotation
+const KICK_MAX_ANGLE = -18 * Math.PI / 180;
 
 // --- Field Constants ---
 const GROUND_Y = 580;
@@ -526,9 +527,18 @@ function draw() {
                 } else if (kickAnimState[idx] === 2) { // animating back
                     if (t >= 1) {
                         t = 1;
-                        kickAnimState[idx] = 0;
+                        kickAnimState[idx] = 3; // Start smooth return
+                        kickAnimStart[idx] = now;
                     }
                     angle = ((body.position.x < ball.position.x) ? 1 : -1) * KICK_MAX_ANGLE * Math.sin((1-t) * Math.PI/2);
+                } else if (kickAnimState[idx] === 3) { // smooth return to zero
+                    let t2 = (now - kickAnimStart[idx]) / (KICK_ANIM_DURATION * 1.2); // slower return
+                    if (t2 >= 1) {
+                        t2 = 1;
+                        kickAnimState[idx] = 0;
+                    }
+                    // Ease out
+                    angle = ((body.position.x < ball.position.x) ? 1 : -1) * KICK_MAX_ANGLE * (1-t2) * 0.2; // small overshoot
                 }
             }
             if (angle !== 0) {
@@ -732,9 +742,9 @@ function handlePlayerControls() {
         const dy = ball.position.y - footY;
         const dist = Math.sqrt(dx*dx + dy*dy);
         if (dist < PLAYER_WIDTH * 0.8) {
-            // Apply a strong forward and slight upward force to the ball
+            // Apply a strong forward and much stronger upward force to the ball (chip)
             const kickDir = p1.body.position.x < ball.position.x ? 1 : -1;
-            Body.applyForce(ball, ball.position, { x: 0.04 * kickDir, y: -0.015 });
+            Body.applyForce(ball, ball.position, { x: 0.04 * kickDir, y: -0.045 });
             audioManager.playSound('kick');
             kickCooldown = 20; // ~0.33s at 60fps
             kickAnimState[0] = 1; // Start animating forward for player1
