@@ -101,29 +101,21 @@ function updateAdaptationParameters() {
 // AI Update Function (Called every game tick)
 // ===================================================================================
 function updateAI() {
-    if (!aiPlayer || !gameBall || !gameBall.velocity || isGameOver) { // اضافه شدن بررسی velocity
+    if (!aiPlayer || !gameBall || !gameBall.velocity || isGameOver) {
         window.aiKicking = false;
         return;
     }
-
     const ballPosition = gameBall.position;
     const playerPosition = aiPlayer.body.position;
-    const playerHalfX = CANVAS_WIDTH / 2; // Assuming CANVAS_WIDTH is accessible
+    const playerHalfX = CANVAS_WIDTH / 2;
     const ballVelocity = gameBall.velocity;
-
-    // Update current state based on game conditions
     determineAiState(ballPosition, playerPosition, playerHalfX, ballVelocity);
-
-    // --- AI chip/kick animation logic ---
-    // If in ATTACK state and close enough to ball, set aiKicking = true
+    // Only allow aiKicking if ball is in front and moving left (toward opponent's goal)
     if (currentAiState === AI_STATE.ATTACK && aiPlayer.isGrounded) {
         const footX = playerPosition.x + (playerPosition.x < ballPosition.x ? PLAYER_WIDTH/2 : -PLAYER_WIDTH/2);
-        const footY = playerPosition.y + PLAYER_HEIGHT/2;
         const dx = ballPosition.x - footX;
-        const dy = ballPosition.y - footY;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        // فقط اگر توپ جلوتر از AI است مجاز به شوت/چیپ
-        if (dist < PLAYER_WIDTH * 0.8 && ballPosition.x > playerPosition.x) {
+        const dist = Math.sqrt(dx*dx + Math.pow(ballPosition.y - (playerPosition.y + PLAYER_HEIGHT/2), 2));
+        if (dist < PLAYER_WIDTH * 0.8 && ballPosition.x > playerPosition.x && ballVelocity.x < 0) {
             window.aiKicking = true;
         } else {
             window.aiKicking = false;
@@ -131,8 +123,6 @@ function updateAI() {
     } else {
         window.aiKicking = false;
     }
-
-    // Execute actions based on the current state
     switch (currentAiState) {
         case AI_STATE.IDLE:
             handleIdleState(playerPosition);
@@ -147,8 +137,6 @@ function updateAI() {
             handleRecoverState(playerPosition);
             break;
     }
-    // Apply movement and jump decisions to the AI player's body
-    // This will be expanded in later steps
 }
 
 // ===================================================================================
@@ -244,52 +232,53 @@ function handleIdleState(playerPos) {
     moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.5); // Slower movement in idle
 }
 
-// Add a safeMoveHorizontally function to replace moveHorizontally in defense
+// --- Safe horizontal movement: never move toward ball if it's behind and close ---
 function safeMoveHorizontally(playerPosition, targetX, force, ballPos) {
-    // اگر توپ پشت سر AI و نزدیک باشد، حرکت نکن!
-    if (ballPos.x < playerPosition.x - PLAYER_WIDTH/2 && Math.abs(ballPos.x - playerPosition.x) < PLAYER_WIDTH * 1.2) {
-        // توقف کامل
+    // If the ball is behind AI and close, do not move
+    if (ballPos.x < playerPosition.x - PLAYER_WIDTH/2 && Math.abs(ballPos.x - playerPosition.x) < PLAYER_WIDTH * 1.5) {
         return;
     }
-    // اگر توپ بین AI و دروازه خودی است و فاصله کم است، سرعت را کم کن یا متوقف شو
-    if (ballPos.x < playerPosition.x && Math.abs(ballPos.x - playerPosition.x) < PLAYER_WIDTH * 1.2) {
-        // سرعت حرکت را به شدت کاهش بده یا متوقف شو
+    // If the ball is between AI and its own goal and very close, stop
+    if (ballPos.x < playerPosition.x && Math.abs(ballPos.x - playerPosition.x) < PLAYER_WIDTH * 1.5) {
         return;
     }
-    // در غیر این صورت حرکت کن
     moveHorizontally(playerPosition, targetX, force);
 }
 
-// In handleDefendState, use safeMoveHorizontally and add cautious jump logic
+// --- Defend: only jump if ball is behind and close, otherwise move safely ---
 function handleDefendState(ballPos, playerPos) {
     const scaledGravity = gameEngine.gravity.y * gameEngine.timing.timeScale * gameEngine.timing.timeScale;
     let predictedLandingX = predictBallLandingX(ballPos, gameBall.velocity, scaledGravity);
 
-    // Use safe move
-    safeMoveHorizontally(playerPos, predictedLandingX, MOVE_FORCE, ballPos);
-
-    // اگر توپ پشت سر AI و نزدیک است، فقط پرش کن و حرکت نکن
-    if (ballPos.x < playerPos.x - PLAYER_WIDTH/2 && Math.abs(ballPos.x - playerPos.y) < PLAYER_HEIGHT * 1.5) {
+    // If the ball is behind AI and close, only jump cautiously
+    if (ballPos.x < playerPos.x - PLAYER_WIDTH/2 && Math.abs(ballPos.x - playerPos.x) < PLAYER_WIDTH * 1.5) {
         if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
-            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: -0.008, y: -JUMP_FORCE });
+            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: -0.01, y: -JUMP_FORCE });
             aiPlayer.isGrounded = false;
             lastJumpTime = Date.now();
         }
-        return; // بعد از پرش دیگر حرکت نکن
+        return;
     }
-    // حالت عادی دفاع
-    else if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
+    // Otherwise, move safely
+    safeMoveHorizontally(playerPos, predictedLandingX, MOVE_FORCE, ballPos);
+    // Normal defensive jump
+    if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
         performJump();
     }
 }
 
+// --- Attack: if ball is behind and close, only jump, do not attack ---
 function handleAttackState(ballPos, playerPos) {
-    // Move towards the ball to hit it
-    moveHorizontally(playerPos, ballPos.x, MOVE_FORCE * 1.2); // Slightly faster for attack
-
-    // Jump if ball is above and close
-    // No direct adaptation here, but could make AI more/less aggressive on jumps if P1 is often caught off-ground.
-    if (shouldJump(ballPos, playerPos, true, opponentJumpFrequency > 0.6 && ballPos.y < PLAYER_HEIGHT * 1.5)) { // Consider opponent jumpiness for aggressive attack jumps too
+    if (ballPos.x < playerPos.x - PLAYER_WIDTH/2 && Math.abs(ballPos.x - playerPos.x) < PLAYER_WIDTH * 1.5) {
+        if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
+            Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: -0.01, y: -JUMP_FORCE });
+            aiPlayer.isGrounded = false;
+            lastJumpTime = Date.now();
+        }
+        return;
+    }
+    moveHorizontally(playerPos, ballPos.x, MOVE_FORCE * 1.2);
+    if (shouldJump(ballPos, playerPos, true, opponentJumpFrequency > 0.6 && ballPos.y < PLAYER_HEIGHT * 1.5)) {
         performJump();
     }
 }
