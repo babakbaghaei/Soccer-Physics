@@ -183,27 +183,8 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
 // State Handling Functions (Initial stubs)
 // ===================================================================================
 function handleIdleState(playerPos) {
-    let targetX = CANVAS_WIDTH * 0.75; // Default defensive position for player 2 (AI's right side of its half)
-    const adaptationShift = PLAYER_WIDTH * 0.35; // How much to shift position based on opponent habits
-
-    // Adaptive positioning: if opponent favors a side, shift AI's default idle position
-    const totalRecentAttacks = recentOpponentActions.length; // recentOpponentActions.reduce((sum, action) => sum + 1, 0); is same as length
-    // Only adapt if there's a decent amount of data and a clear preference
-    if (totalRecentAttacks > ADAPTATION_MEMORY_SIZE / 2) {
-        const leftAttacks = opponentAttackZones.left;
-        const rightAttacks = opponentAttackZones.right;
-        // If P1 attacks more from their left (AI's right goal side), AI should shift more to its right.
-        if (leftAttacks > rightAttacks && leftAttacks > opponentAttackZones.center) {
-            targetX += adaptationShift;
-        }
-        // If P1 attacks more from their right (AI's left goal side), AI should shift more to its left.
-        else if (rightAttacks > leftAttacks && rightAttacks > opponentAttackZones.center) {
-            targetX -= adaptationShift;
-        }
-    }
-    // Ensure targetX is within reasonable bounds of AI's half
-    targetX = Math.max(OPPONENT_HALF_X_LINE + PLAYER_WIDTH, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, targetX));
-    moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.5); // Slower movement in idle
+    let targetX = CANVAS_WIDTH * 0.85; // نزدیک‌تر به دروازه خودش
+    moveHorizontally(playerPos, targetX, MOVE_FORCE * 2); // حرکت سریع‌تر برای تست
 }
 
 // --- Safe horizontal movement: never move toward ball if it's behind and close ---
