@@ -158,7 +158,11 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const aiGoalWidth = GOAL_WIDTH;
     const aiGoalLeft = aiGoalX - aiGoalWidth / 2;
     const aiGoalRight = aiGoalX + aiGoalWidth / 2;
-    // اینجا فقط منطق قبلی را نگه می‌داریم یا حالت IDLE را فعال می‌کنیم
+    if (ballPos.x > playerPos.x) {
+        console.log('توپ سمت راست AI است', 'ballPos.x:', ballPos.x, 'playerPos.x:', playerPos.x);
+    } else {
+        console.log('توپ سمت چپ یا جلو AI است', 'ballPos.x:', ballPos.x, 'playerPos.x:', playerPos.x);
+    }
     currentAiState = AI_STATE.IDLE;
     return;
 }
