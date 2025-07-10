@@ -88,8 +88,8 @@ const MOVE_FORCE = 0.015;
 const AIR_MOVE_FORCE_MULTIPLIER = 0.1; // Reduced from 0.3 to 0.1 (10%)
 
 // Chip Shot Constants
-const CHIP_SHOT_UP_FORCE = 0.15; // Increased upward force for a higher arc
-const CHIP_SHOT_FORWARD_FORCE = 0.010; // Forward force component for chip (increased from 0.008)
+const CHIP_SHOT_UP_FORCE = 0.13; // Adjusted from 0.15
+const CHIP_SHOT_FORWARD_FORCE = 0.025; // Increased from 0.010
 
 const keysPressed = {};
 
@@ -418,10 +418,10 @@ function drawFootballFieldLines(ctx) {
 
     // Penalty boxes
     // Define new world dimensions for markings to fit on the grass strip
-    const penaltyAreaDepth_world = 40; // Reduced from 60
-    const penaltyAreaLength_world = 150; // Reduced from 200
-    const goalBoxDepth_world = 20; // Reduced from 30
-    const goalBoxLength_world = 75; // Reduced from 100
+    const penaltyAreaDepth_world = 30; // Further reduced from 40
+    const penaltyAreaLength_world = 120; // Further reduced from 150
+    const goalBoxDepth_world = 15; // Further reduced from 20
+    const goalBoxLength_world = 60; // Further reduced from 75
 
     // Old variables that might be referenced later if not careful - these are scaled values.
     // const penaltyBoxWidth = 120 * scale;
@@ -723,12 +723,11 @@ function setupCollisions() {
                             let kickDirection = (playerObject.team === 1) ? 1 : -1; // Team 1 kicks right, Team 2 kicks left
                             const forceX = kickDirection * CHIP_SHOT_FORWARD_FORCE;
                             const forceY = -CHIP_SHOT_UP_FORCE;
+                            const chipForceVector = { x: forceX, y: forceY };
+                            const forceApplicationPoint = { x: ballBody.position.x, y: ballBody.position.y + BALL_RADIUS * 0.3 };
                             // Apply chip shot force
-                            Body.applyForce(ballBody, ballBody.position, {
-                                x: forceX,
-                                y: forceY
-                            });
-                            console.log(`Applying chip force: { x: ${forceX}, y: ${forceY} }`); // DEBUG LOG
+                            Body.applyForce(ballBody, forceApplicationPoint, chipForceVector);
+                            console.log(`Applying chip force: { x: ${forceX}, y: ${forceY} } at point { x: ${forceApplicationPoint.x.toFixed(2)}, y: ${forceApplicationPoint.y.toFixed(2)} }`); // DEBUG LOG
                             audioManager.playSound('kick'); // Or a new 'chip' sound
                             // console.log(`${playerObject.body.label} performed a chip shot!`); // Original log was good
                             playerObject.chipShotAttempt = false; // Consume the attempt
