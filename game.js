@@ -505,29 +505,31 @@ function draw() {
 
         if (body.label === 'player1' || body.label === 'player2') {
             const player = (body.label === 'player1') ? players[0] : players[1];
-            lowResCtx.fillStyle = player.color;
-            lowResCtx.fill();
-            // --- Draw foot animation for player1 if S is held ---
+            // --- Player1: rotate when S is held and kicking is possible ---
             if (body.label === 'player1' && isKicking) {
-                // Draw a simple foot/leg in a kicking pose
                 lowResCtx.save();
-                lowResCtx.strokeStyle = '#222';
-                lowResCtx.lineWidth = Math.max(2, Math.floor(3 * PIXELATION_SCALE_FACTOR));
                 const px = body.position.x * PIXELATION_SCALE_FACTOR;
                 const py = body.position.y * PIXELATION_SCALE_FACTOR;
-                const legLen = PLAYER_HEIGHT * 0.7 * PIXELATION_SCALE_FACTOR;
-                const footDir = (body.position.x < ball.position.x) ? 1 : -1;
-                // Leg from bottom center of player
+                lowResCtx.translate(px, py);
+                // Determine direction to ball
+                const kickDir = (body.position.x < ball.position.x) ? 1 : -1;
+                const angle = kickDir * (-35 * Math.PI / 180); // -35deg right, +35deg left
+                lowResCtx.rotate(angle);
+                lowResCtx.fillStyle = player.color;
                 lowResCtx.beginPath();
-                lowResCtx.moveTo(px, py + PLAYER_HEIGHT/2 * PIXELATION_SCALE_FACTOR);
-                lowResCtx.lineTo(px + footDir * legLen, py + (PLAYER_HEIGHT/2 + 8) * PIXELATION_SCALE_FACTOR);
-                lowResCtx.stroke();
-                // Foot (small oval)
-                lowResCtx.beginPath();
-                lowResCtx.ellipse(px + footDir * (legLen + 6), py + (PLAYER_HEIGHT/2 + 8) * PIXELATION_SCALE_FACTOR, 6 * PIXELATION_SCALE_FACTOR, 3 * PIXELATION_SCALE_FACTOR, 0, 0, 2 * Math.PI);
-                lowResCtx.fillStyle = '#444';
+                lowResCtx.rect(-PLAYER_WIDTH/2 * PIXELATION_SCALE_FACTOR, -PLAYER_HEIGHT/2 * PIXELATION_SCALE_FACTOR, PLAYER_WIDTH * PIXELATION_SCALE_FACTOR, PLAYER_HEIGHT * PIXELATION_SCALE_FACTOR);
                 lowResCtx.fill();
                 lowResCtx.restore();
+            } else {
+                lowResCtx.fillStyle = player.color;
+                lowResCtx.beginPath();
+                lowResCtx.rect(
+                    (body.position.x - PLAYER_WIDTH/2) * PIXELATION_SCALE_FACTOR,
+                    (body.position.y - PLAYER_HEIGHT/2) * PIXELATION_SCALE_FACTOR,
+                    PLAYER_WIDTH * PIXELATION_SCALE_FACTOR,
+                    PLAYER_HEIGHT * PIXELATION_SCALE_FACTOR
+                );
+                lowResCtx.fill();
             }
         } else if (body.label === 'ball') {
             drawSimplifiedSoccerBall(lowResCtx, body);
