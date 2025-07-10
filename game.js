@@ -56,10 +56,10 @@ let roundTimerId = null;
 let kickCooldown = 0;
 let isKicking = false;
 let aiKicking = false;
-let kickAnimationProgress = [0, 0]; // [player1, player2], 0: idle, 1: max kick
-let kickAnimationDirection = [0, 0]; // 1: animating forward, -1: animating back, 0: idle
-const KICK_ANIMATION_FRAMES = 10; // frames for full kick
-const KICK_MAX_ANGLE = 18 * Math.PI / 180; // 18 degrees
+let kickAnimState = [0, 0]; // 0: idle, 1: animating forward, 2: animating back
+let kickAnimStart = [0, 0]; // timestamp (ms) when animation started for each player
+const KICK_ANIM_DURATION = 120; // ms for forward or back
+const KICK_MAX_ANGLE = 18 * Math.PI / 180;
 
 // --- Field Constants ---
 const GROUND_Y = 580;
@@ -511,15 +511,25 @@ function draw() {
         if (body.label === 'player1' || body.label === 'player2') {
             const player = (body.label === 'player1') ? players[0] : players[1];
             const idx = (body.label === 'player1') ? 0 : 1;
-            // --- Smooth kick animation for both players ---
+            // --- Time-based smooth kick animation for both players ---
             let angle = 0;
-            if (kickAnimationProgress[idx] > 0) {
-                // Animate forward then back
-                const sign = (body.position.x < ball.position.x) ? 1 : -1;
-                // Ease out/in for smoothness
-                let t = kickAnimationProgress[idx];
-                if (kickAnimationDirection[idx] === -1) t = 1 - t;
-                angle = sign * KICK_MAX_ANGLE * Math.sin(t * Math.PI/2); // ease
+            if (kickAnimState[idx] !== 0) {
+                const now = performance.now();
+                let t = (now - kickAnimStart[idx]) / KICK_ANIM_DURATION;
+                if (kickAnimState[idx] === 1) { // animating forward
+                    if (t >= 1) {
+                        t = 1;
+                        kickAnimState[idx] = 2;
+                        kickAnimStart[idx] = now;
+                    }
+                    angle = ((body.position.x < ball.position.x) ? 1 : -1) * KICK_MAX_ANGLE * Math.sin(t * Math.PI/2);
+                } else if (kickAnimState[idx] === 2) { // animating back
+                    if (t >= 1) {
+                        t = 1;
+                        kickAnimState[idx] = 0;
+                    }
+                    angle = ((body.position.x < ball.position.x) ? 1 : -1) * KICK_MAX_ANGLE * Math.sin((1-t) * Math.PI/2);
+                }
             }
             if (angle !== 0) {
                 lowResCtx.save();
@@ -580,19 +590,9 @@ function draw() {
     handlePlayerControls();
     // Animate player2 kick (AI)
     if (typeof window.aiKicking !== 'undefined' && window.aiKicking) {
-        if (kickAnimationDirection[1] === 0) kickAnimationDirection[1] = 1;
-    }
-    if (kickAnimationDirection[1] === 1) {
-        kickAnimationProgress[1] += 1 / KICK_ANIMATION_FRAMES;
-        if (kickAnimationProgress[1] >= 1) {
-            kickAnimationProgress[1] = 1;
-            kickAnimationDirection[1] = -1;
-        }
-    } else if (kickAnimationDirection[1] === -1) {
-        kickAnimationProgress[1] -= 1 / KICK_ANIMATION_FRAMES;
-        if (kickAnimationProgress[1] <= 0) {
-            kickAnimationProgress[1] = 0;
-            kickAnimationDirection[1] = 0;
+        if (kickAnimState[1] === 0) {
+            kickAnimState[1] = 1;
+            kickAnimStart[1] = performance.now();
         }
     }
 
@@ -737,24 +737,11 @@ function handlePlayerControls() {
             Body.applyForce(ball, ball.position, { x: 0.04 * kickDir, y: -0.015 });
             audioManager.playSound('kick');
             kickCooldown = 20; // ~0.33s at 60fps
-            kickAnimationDirection[0] = 1; // Start animation forward for player1
+            kickAnimState[0] = 1; // Start animating forward for player1
+            kickAnimStart[0] = performance.now();
         }
     }
     if (kickCooldown > 0) kickCooldown--;
-    // Animate player1 kick
-    if (kickAnimationDirection[0] === 1) {
-        kickAnimationProgress[0] += 1 / KICK_ANIMATION_FRAMES;
-        if (kickAnimationProgress[0] >= 1) {
-            kickAnimationProgress[0] = 1;
-            kickAnimationDirection[0] = -1;
-        }
-    } else if (kickAnimationDirection[0] === -1) {
-        kickAnimationProgress[0] -= 1 / KICK_ANIMATION_FRAMES;
-        if (kickAnimationProgress[0] <= 0) {
-            kickAnimationProgress[0] = 0;
-            kickAnimationDirection[0] = 0;
-        }
-    }
 }
 
 let goalScoredThisTick = false;
