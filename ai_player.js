@@ -171,6 +171,7 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const aiGoalRight = aiGoalX + aiGoalWidth / 2;
     // اگر توپ سمت راست AI و بین AI و دروازه خودش بود
     if (ballPos.x > playerPos.x && ballPos.x >= aiGoalLeft && ballPos.x <= aiGoalRight) {
+        console.log('GOALKEEPER_IDLE فعال شد', 'ballPos.x:', ballPos.x, 'playerPos.x:', playerPos.x);
         currentAiState = AI_STATE.GOALKEEPER_IDLE;
         return;
     }
