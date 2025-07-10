@@ -226,8 +226,8 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
 // State Handling Functions (Initial stubs)
 // ===================================================================================
 function handleIdleState(playerPos) {
-    let targetX = CANVAS_WIDTH * 0.2; // سمت چپ زمین برای تست
-    moveHorizontally(playerPos, targetX, 0.03); // مقدار ثابت برای تست
+    let targetX = CANVAS_WIDTH * 0.75; // موقعیت دفاعی عادی
+    moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.5); // سرعت عادی
 }
 
 // --- Safe horizontal movement: never move toward ball if it's behind and close ---
