@@ -1,101 +1,137 @@
 // ===================================================================================
-// Audio Manager for Soccer Game
+// Audio Manager
 // ===================================================================================
 
 // Audio context and sounds
 let audioContext;
 let sounds = {};
 
-// Sound file URLs (you can replace these with actual sound files)
-const SOUND_URLS = {
-    kick: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT',
-    goal: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT',
-    jump: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT',
-    whistle: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT'
-};
-
 // ===================================================================================
 // Audio Initialization
 // ===================================================================================
 function initializeAudio() {
+    console.log("Initializing audio...");
+    
     try {
         // Create audio context
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Load all sounds
-        loadSounds();
+        // Create simple sound effects
+        createJumpSound();
+        createKickSound();
+        createGoalSound();
         
-        console.log("Audio system initialized successfully");
+        console.log("Audio initialized successfully");
     } catch (error) {
         console.warn("Audio initialization failed:", error);
     }
 }
 
 // ===================================================================================
-// Sound Loading
+// Sound Creation Functions
 // ===================================================================================
-async function loadSounds() {
-    for (const [soundName, url] of Object.entries(SOUND_URLS)) {
-        try {
-            const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            sounds[soundName] = audioBuffer;
-        } catch (error) {
-            console.warn(`Failed to load sound: ${soundName}`, error);
-        }
-    }
-}
-
-// ===================================================================================
-// Sound Playback
-// ===================================================================================
-function playSound(soundName, volume = 0.5) {
-    if (!audioContext || !sounds[soundName]) {
-        console.warn(`Sound not available: ${soundName}`);
-        return;
-    }
-    
+function createJumpSound() {
     try {
-        const source = audioContext.createBufferSource();
+        const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
-        source.buffer = sounds[soundName];
-        gainNode.gain.value = volume;
-        
-        source.connect(gainNode);
+        oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         
-        source.start(0);
+        oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.1);
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
     } catch (error) {
-        console.warn(`Failed to play sound: ${soundName}`, error);
+        console.warn("Jump sound creation failed:", error);
+    }
+}
+
+function createKickSound() {
+    try {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.05);
+        
+        gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.05);
+    } catch (error) {
+        console.warn("Kick sound creation failed:", error);
+    }
+}
+
+function createGoalSound() {
+    try {
+        // Create a sequence of tones for goal celebration
+        const frequencies = [523, 659, 784, 1047]; // C, E, G, C (octave)
+        
+        frequencies.forEach((freq, index) => {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator.start(audioContext.currentTime + index * 0.1);
+            oscillator.stop(audioContext.currentTime + index * 0.1 + 0.2);
+        });
+    } catch (error) {
+        console.warn("Goal sound creation failed:", error);
     }
 }
 
 // ===================================================================================
-// Sound Effects
+// Public Audio Functions
 // ===================================================================================
+function playJumpSound() {
+    if (audioContext && audioContext.state === 'running') {
+        createJumpSound();
+    }
+}
+
 function playKickSound() {
-    playSound('kick', 0.6);
+    if (audioContext && audioContext.state === 'running') {
+        createKickSound();
+    }
 }
 
 function playGoalSound() {
-    playSound('goal', 0.8);
-}
-
-function playJumpSound() {
-    playSound('jump', 0.4);
-}
-
-function playWhistleSound() {
-    playSound('whistle', 0.7);
+    if (audioContext && audioContext.state === 'running') {
+        createGoalSound();
+    }
 }
 
 // ===================================================================================
 // Export Functions
 // ===================================================================================
 window.initializeAudio = initializeAudio;
+window.playJumpSound = playJumpSound;
 window.playKickSound = playKickSound;
 window.playGoalSound = playGoalSound;
-window.playJumpSound = playJumpSound;
-window.playWhistleSound = playWhistleSound;
+
+// Initialize audio when page loads
+window.addEventListener('DOMContentLoaded', () => {
+    // Initialize audio after a user interaction
+    document.addEventListener('click', () => {
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+    }, { once: true });
+});
