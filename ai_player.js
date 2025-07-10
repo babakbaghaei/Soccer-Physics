@@ -26,6 +26,13 @@ let GOAL_HEIGHT = window.GOAL_HEIGHT || 120;
 let GOAL_WIDTH = window.GOAL_WIDTH || 30;
 let isGameOver = false;
 
+// لاگ برای بررسی مقدار ثابت‌ها
+console.log('AI CONSTS', {
+  CANVAS_WIDTH, CANVAS_HEIGHT, PLAYER_WIDTH, PLAYER_HEIGHT, 
+  JUMP_FORCE, MOVE_FORCE, AIR_MOVE_FORCE_MULTIPLIER, 
+  BALL_RADIUS, GROUND_Y, GOAL_HEIGHT, GOAL_WIDTH
+});
+
 // --- AI Variables ---
 let currentAiState = AI_STATE.IDLE;
 let lastJumpTime = 0;
