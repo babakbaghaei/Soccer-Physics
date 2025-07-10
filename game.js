@@ -56,6 +56,10 @@ let roundTimerId = null;
 let kickCooldown = 0;
 let isKicking = false;
 let aiKicking = false;
+let kickAnimationProgress = [0, 0]; // [player1, player2], 0: idle, 1: max kick
+let kickAnimationDirection = [0, 0]; // 1: animating forward, -1: animating back, 0: idle
+const KICK_ANIMATION_FRAMES = 10; // frames for full kick
+const KICK_MAX_ANGLE = 18 * Math.PI / 180; // 18 degrees
 
 // --- Field Constants ---
 const GROUND_Y = 580;
@@ -506,16 +510,22 @@ function draw() {
 
         if (body.label === 'player1' || body.label === 'player2') {
             const player = (body.label === 'player1') ? players[0] : players[1];
-            // --- Rotate when S is held (player1) or AI is kicking (player2) ---
-            const shouldKick = (body.label === 'player1' && isKicking) || (body.label === 'player2' && aiKicking);
-            if (shouldKick) {
+            const idx = (body.label === 'player1') ? 0 : 1;
+            // --- Smooth kick animation for both players ---
+            let angle = 0;
+            if (kickAnimationProgress[idx] > 0) {
+                // Animate forward then back
+                const sign = (body.position.x < ball.position.x) ? 1 : -1;
+                // Ease out/in for smoothness
+                let t = kickAnimationProgress[idx];
+                if (kickAnimationDirection[idx] === -1) t = 1 - t;
+                angle = sign * KICK_MAX_ANGLE * Math.sin(t * Math.PI/2); // ease
+            }
+            if (angle !== 0) {
                 lowResCtx.save();
                 const px = body.position.x * PIXELATION_SCALE_FACTOR;
                 const py = body.position.y * PIXELATION_SCALE_FACTOR;
                 lowResCtx.translate(px, py);
-                // Determine direction to ball
-                const kickDir = (body.position.x < ball.position.x) ? 1 : -1;
-                const angle = kickDir * (-35 * Math.PI / 180); // -35deg right, +35deg left
                 lowResCtx.rotate(angle);
                 lowResCtx.fillStyle = player.color;
                 lowResCtx.beginPath();
@@ -568,6 +578,23 @@ function draw() {
     );
 
     handlePlayerControls();
+    // Animate player2 kick (AI)
+    if (typeof window.aiKicking !== 'undefined' && window.aiKicking) {
+        if (kickAnimationDirection[1] === 0) kickAnimationDirection[1] = 1;
+    }
+    if (kickAnimationDirection[1] === 1) {
+        kickAnimationProgress[1] += 1 / KICK_ANIMATION_FRAMES;
+        if (kickAnimationProgress[1] >= 1) {
+            kickAnimationProgress[1] = 1;
+            kickAnimationDirection[1] = -1;
+        }
+    } else if (kickAnimationDirection[1] === -1) {
+        kickAnimationProgress[1] -= 1 / KICK_ANIMATION_FRAMES;
+        if (kickAnimationProgress[1] <= 0) {
+            kickAnimationProgress[1] = 0;
+            kickAnimationDirection[1] = 0;
+        }
+    }
 
     // Update AI Player
     if (typeof window.updateAI === "function" && !isGameOver) {
@@ -710,9 +737,24 @@ function handlePlayerControls() {
             Body.applyForce(ball, ball.position, { x: 0.04 * kickDir, y: -0.015 });
             audioManager.playSound('kick');
             kickCooldown = 20; // ~0.33s at 60fps
+            kickAnimationDirection[0] = 1; // Start animation forward for player1
         }
     }
     if (kickCooldown > 0) kickCooldown--;
+    // Animate player1 kick
+    if (kickAnimationDirection[0] === 1) {
+        kickAnimationProgress[0] += 1 / KICK_ANIMATION_FRAMES;
+        if (kickAnimationProgress[0] >= 1) {
+            kickAnimationProgress[0] = 1;
+            kickAnimationDirection[0] = -1;
+        }
+    } else if (kickAnimationDirection[0] === -1) {
+        kickAnimationProgress[0] -= 1 / KICK_ANIMATION_FRAMES;
+        if (kickAnimationProgress[0] <= 0) {
+            kickAnimationProgress[0] = 0;
+            kickAnimationDirection[0] = 0;
+        }
+    }
 }
 
 let goalScoredThisTick = false;
