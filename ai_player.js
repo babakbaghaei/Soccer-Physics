@@ -32,9 +32,9 @@ const ADAPTATION_MEMORY_SIZE = 10; // Remember last N opponent attack positions/
 let recentOpponentActions = [];
 
 // --- Constants for Adaptive Learning ---
-// Assuming CANVAS_WIDTH is globally available from game.js
-const OPPONENT_HALF_X_LINE = CANVAS_WIDTH / 2;
-const PLAYER1_ATTACK_ZONE_THIRD = CANVAS_WIDTH / 4; // Divides P1's half (0 to CANVAS_WIDTH/2) into rough thirds for zone tracking
+// These will be effectively initialized after C_WIDTH is set in initializeAI
+let OPPONENT_HALF_X_LINE;
+let PLAYER1_ATTACK_ZONE_THIRD;
 
 // ===================================================================================
 // AI Initialization & Adaptation API
@@ -56,6 +56,10 @@ function initializeAI(player, ball, engine, config) {
     G_HEIGHT = config.GOAL_HEIGHT;
     G_WIDTH = config.GOAL_WIDTH;
     gameIsOver = config.isGameOver; // مقدار اولیه
+
+    // Initialize constants that depend on C_WIDTH
+    OPPONENT_HALF_X_LINE = C_WIDTH / 2;
+    PLAYER1_ATTACK_ZONE_THIRD = C_WIDTH / 4;
 
     console.log("AI Initialized for Player 2 (Blue). Current State: ", currentAiState);
     recentOpponentActions = [];
@@ -155,7 +159,7 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     // If in RECOVER state, check if player has reached the recovery position.
     // The recovery position is typically the default defensive X coordinate.
     if (currentAiState === AI_STATE.RECOVER) {
-        const recoveredX = Math.abs(playerPos.x - (CANVAS_WIDTH * 0.75)) < recoveryThreshold;
+        const recoveredX = Math.abs(playerPos.x - (C_WIDTH * 0.75)) < recoveryThreshold;
         // Could also check Y position if player gets thrown high, but ground check is more important.
         if (recoveredX && aiPlayer.isGrounded) {
             // Transition out of RECOVER based on ball position
