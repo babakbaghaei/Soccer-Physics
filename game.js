@@ -667,8 +667,8 @@ function draw() {
     drawFootballFieldLines(lowResCtx);
 
     // حذف دروازه‌های قبلی
-    // دو دروازه توری کوچک گوشه چپ و راست پایین زمین (دو برابر عرض بازیکن)
-    const bigGoalWidth = (2 * PLAYER_WIDTH) * PIXELATION_SCALE_FACTOR;
+    // دو دروازه توری کوچک گوشه چپ و راست پایین زمین (عرض بازیکن)
+    const bigGoalWidth = PLAYER_WIDTH * PIXELATION_SCALE_FACTOR;
     const bigGoalHeight = 70 * PIXELATION_SCALE_FACTOR;
     const postW = 8 * PIXELATION_SCALE_FACTOR;
     // دروازه چپ
