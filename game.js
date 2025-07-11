@@ -713,7 +713,7 @@ function draw() {
     const barHeight = 35 * PIXELATION_SCALE_FACTOR;
     // دروازه چپ
     const leftXf = 0, leftYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
-    const leftXb = leftXf + depth, leftYb = leftYf - barHeight;
+    const leftXb = leftXf + depth + 3 * PIXELATION_SCALE_FACTOR, leftYb = leftYf - barHeight;
     lowResCtx.save();
     lowResCtx.strokeStyle = '#fff';
     lowResCtx.lineWidth = postW;
@@ -761,7 +761,7 @@ function draw() {
     lowResCtx.restore();
     // دروازه راست
     const rightXf = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR) - goalW, rightYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
-    const rightXb = rightXf - depth, rightYb = rightYf - barHeight;
+    const rightXb = rightXf - depth - 3 * PIXELATION_SCALE_FACTOR, rightYb = rightYf - barHeight;
     lowResCtx.save();
     lowResCtx.strokeStyle = '#fff';
     lowResCtx.lineWidth = postW;
