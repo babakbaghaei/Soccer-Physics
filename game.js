@@ -666,48 +666,42 @@ function draw() {
     }
     drawFootballFieldLines(lowResCtx);
 
-    // پارامترهای محوطه جریمه
-    const penaltyAreaDepth_world = 80;
-    const penaltyAreaLength_world = 150;
-    const penaltyAreaDepth_scaled = penaltyAreaDepth_world * PIXELATION_SCALE_FACTOR;
-    // محل تور: 15 درصد عمق محوطه جریمه داخل زمین
-    const netOffset = penaltyAreaDepth_world * 0.15 * PIXELATION_SCALE_FACTOR;
+    // Goal 1 (left) - match physics
+    const goal1PostX = 0;
+    const goal1PostY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
+    const goal1PostW = GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR;
+    const goal1PostH = GOAL_HEIGHT * PIXELATION_SCALE_FACTOR;
+    // Draw left post
+    lowResCtx.fillStyle = '#fff';
+    lowResCtx.fillRect(goal1PostX, goal1PostY, goal1PostW, goal1PostH);
+    // Draw net (sensor area)
+    const goal1NetX = 30 * PIXELATION_SCALE_FACTOR;
+    const goal1NetY = goal1PostY;
+    const goal1NetW = 60 * PIXELATION_SCALE_FACTOR;
+    const goal1NetH = goal1PostH;
+    drawSimplifiedNet(lowResCtx, goal1NetX, goal1NetY, goal1NetW, goal1NetH);
+    // Draw right post of left goal
+    lowResCtx.fillRect((goal1NetX + goal1NetW), goal1NetY, goal1PostW, goal1NetH);
+    // Draw crossbar
+    lowResCtx.fillRect(goal1PostX, goal1PostY, goal1NetX + goal1NetW + goal1PostW, goal1PostW/2);
 
-    // نت دروازه سمت چپ (تیم 1)
-    const goal1NetY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
-    drawSimplifiedNet(lowResCtx, netOffset, goal1NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
-    // نت دروازه سمت راست (تیم 2)
-    const goal2NetX = (CANVAS_WIDTH - GOAL_WIDTH) * PIXELATION_SCALE_FACTOR - netOffset;
-    const goal2NetY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
-    drawSimplifiedNet(lowResCtx, goal2NetX, goal2NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
-
-    // 3D Goal Posts and Crossbar
-    function drawGoal3D(ctx, x, y, width, height, facing) {
-        // facing: 1 for left, -1 for right
-        const postThickness = 8 * PIXELATION_SCALE_FACTOR;
-        const barHeight = 40 * PIXELATION_SCALE_FACTOR; // ارتفاع میله افقی
-        ctx.save();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = postThickness;
-        ctx.lineCap = 'round';
-        // دو میله عمودی
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y - barHeight);
-        ctx.moveTo(x + width, y);
-        ctx.lineTo(x + width, y - barHeight);
-        ctx.stroke();
-        // میله افقی
-        ctx.beginPath();
-        ctx.moveTo(x, y - barHeight);
-        ctx.lineTo(x + width, y - barHeight);
-        ctx.stroke();
-        ctx.restore();
-    }
-    // Goal 1 (left)
-    drawGoal3D(lowResCtx, netOffset, goal1NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR, 1);
-    // Goal 2 (right)
-    drawGoal3D(lowResCtx, goal2NetX, goal2NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR, -1);
+    // Goal 2 (right) - match physics
+    const goal2PostX = (CANVAS_WIDTH - GOAL_POST_WIDTH) * PIXELATION_SCALE_FACTOR;
+    const goal2PostY = goal1PostY;
+    const goal2PostW = GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR;
+    const goal2PostH = GOAL_HEIGHT * PIXELATION_SCALE_FACTOR;
+    // Draw right post
+    lowResCtx.fillRect(goal2PostX, goal2PostY, goal2PostW, goal2PostH);
+    // Draw net (sensor area)
+    const goal2NetX = (CANVAS_WIDTH - 90) * PIXELATION_SCALE_FACTOR;
+    const goal2NetY = goal2PostY;
+    const goal2NetW = 60 * PIXELATION_SCALE_FACTOR;
+    const goal2NetH = goal2PostH;
+    drawSimplifiedNet(lowResCtx, goal2NetX, goal2NetY, goal2NetW, goal2NetH);
+    // Draw left post of right goal
+    lowResCtx.fillRect((goal2NetX - goal2PostW), goal2NetY, goal2PostW, goal2NetH);
+    // Draw crossbar
+    lowResCtx.fillRect(goal2NetX - goal2PostW, goal2PostY, goal2NetW + 2*goal2PostW, goal2PostW/2);
 
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
