@@ -666,42 +666,64 @@ function draw() {
     }
     drawFootballFieldLines(lowResCtx);
 
-    // Goal 1 (left) - match physics
-    const goal1PostX = 0;
-    const goal1PostY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
-    const goal1PostW = GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR;
-    const goal1PostH = GOAL_HEIGHT * PIXELATION_SCALE_FACTOR;
-    // Draw left post
+    // پارامترهای سه‌بعدی دروازه
+    const GOAL_DEPTH = 40 * PIXELATION_SCALE_FACTOR; // عمق سه‌بعدی
+    const GOAL_BAR_HEIGHT = 30 * PIXELATION_SCALE_FACTOR; // ارتفاع میله افقی بالای چمن
+    // Goal 1 (left, عقب‌تر و سه‌بعدی)
+    const goal1BaseX = 25 * PIXELATION_SCALE_FACTOR;
+    const goal1BaseY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
+    const goal1W = GOAL_WIDTH * PIXELATION_SCALE_FACTOR;
+    const goal1H = GOAL_HEIGHT * PIXELATION_SCALE_FACTOR;
+    // پست‌های جلو
     lowResCtx.fillStyle = '#fff';
-    lowResCtx.fillRect(goal1PostX, goal1PostY, goal1PostW, goal1PostH);
-    // Draw net (sensor area)
-    const goal1NetX = 30 * PIXELATION_SCALE_FACTOR;
-    const goal1NetY = goal1PostY;
-    const goal1NetW = 60 * PIXELATION_SCALE_FACTOR;
-    const goal1NetH = goal1PostH;
-    drawSimplifiedNet(lowResCtx, goal1NetX, goal1NetY, goal1NetW, goal1NetH);
-    // Draw right post of left goal
-    lowResCtx.fillRect((goal1NetX + goal1NetW), goal1NetY, goal1PostW, goal1NetH);
-    // Draw crossbar
-    lowResCtx.fillRect(goal1PostX, goal1PostY, goal1NetX + goal1NetW + goal1PostW, goal1PostW/2);
+    lowResCtx.fillRect(goal1BaseX, goal1BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
+    lowResCtx.fillRect(goal1BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
+    // میله افقی جلو
+    lowResCtx.fillRect(goal1BaseX, goal1BaseY, goal1W, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
+    // پست‌های عقب (عمق)
+    lowResCtx.fillRect(goal1BaseX + GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
+    lowResCtx.fillRect(goal1BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR - GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
+    // میله افقی عقب
+    lowResCtx.fillRect(goal1BaseX + GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT, goal1W - 2*GOAL_DEPTH, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
+    // تور سه‌بعدی (trapezoid)
+    lowResCtx.save();
+    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
+    lowResCtx.lineWidth = 2 * PIXELATION_SCALE_FACTOR;
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(goal1BaseX, goal1BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو چپ
+    lowResCtx.lineTo(goal1BaseX + GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب چپ
+    lowResCtx.lineTo(goal1BaseX + goal1W - GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب راست
+    lowResCtx.lineTo(goal1BaseX + goal1W, goal1BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو راست
+    lowResCtx.closePath();
+    lowResCtx.stroke();
+    lowResCtx.restore();
 
-    // Goal 2 (right) - match physics
-    const goal2PostX = (CANVAS_WIDTH - GOAL_POST_WIDTH) * PIXELATION_SCALE_FACTOR;
-    const goal2PostY = goal1PostY;
-    const goal2PostW = GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR;
-    const goal2PostH = GOAL_HEIGHT * PIXELATION_SCALE_FACTOR;
-    // Draw right post
-    lowResCtx.fillRect(goal2PostX, goal2PostY, goal2PostW, goal2PostH);
-    // Draw net (sensor area)
-    const goal2NetX = (CANVAS_WIDTH - 90) * PIXELATION_SCALE_FACTOR;
-    const goal2NetY = goal2PostY;
-    const goal2NetW = 60 * PIXELATION_SCALE_FACTOR;
-    const goal2NetH = goal2PostH;
-    drawSimplifiedNet(lowResCtx, goal2NetX, goal2NetY, goal2NetW, goal2NetH);
-    // Draw left post of right goal
-    lowResCtx.fillRect((goal2NetX - goal2PostW), goal2NetY, goal2PostW, goal2NetH);
-    // Draw crossbar
-    lowResCtx.fillRect(goal2NetX - goal2PostW, goal2PostY, goal2NetW + 2*goal2PostW, goal2PostW/2);
+    // Goal 2 (right, عقب‌تر و سه‌بعدی)
+    const goal2BaseX = (CANVAS_WIDTH - GOAL_WIDTH - 25) * PIXELATION_SCALE_FACTOR;
+    const goal2BaseY = goal1BaseY;
+    // پست‌های جلو
+    lowResCtx.fillStyle = '#fff';
+    lowResCtx.fillRect(goal2BaseX, goal2BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
+    lowResCtx.fillRect(goal2BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal2BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
+    // میله افقی جلو
+    lowResCtx.fillRect(goal2BaseX, goal2BaseY, goal1W, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
+    // پست‌های عقب (عمق)
+    lowResCtx.fillRect(goal2BaseX + GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
+    lowResCtx.fillRect(goal2BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR - GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
+    // میله افقی عقب
+    lowResCtx.fillRect(goal2BaseX + GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT, goal1W - 2*GOAL_DEPTH, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
+    // تور سه‌بعدی (trapezoid)
+    lowResCtx.save();
+    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
+    lowResCtx.lineWidth = 2 * PIXELATION_SCALE_FACTOR;
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(goal2BaseX, goal2BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو چپ
+    lowResCtx.lineTo(goal2BaseX + GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب چپ
+    lowResCtx.lineTo(goal2BaseX + goal1W - GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب راست
+    lowResCtx.lineTo(goal2BaseX + goal1W, goal2BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو راست
+    lowResCtx.closePath();
+    lowResCtx.stroke();
+    lowResCtx.restore();
 
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
