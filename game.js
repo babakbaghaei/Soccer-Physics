@@ -667,18 +667,25 @@ function draw() {
     drawFootballFieldLines(lowResCtx);
 
     // حذف دروازه‌های قبلی
-    // رسم یک دروازه توری بزرگ پایین زمین
-    const bigGoalWidth = 350 * PIXELATION_SCALE_FACTOR;
+    // دو دروازه توری بزرگ گوشه چپ و راست پایین زمین
+    const bigGoalWidth = 180 * PIXELATION_SCALE_FACTOR;
     const bigGoalHeight = 70 * PIXELATION_SCALE_FACTOR;
-    const bigGoalX = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR - bigGoalWidth) / 2;
-    const bigGoalY = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - bigGoalHeight;
-    drawSimplifiedNet(lowResCtx, bigGoalX, bigGoalY, bigGoalWidth, bigGoalHeight);
-    // پست‌های کناری و میله افقی
-    lowResCtx.fillStyle = '#fff';
     const postW = 8 * PIXELATION_SCALE_FACTOR;
-    lowResCtx.fillRect(bigGoalX, bigGoalY, postW, bigGoalHeight);
-    lowResCtx.fillRect(bigGoalX + bigGoalWidth - postW, bigGoalY, postW, bigGoalHeight);
-    lowResCtx.fillRect(bigGoalX, bigGoalY, bigGoalWidth, postW);
+    // دروازه چپ
+    const leftGoalX = 0;
+    const leftGoalY = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - bigGoalHeight;
+    drawSimplifiedNet(lowResCtx, leftGoalX, leftGoalY, bigGoalWidth, bigGoalHeight);
+    lowResCtx.fillStyle = '#fff';
+    lowResCtx.fillRect(leftGoalX, leftGoalY, postW, bigGoalHeight);
+    lowResCtx.fillRect(leftGoalX + bigGoalWidth - postW, leftGoalY, postW, bigGoalHeight);
+    lowResCtx.fillRect(leftGoalX, leftGoalY, bigGoalWidth, postW);
+    // دروازه راست
+    const rightGoalX = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR) - bigGoalWidth;
+    const rightGoalY = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - bigGoalHeight;
+    drawSimplifiedNet(lowResCtx, rightGoalX, rightGoalY, bigGoalWidth, bigGoalHeight);
+    lowResCtx.fillRect(rightGoalX, rightGoalY, postW, bigGoalHeight);
+    lowResCtx.fillRect(rightGoalX + bigGoalWidth - postW, rightGoalY, postW, bigGoalHeight);
+    lowResCtx.fillRect(rightGoalX, rightGoalY, bigGoalWidth, postW);
 
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
