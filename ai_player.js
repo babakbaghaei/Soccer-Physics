@@ -280,9 +280,9 @@ function moveHorizontally(playerPosition, targetX, force) {
     // Add a small dead zone to prevent jittering if AI is very close to targetX
     const deadZone = PLAYER_WIDTH * 0.1;
     if (targetX < playerPosition.x - deadZone) { // Target is to the left
-        Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: -currentMoveForce, y: 0 });
+        window.Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: -currentMoveForce, y: 0 });
     } else if (targetX > playerPosition.x + deadZone) { // Target is to the right
-        Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: currentMoveForce, y: 0 });
+        window.Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: currentMoveForce, y: 0 });
     }
 }
 
@@ -341,7 +341,7 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
 
 function performJump() {
     if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
-        Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -JUMP_FORCE });
+        window.Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -JUMP_FORCE });
         aiPlayer.isGrounded = false; // Assume this will be updated by collision events in game.js
         lastJumpTime = Date.now();
         // console.log("AI Player jumped.");

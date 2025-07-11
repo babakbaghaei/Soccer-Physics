@@ -1,15 +1,14 @@
-```javascript
 /// --- Matter.js Aliases ---
-const Engine = Matter.Engine;
-const Render = Matter.Render;
-const Runner = Matter.Runner;
-const World = Matter.World;
-const Bodies = Matter.Bodies;
-const Body = Matter.Body;
-const Events = Matter.Events;
-const Composite = Matter.Composite;
-const Composites = Matter.Composites;
-const Constraint = Matter.Constraint;
+const Engine = window.Matter.Engine;
+const Render = window.Matter.Render;
+const Runner = window.Matter.Runner;
+const World = window.Matter.World;
+const Bodies = window.Matter.Bodies;
+const Body = window.Matter.Body;
+const Events = window.Matter.Events;
+const Composite = window.Matter.Composite;
+const Composites = window.Matter.Composites;
+const Constraint = window.Matter.Constraint;
 
 import audioManager from './audioManager.js';
 
@@ -92,6 +91,18 @@ const keysPressed = {};
 // ===================================================================================
 function setup() {
     console.log("Starting game setup...");
+    console.log("Matter.js available:", typeof window.Matter);
+    console.log("Canvas element:", mainCanvas);
+    
+    if (!window.Matter) {
+        console.error("Matter.js is not loaded!");
+        return;
+    }
+    
+    if (!mainCanvas) {
+        console.error("Canvas element not found!");
+        return;
+    }
     
     mainCanvas.width = CANVAS_WIDTH;
     mainCanvas.height = CANVAS_HEIGHT;
@@ -740,4 +751,3 @@ function endGame() {
 }
 
 window.addEventListener('DOMContentLoaded', setup);
-```
