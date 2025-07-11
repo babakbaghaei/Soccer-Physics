@@ -267,14 +267,19 @@ body {
 /* @keyframes messageGlow removed */
 
 #controlsInfo {
-    margin-top: 15px;
-    font-size: 11px;
-    color: #ccc; /* Light grey for controls info */
-    text-shadow: 1px 1px #000;
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.6);
-    border: 2px solid #555;
+    position: absolute;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #FFFFFF;
+    text-shadow: 2px 2px #000, -1px -1px #000, 1px -1px #000, -1px 1px #000;
+    padding: 8px 12px;
+    background: transparent; /* بدون بک‌گراند */
+    border: none;
     border-radius: 4px;
+    z-index: 200;
+    text-align: center;
 }
 
 /* Control buttons now rendered inside canvas */
