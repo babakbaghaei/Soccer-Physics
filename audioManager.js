@@ -101,6 +101,59 @@ class AudioManager {
                 oscillator.stop(startTime + index * 0.1 + 0.15);
             });
         };
+
+        // --- Crossbar Hit Sound (Tirak) ---
+        // صدای تیرک - ترکیب چندین صدا برای واضح تر شدن
+        this.sounds['crossbar'] = () => {
+            if (!this.audioContext) return;
+            
+            // صدای ضربه فلزی
+            const oscillator1 = this.audioContext.createOscillator();
+            const gainNode1 = this.audioContext.createGain();
+            oscillator1.type = 'square';
+            oscillator1.frequency.setValueAtTime(800, this.audioContext.currentTime);
+            oscillator1.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.3);
+            gainNode1.gain.setValueAtTime(0.5, this.audioContext.currentTime);
+            gainNode1.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.4);
+            
+            // صدای زنگ
+            const oscillator2 = this.audioContext.createOscillator();
+            const gainNode2 = this.audioContext.createGain();
+            oscillator2.type = 'triangle';
+            oscillator2.frequency.setValueAtTime(1200, this.audioContext.currentTime);
+            oscillator2.frequency.exponentialRampToValueAtTime(300, this.audioContext.currentTime + 0.5);
+            gainNode2.gain.setValueAtTime(0.4, this.audioContext.currentTime);
+            gainNode2.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.6);
+
+            oscillator1.connect(gainNode1);
+            gainNode1.connect(this.audioContext.destination);
+            oscillator1.start();
+            oscillator1.stop(this.audioContext.currentTime + 0.4);
+
+            oscillator2.connect(gainNode2);
+            gainNode2.connect(this.audioContext.destination);
+            oscillator2.start();
+            oscillator2.stop(this.audioContext.currentTime + 0.6);
+        };
+
+        // --- Player Collision Sound ---
+        // صدای تنه زدن بازیکنان
+        this.sounds['player_collision'] = () => {
+            if (!this.audioContext) return;
+            
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(150, this.audioContext.currentTime);
+            oscillator.frequency.linearRampToValueAtTime(80, this.audioContext.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.15);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            oscillator.start();
+            oscillator.stop(this.audioContext.currentTime + 0.15);
+        };
     }
 
     playSound(soundName) {

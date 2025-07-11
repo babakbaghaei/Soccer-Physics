@@ -53,6 +53,17 @@ let goals = {};
 let gameTimeRemaining = ROUND_DURATION_SECONDS;
 let roundTimerId = null;
 
+// --- PowerUp System ---
+let powerUps = [];
+let powerUpSpawnTimer = 0;
+const POWERUP_SPAWN_INTERVAL = 10000; // 10 ثانیه
+
+const POWERUP_TYPES = {
+    SPEED: { color: '#00FF00', effect: 'speed', duration: 5000 },
+    JUMP: { color: '#0099FF', effect: 'jump', duration: 5000 },
+    KICK: { color: '#FF9900', effect: 'kick', duration: 5000 }
+};
+
 // --- Field Constants ---
 const ORIGINAL_GROUND_THICKNESS = 40;
 const NEW_GROUND_THICKNESS = ORIGINAL_GROUND_THICKNESS * 2;
@@ -65,7 +76,7 @@ const FIELD_SURFACE_Y = NEW_FIELD_SURFACE_Y;
 
 const WALL_THICKNESS = 40;
 const GOAL_HEIGHT = 120;
-const GOAL_WIDTH = 30;
+const GOAL_WIDTH = CANVAS_WIDTH; // دروازه تا کل عرض زمین
 const GOAL_POST_WIDTH = 6;
 
 
@@ -76,7 +87,7 @@ const PLAYER_DENSITY = 0.003;
 const PLAYER_SIZE = 40;
 const PLAYER_WIDTH = PLAYER_SIZE;
 const PLAYER_HEIGHT = PLAYER_SIZE;
-const JUMP_FORCE = 0.09;
+const JUMP_FORCE = 0.135; // 50% افزایش پرش
 const MOVE_FORCE = 0.015;
 const AIR_MOVE_FORCE_MULTIPLIER = 0.1;
 
@@ -122,6 +133,7 @@ function setup() {
     createBall();
     setupControls();
     setupCollisions();
+    initializePowerUpSystem();
 
     if (typeof window.initializeAI === "function" && players.length > 1 && ball && ball.velocity) {
         window.initializeAI(players[AI_PLAYER_INDEX], ball, engine);
@@ -149,20 +161,22 @@ function createField() {
 
     const goalY = FIELD_SURFACE_Y - GOAL_HEIGHT / 2;
 
-    const goal1Post = Bodies.rectangle(GOAL_POST_WIDTH / 2, goalY, GOAL_POST_WIDTH, GOAL_HEIGHT, {
+    // دروازه سمت چپ - تیم 1
+    const goal1Post = Bodies.rectangle(0, goalY, GOAL_POST_WIDTH, GOAL_HEIGHT, {
         isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost1",
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
-    const goal1Sensor = Bodies.rectangle(GOAL_WIDTH / 2, goalY, GOAL_WIDTH, GOAL_HEIGHT, {
+    const goal1Sensor = Bodies.rectangle(30, goalY, 60, GOAL_HEIGHT, {
         isStatic: true, isSensor: true, label: 'goal1', render: { visible: false }
     });
     goals.team1 = [goal1Post, goal1Sensor];
 
-    const goal2Post = Bodies.rectangle(CANVAS_WIDTH - GOAL_POST_WIDTH / 2, goalY, GOAL_POST_WIDTH, GOAL_HEIGHT, {
+    // دروازه سمت راست - تیم 2
+    const goal2Post = Bodies.rectangle(CANVAS_WIDTH, goalY, GOAL_POST_WIDTH, GOAL_HEIGHT, {
         isStatic: true, render: { fillStyle: '#FFFFFF' }, label: "goalPost2",
         collisionFilter: { category: goalPostCategory, mask: playerCategory | ballCategory }
     });
-    const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - GOAL_WIDTH / 2, goalY, GOAL_WIDTH, GOAL_HEIGHT, {
+    const goal2Sensor = Bodies.rectangle(CANVAS_WIDTH - 30, goalY, 60, GOAL_HEIGHT, {
         isStatic: true, isSensor: true, label: 'goal2', render: { visible: false }
     });
     goals.team2 = [goal2Post, goal2Sensor];
@@ -172,9 +186,10 @@ function createField() {
 }
 
 function createPlayers() {
-    const playerStartY = 450 - 40;
+    const playerStartY = 450;
 
-    const player1Body = Bodies.rectangle(200, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
+    // بازیکن 1 - وسط نیمه چپ
+    const player1Body = Bodies.rectangle(CANVAS_WIDTH / 4, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
         density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player1',
         collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
     });
@@ -185,10 +200,16 @@ function createPlayers() {
         color: '#D9534F',
         chipShotAttempt: false,
         sKeyProcessed: false,
-        kickCooldown: false
+        kickCooldown: false,
+        speedMultiplier: 1,
+        jumpMultiplier: 1,
+        kickMultiplier: 1,
+        activePowerUp: null,
+        powerUpEndTime: null
     });
 
-    const player2Body = Bodies.rectangle(CANVAS_WIDTH - 200, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
+    // بازیکن 2 - وسط نیمه راست
+    const player2Body = Bodies.rectangle((CANVAS_WIDTH * 3) / 4, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
         density: PLAYER_DENSITY, friction: PLAYER_FRICTION, restitution: PLAYER_RESTITUTION, label: 'player2',
         collisionFilter: { category: playerCategory, mask: worldCategory | ballCategory | goalPostCategory | playerCategory }
     });
@@ -198,7 +219,12 @@ function createPlayers() {
         isGrounded: false,
         color: '#428BCA',
         chipShotAttempt: false,
-        kickCooldown: false
+        kickCooldown: false,
+        speedMultiplier: 1,
+        jumpMultiplier: 1,
+        kickMultiplier: 1,
+        activePowerUp: null,
+        powerUpEndTime: null
     });
     World.add(world, [player1Body, player2Body]);
     console.log("Players created");
@@ -215,6 +241,134 @@ function createBall() {
     });
     World.add(world, ball);
     console.log("Ball created");
+}
+
+// ===================================================================================
+// PowerUp System
+// ===================================================================================
+function initializePowerUpSystem() {
+    powerUps = [];
+    powerUpSpawnTimer = Date.now();
+    console.log("PowerUp system initialized");
+}
+
+function createRandomPowerUp() {
+    if (powerUps.length >= 2) return; // حداکثر 2 powerup همزمان
+    
+    const types = Object.keys(POWERUP_TYPES);
+    const randomType = types[Math.floor(Math.random() * types.length)];
+    const typeData = POWERUP_TYPES[randomType];
+    
+    const x = 100 + Math.random() * (CANVAS_WIDTH - 200); // جای تصادفی
+    const y = 400 + Math.random() * 50; // روی زمین
+    
+    const powerUpBody = Bodies.circle(x, y, 15, {
+        isSensor: true,
+        isStatic: true,
+        label: `powerup_${randomType}`,
+        render: { fillStyle: typeData.color }
+    });
+    
+    const powerUp = {
+        body: powerUpBody,
+        type: randomType,
+        typeData: typeData,
+        createdAt: Date.now()
+    };
+    
+    powerUps.push(powerUp);
+    World.add(world, powerUpBody);
+    console.log(`PowerUp ${randomType} created at (${x.toFixed(0)}, ${y.toFixed(0)})`);
+}
+
+function updatePowerUps() {
+    const now = Date.now();
+    
+    // اسپان powerup جدید
+    if (now - powerUpSpawnTimer > POWERUP_SPAWN_INTERVAL) {
+        createRandomPowerUp();
+        powerUpSpawnTimer = now;
+    }
+    
+    // حذف powerup های قدیمی
+    for (let i = powerUps.length - 1; i >= 0; i--) {
+        const powerUp = powerUps[i];
+        if (now - powerUp.createdAt > 20000) { // 20 ثانیه عمر
+            World.remove(world, powerUp.body);
+            powerUps.splice(i, 1);
+        }
+    }
+}
+
+function drawPowerUps(targetCtx) {
+    powerUps.forEach(powerUp => {
+        const x_scaled = powerUp.body.position.x * PIXELATION_SCALE_FACTOR;
+        const y_scaled = powerUp.body.position.y * PIXELATION_SCALE_FACTOR;
+        const radius_scaled = 15 * PIXELATION_SCALE_FACTOR;
+        
+        // کشیدن powerup با انیمیشن
+        const pulse = Math.sin(Date.now() * 0.005) * 0.3 + 0.7;
+        targetCtx.fillStyle = powerUp.typeData.color;
+        targetCtx.globalAlpha = pulse;
+        targetCtx.beginPath();
+        targetCtx.arc(x_scaled, y_scaled, radius_scaled, 0, Math.PI * 2);
+        targetCtx.fill();
+        
+        // نماد کوچک در وسط
+        targetCtx.fillStyle = '#FFFFFF';
+        targetCtx.globalAlpha = 1;
+        targetCtx.font = `${Math.floor(8 * PIXELATION_SCALE_FACTOR)}px Arial`;
+        targetCtx.textAlign = 'center';
+        const symbol = powerUp.type === 'SPEED' ? '⚡' : powerUp.type === 'JUMP' ? '⬆' : '⚽';
+        targetCtx.fillText(symbol, x_scaled, y_scaled + 3 * PIXELATION_SCALE_FACTOR);
+        targetCtx.globalAlpha = 1;
+    });
+}
+
+function applyPowerUpToPlayer(player, powerUpType) {
+    const now = Date.now();
+    
+    // حذف اثر powerup قبلی اگر وجود داشته باشد
+    if (player.powerUpEndTime && now < player.powerUpEndTime) {
+        removePowerUpEffect(player);
+    }
+    
+    player.activePowerUp = powerUpType;
+    player.powerUpEndTime = now + POWERUP_TYPES[powerUpType].duration;
+    
+    // اعمال اثر
+    switch(powerUpType) {
+        case 'SPEED':
+            player.speedMultiplier = 2;
+            break;
+        case 'JUMP':
+            player.jumpMultiplier = 1.5;
+            break;
+        case 'KICK':
+            player.kickMultiplier = 1.8;
+            break;
+    }
+    
+    console.log(`PowerUp ${powerUpType} applied to ${player.body.label}`);
+}
+
+function removePowerUpEffect(player) {
+    if (player.activePowerUp) {
+        player.speedMultiplier = 1;
+        player.jumpMultiplier = 1;
+        player.kickMultiplier = 1;
+        player.activePowerUp = null;
+        player.powerUpEndTime = null;
+    }
+}
+
+function updatePlayerPowerUps() {
+    const now = Date.now();
+    players.forEach(player => {
+        if (player.powerUpEndTime && now >= player.powerUpEndTime) {
+            removePowerUpEffect(player);
+        }
+    });
 }
 
 // ===================================================================================
@@ -400,24 +554,39 @@ function drawFootballFieldLines(ctx) {
     ctx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, 0, 2 * Math.PI);
     ctx.stroke();
 
-    const penaltyAreaDepth_world = 30;
-    const penaltyAreaLength_world = 120;
-    const goalBoxDepth_world = 15;
-    const goalBoxLength_world = 60;
+    // محوطه جریمه بزرگ - وسط زمین و کامل
+    const penaltyAreaDepth_world = 80;
+    const penaltyAreaLength_world = 150;
+    const goalBoxDepth_world = 25;
+    const goalBoxLength_world = 80;
 
-    // Penalty Boxes
+    // محوطه جریمه بزرگ - وسط صفحه
     const penaltyBoxScaledY = FIELD_SURFACE_Y * scale;
     const penaltyAreaDepthScaled = penaltyAreaDepth_world * scale;
     const penaltyAreaLengthScaled = penaltyAreaLength_world * scale;
-    ctx.strokeRect(0, penaltyBoxScaledY, penaltyAreaLengthScaled, penaltyAreaDepthScaled);
-    ctx.strokeRect((CANVAS_WIDTH * scale) - penaltyAreaLengthScaled, penaltyBoxScaledY, penaltyAreaLengthScaled, penaltyAreaDepthScaled);
+    
+    // محوطه جریمه سمت چپ - در وسط
+    const leftPenaltyX = 0;
+    const leftPenaltyY = penaltyBoxScaledY + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) * scale - penaltyAreaDepthScaled) / 2;
+    ctx.strokeRect(leftPenaltyX, leftPenaltyY, penaltyAreaLengthScaled, penaltyAreaDepthScaled);
+    
+    // محوطه جریمه سمت راست - در وسط
+    const rightPenaltyX = (CANVAS_WIDTH * scale) - penaltyAreaLengthScaled;
+    const rightPenaltyY = penaltyBoxScaledY + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) * scale - penaltyAreaDepthScaled) / 2;
+    ctx.strokeRect(rightPenaltyX, rightPenaltyY, penaltyAreaLengthScaled, penaltyAreaDepthScaled);
 
-    // Goal Boxes
-    const goalBoxScaledY = FIELD_SURFACE_Y * scale;
+    // محوطه کوچک دروازه
     const goalBoxDepthScaled = goalBoxDepth_world * scale;
     const goalBoxLengthScaled = goalBoxLength_world * scale;
-    ctx.strokeRect(0, goalBoxScaledY, goalBoxLengthScaled, goalBoxDepthScaled);
-    ctx.strokeRect((CANVAS_WIDTH * scale) - goalBoxLengthScaled, goalBoxScaledY, goalBoxLengthScaled, goalBoxDepthScaled);
+    
+    // محوطه کوچک سمت چپ - در وسط
+    const leftGoalBoxY = penaltyBoxScaledY + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) * scale - goalBoxDepthScaled) / 2;
+    ctx.strokeRect(0, leftGoalBoxY, goalBoxLengthScaled, goalBoxDepthScaled);
+    
+    // محوطه کوچک سمت راست - در وسط  
+    const rightGoalBoxX = (CANVAS_WIDTH * scale) - goalBoxLengthScaled;
+    const rightGoalBoxY = penaltyBoxScaledY + ((CANVAS_HEIGHT - FIELD_SURFACE_Y) * scale - goalBoxDepthScaled) / 2;
+    ctx.strokeRect(rightGoalBoxX, rightGoalBoxY, goalBoxLengthScaled, goalBoxDepthScaled);
     
     // Penalty spots
     const penaltySpotY = (FIELD_SURFACE_Y + (CANVAS_HEIGHT - FIELD_SURFACE_Y) / 2);
@@ -490,8 +659,17 @@ function draw() {
     }
     drawFootballFieldLines(lowResCtx);
 
-    drawSimplifiedNet(lowResCtx, 0, (FIELD_SURFACE_Y - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
-    drawSimplifiedNet(lowResCtx, (CANVAS_WIDTH - GOAL_WIDTH) * PIXELATION_SCALE_FACTOR, (FIELD_SURFACE_Y - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
+    // نت دروازه سمت چپ (تیم 1) - تا کل عرض زمین
+    drawSimplifiedNet(lowResCtx, 0, (FIELD_SURFACE_Y - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR, CANVAS_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
+    
+    // نت دروازه سمت راست (تیم 2) در انتها - خط نازک
+    const goalLineWidth = 5 * PIXELATION_SCALE_FACTOR;
+    lowResCtx.strokeStyle = 'rgba(220, 220, 220, 0.9)';
+    lowResCtx.lineWidth = Math.max(1, Math.floor(3 * PIXELATION_SCALE_FACTOR));
+    lowResCtx.beginPath();
+    lowResCtx.moveTo((CANVAS_WIDTH - 2) * PIXELATION_SCALE_FACTOR, (FIELD_SURFACE_Y - GOAL_HEIGHT) * PIXELATION_SCALE_FACTOR);
+    lowResCtx.lineTo((CANVAS_WIDTH - 2) * PIXELATION_SCALE_FACTOR, FIELD_SURFACE_Y * PIXELATION_SCALE_FACTOR);
+    lowResCtx.stroke();
 
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
@@ -526,6 +704,9 @@ function draw() {
     });
 
     updateAndDrawParticles(lowResCtx);
+    
+    // رسم powerup ها
+    drawPowerUps(lowResCtx);
 
     lowResCtx.restore();
 
@@ -538,6 +719,10 @@ function draw() {
     );
 
     handlePlayerControls();
+    
+    // بروزرسانی powerup ها
+    updatePowerUps();
+    updatePlayerPowerUps();
 
     if (typeof window.updateAI === "function" && !isGameOver) {
         window.updateAI();
@@ -587,8 +772,9 @@ function setupCollisions() {
                 const playerObject = players.find(p => p.body === playerBody);
                 if (playerObject && !playerObject.kickCooldown && playerObject.chipShotAttempt) {
                     let kickDirection = (playerObject.team === 1) ? 1 : -1;
-                    const forceX = kickDirection * CHIP_SHOT_FORWARD_FORCE;
-                    const forceY = -CHIP_SHOT_UP_FORCE;
+                    const kickMultiplier = playerObject.kickMultiplier || 1;
+                    const forceX = kickDirection * CHIP_SHOT_FORWARD_FORCE * kickMultiplier;
+                    const forceY = -CHIP_SHOT_UP_FORCE * kickMultiplier;
                     const chipForceVector = { x: forceX, y: forceY };
                     const forceApplicationPoint = { x: ballBody.position.x, y: ballBody.position.y + BALL_RADIUS * 0.3 };
                     
@@ -642,20 +828,77 @@ function setupCollisions() {
                 triggerScreenShake(5, 15);
                 audioManager.playSound('bounce');
             }
-        }
-    });
+
+            // تنه زدن بازیکنان - تشخیص برخورد بین player1 و player2
+            if ((bodyA.label === 'player1' && bodyB.label === 'player2') ||
+                (bodyB.label === 'player1' && bodyA.label === 'player2')) {
+                
+                // پیدا کردن بازیکنان
+                const player1 = players.find(p => p.body.label === 'player1');
+                const player2 = players.find(p => p.body.label === 'player2');
+                
+                if (player1 && player2) {
+                    // محاسبه سرعت برای تشخیص شدت برخورد
+                    const p1Speed = Math.sqrt(player1.body.velocity.x ** 2 + player1.body.velocity.y ** 2);
+                    const p2Speed = Math.sqrt(player2.body.velocity.x ** 2 + player2.body.velocity.y ** 2);
+                    
+                    // اگر یکی از بازیکنان سرعت بیشتری داشته باشد
+                    if (p1Speed > p2Speed + 1) {
+                        // player1 ضربه محکم تری زده
+                        const pushForce = Math.min(p1Speed * 0.05, 0.2);
+                        const direction = player1.body.velocity.x > 0 ? 1 : -1;
+                        Body.applyForce(player2.body, player2.body.position, { x: direction * pushForce, y: -0.02 });
+                    } else if (p2Speed > p1Speed + 1) {
+                        // player2 ضربه محکم تری زده
+                        const pushForce = Math.min(p2Speed * 0.05, 0.2);
+                        const direction = player2.body.velocity.x > 0 ? 1 : -1;
+                        Body.applyForce(player1.body, player1.body.position, { x: direction * pushForce, y: -0.02 });
+                    }
+                    
+                    // صدای تنه زدن
+                    audioManager.playSound('player_collision');
+                    
+                    // اثر ذرات در محل برخورد
+                    const collisionX = (player1.body.position.x + player2.body.position.x) / 2;
+                    const collisionY = (player1.body.position.y + player2.body.position.y) / 2;
+                                         createImpactParticles(collisionX, collisionY, 3, '#FFD700');
+                 }
+             }
+
+            // بررسی برخورد بازیکنان با powerup ها
+            if (bodyA.label.startsWith('player') && bodyB.label.startsWith('powerup_')) {
+                const player = players.find(p => p.body === bodyA);
+                const powerUp = powerUps.find(p => p.body === bodyB);
+                if (player && powerUp) {
+                    applyPowerUpToPlayer(player, powerUp.type);
+                    World.remove(world, powerUp.body);
+                    powerUps.splice(powerUps.indexOf(powerUp), 1);
+                }
+            } else if (bodyB.label.startsWith('player') && bodyA.label.startsWith('powerup_')) {
+                const player = players.find(p => p.body === bodyB);
+                const powerUp = powerUps.find(p => p.body === bodyA);
+                if (player && powerUp) {
+                    applyPowerUpToPlayer(player, powerUp.type);
+                    World.remove(world, powerUp.body);
+                    powerUps.splice(powerUps.indexOf(powerUp), 1);
+                }
+            }
+         }
+     });
 }
 
 function handlePlayerControls() {
     if (players.length === 0) return;
     const p1 = players[0];
-    const currentMoveForce = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
+    const baseMoveForce = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
+    const currentMoveForce = baseMoveForce * (p1.speedMultiplier || 1);
 
     if (keysPressed['a']) Body.applyForce(p1.body, p1.body.position, { x: -currentMoveForce, y: 0 });
     if (keysPressed['d']) Body.applyForce(p1.body, p1.body.position, { x: currentMoveForce, y: 0 });
     
     if (keysPressed['w'] && p1.isGrounded) {
-        Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
+        const jumpForce = JUMP_FORCE * (p1.jumpMultiplier || 1);
+        Body.applyForce(p1.body, p1.body.position, { x: 0, y: -jumpForce });
         p1.isGrounded = false;
         audioManager.playSound('jump');
     }
@@ -674,50 +917,64 @@ function handleGoalScored(scoringTeam) {
     audioManager.playSound('goal');
 
     if (Math.random() < 0.20) {
-        triggerScreenShake(5, 15);
+        triggerScreenShake(8, 20);
         let bounceXVelocity = (scoringTeam === 1) ? -(3 + Math.random() * 2) : (3 + Math.random() * 2);
         const bounceYVelocity = -(2 + Math.random() * 2);
         Body.setVelocity(ball, { x: bounceXVelocity, y: bounceYVelocity });
         Body.setAngularVelocity(ball, (Math.random() - 0.5) * 0.2);
-        gameMessageDisplay.textContent = "تیرک!";
+        
+        // صدای تیرک جدید
+        audioManager.playSound('crossbar');
+        
+        gameMessageDisplay.textContent = "⚡ تیرک! ⚡";
         gameMessageDisplay.classList.add('has-text');
+        gameMessageDisplay.classList.add('crossbar-hit');
         setTimeout(() => {
-            if (gameMessageDisplay.textContent === "تیرک!") {
+            if (gameMessageDisplay.textContent.includes("تیرک")) {
                 gameMessageDisplay.textContent = "";
                 gameMessageDisplay.classList.remove('has-text');
+                gameMessageDisplay.classList.remove('crossbar-hit');
             }
             goalScoredThisTick = false;
-        }, 1000);
+        }, 1500);
         return;
     }
 
     if (scoringTeam === 1) {
         team1Score++;
         team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
+        gameMessageDisplay.textContent = "🔴 گووووووول! 🔴";
     } else {
         team2Score++;
         team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
+        gameMessageDisplay.textContent = "🔵 گووووووول! 🔵";
     }
-    gameMessageDisplay.textContent = "گل!";
     gameMessageDisplay.classList.add('has-text');
+    gameMessageDisplay.classList.add('goal-scored');
     
     setTimeout(() => {
         resetPositions();
-        if (gameMessageDisplay.textContent === "گل!") {
+        if (gameMessageDisplay.textContent.includes("گووووووول")) {
              gameMessageDisplay.textContent = "";
              gameMessageDisplay.classList.remove('has-text');
+             gameMessageDisplay.classList.remove('goal-scored');
         }
         goalScoredThisTick = false;
-    }, 50);
+    }, 2000);
 }
 
 function resetPositions() {
-    Body.setPosition(players[0].body, { x: 200, y: 450 });
+    // بازیکن 1 - وسط نیمه چپ
+    Body.setPosition(players[0].body, { x: CANVAS_WIDTH / 4, y: 450 });
     Body.setVelocity(players[0].body, { x: 0, y: 0 });
     Body.setAngle(players[0].body, 0);
-    Body.setPosition(players[1].body, { x: 600, y: 450 });
+    
+    // بازیکن 2 - وسط نیمه راست  
+    Body.setPosition(players[1].body, { x: (CANVAS_WIDTH * 3) / 4, y: 450 });
     Body.setVelocity(players[1].body, { x: 0, y: 0 });
     Body.setAngle(players[1].body, 0);
+    
+    // توپ وسط زمین
     Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 100 });
     Body.setVelocity(ball, { x: 0, y: 0 });
 

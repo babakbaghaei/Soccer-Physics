@@ -8,7 +8,8 @@ const AI_STATE = {
     IDLE: 'IDLE',       // Ball is in opponent's half
     DEFEND: 'DEFEND',   // Ball is in AI's half
     ATTACK: 'ATTACK',   // Ball is near AI and in a good position to shoot
-    RECOVER: 'RECOVER'  // After conceding a goal or defensive disarray
+    RECOVER: 'RECOVER', // After conceding a goal or defensive disarray
+    SAFE_DEFEND: 'SAFE_DEFEND' // Ball is behind AI - safe defensive mode
 };
 
 // --- Global constants that will be available from game.js ---
@@ -127,6 +128,9 @@ function updateAI() {
         case AI_STATE.RECOVER:
             handleRecoverState(playerPosition);
             break;
+        case AI_STATE.SAFE_DEFEND:
+            handleSafeDefendState(ballPosition, playerPosition);
+            break;
     }
     // Apply movement and jump decisions to the AI player's body
     // This will be expanded in later steps
@@ -141,6 +145,10 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const ballNearPlayerY = Math.abs(ballPos.y - playerPos.y) < PLAYER_HEIGHT * 2.5; // Player can reach vertically (for jump/hit)
     const ballAbovePlayer = playerPos.y > ballPos.y; // Ball is higher than player's feet
     const ballBelowPlayerHead = ballPos.y > playerPos.y - PLAYER_HEIGHT; // Ball is below player's head (roughly)
+    
+    // بررسی اگر توپ پشت سر AI باشد (خطرناک)
+    const ballBehindAI = ballPos.x > playerPos.x + PLAYER_WIDTH; // توپ سمت راست AI (نزدیک دروازه AI)
+    const ballMovingTowardsGoal = ballVel.x > 0.5; // توپ به سمت دروازه AI حرکت می‌کند
 
     const recoveryThreshold = PLAYER_WIDTH * 0.5; // How close to default position to be considered recovered
 
@@ -172,6 +180,14 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
             // console.log("AI State -> ATTACK");
             return;
         }
+    }
+
+    // SAFE_DEFEND state logic:
+    // توپ پشت سر AI - حالت دفاعی احتیاط‌آمیز
+    if (ballInAiHalf && ballBehindAI) {
+        currentAiState = AI_STATE.SAFE_DEFEND;
+        // console.log("AI State -> SAFE_DEFEND");
+        return;
     }
 
     // DEFEND state logic:
@@ -244,16 +260,14 @@ function handleDefendState(ballPos, playerPos) {
 }
 
 function handleAttackState(ballPos, playerPos) {
+    // تشخیص موقعیت مناسب برای چیپ زدن
+    const opponentGoalDistance = Math.abs(ballPos.x - 0); // فاصله تا دروازه حریف
+    const isGoodChipPosition = opponentGoalDistance < 300 && ballPos.y > playerPos.y - PLAYER_HEIGHT * 0.5;
+    
     // Decide whether to attempt a chip shot
-    // Basic condition: AI is not on kick cooldown and has a random chance.
-    // More advanced: check if opponent P1 is far from their goal, or if ball is in good spot for chip.
-    if (!aiPlayer.kickCooldown && Math.random() < 0.15) { // 15% chance to attempt a chip if in attack state and not on cooldown
+    if (!aiPlayer.kickCooldown && isGoodChipPosition && Math.random() < 0.25) { // 25% شانس چیپ در موقعیت خوب
         aiPlayer.chipShotAttempt = true;
-        console.log(`AI ${aiPlayer.body.label} decided to chip. Cooldown: ${aiPlayer.kickCooldown}`); // DEBUG LOG
-    } else {
-        // Default attack behavior if not chipping
-        // (ensure chipShotAttempt is false if not actively trying one this tick, though it's reset on successful kick)
-        // aiPlayer.chipShotAttempt = false; // This might prematurely cancel an attempt if collision doesn't happen immediately
+        console.log(`AI ${aiPlayer.body.label} decided to chip towards goal. Distance: ${opponentGoalDistance.toFixed(2)}`);
     }
 
     // Move towards the ball to hit it
@@ -272,11 +286,33 @@ function handleRecoverState(playerPos) {
     // If player is significantly out of position (e.g., y too high), maybe a small corrective action
 }
 
+function handleSafeDefendState(ballPos, playerPos) {
+    // توپ پشت سر AI - باید بین توپ و دروازه قرار بگیرد
+    const goalCenterX = CANVAS_WIDTH - 50; // مرکز دروازه AI
+    const safePositionX = Math.min(ballPos.x - PLAYER_WIDTH * 1.5, goalCenterX - 30);
+    
+    // حرکت احتیاط‌آمیز به موقعیت امن
+    moveHorizontally(playerPos, safePositionX, MOVE_FORCE * 0.8);
+    
+    // پرش احتیاط‌آمیز فقط اگر توپ خیلی نزدیک باشد
+    if (Math.abs(ballPos.x - playerPos.x) < PLAYER_WIDTH * 1.2 && 
+        ballPos.y < playerPos.y - PLAYER_HEIGHT * 0.3 &&
+        ballPos.y > playerPos.y - PLAYER_HEIGHT * 2) {
+        // پرش آرام برای کنترل توپ
+        if (shouldJump(ballPos, playerPos, false, false)) {
+            performJump();
+        }
+    }
+}
+
 // ===================================================================================
 // AI Action Functions (Movement and Jumping)
 // ===================================================================================
 function moveHorizontally(playerPosition, targetX, force) {
-    const currentMoveForce = aiPlayer.isGrounded ? force : force * AIR_MOVE_FORCE_MULTIPLIER;
+    const baseMoveForce = aiPlayer.isGrounded ? force : force * AIR_MOVE_FORCE_MULTIPLIER;
+    const speedMultiplier = aiPlayer.speedMultiplier || 1;
+    const currentMoveForce = baseMoveForce * speedMultiplier;
+    
     // Add a small dead zone to prevent jittering if AI is very close to targetX
     const deadZone = PLAYER_WIDTH * 0.1;
     if (targetX < playerPosition.x - deadZone) { // Target is to the left
@@ -341,7 +377,9 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
 
 function performJump() {
     if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
-        window.Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -JUMP_FORCE });
+        const jumpMultiplier = aiPlayer.jumpMultiplier || 1;
+        const jumpForce = JUMP_FORCE * jumpMultiplier;
+        window.Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -jumpForce });
         aiPlayer.isGrounded = false; // Assume this will be updated by collision events in game.js
         lastJumpTime = Date.now();
         // console.log("AI Player jumped.");

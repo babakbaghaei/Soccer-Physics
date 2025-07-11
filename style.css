@@ -192,6 +192,78 @@ body {
     border-radius: 3px; /* Slight rounding for the message box */
 }
 
+/* انیمیشن گل */
+#gameMessage.goal-scored {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: #FFD700;
+    text-shadow: 3px 3px #000, -2px -2px #000, 2px -2px #000, -2px 2px #000;
+    background: rgba(0, 0, 0, 0.85);
+    padding: 15px 25px;
+    border-radius: 10px;
+    border: 3px solid #FFD700;
+    animation: goalAnimation 0.8s ease-in-out;
+    z-index: 100;
+}
+
+@keyframes goalAnimation {
+    0% { 
+        transform: translate(-50%, -50%) scale(0.5); 
+        opacity: 0; 
+    }
+    50% { 
+        transform: translate(-50%, -50%) scale(1.2); 
+        opacity: 1; 
+    }
+    100% { 
+        transform: translate(-50%, -50%) scale(1); 
+        opacity: 1; 
+    }
+}
+
+/* انیمیشن تیرک */
+#gameMessage.crossbar-hit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    color: #FF4444;
+    text-shadow: 2px 2px #000, -2px -2px #000, 2px -2px #000, -2px 2px #000;
+    background: rgba(255, 0, 0, 0.15);
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: 2px solid #FF4444;
+    animation: crossbarAnimation 1s ease-in-out;
+    z-index: 100;
+}
+
+@keyframes crossbarAnimation {
+    0% { 
+        transform: translate(-50%, -50%) scale(0.8) rotate(-5deg); 
+        opacity: 0; 
+    }
+    25% { 
+        transform: translate(-50%, -50%) scale(1.1) rotate(2deg); 
+        opacity: 1; 
+    }
+    50% { 
+        transform: translate(-50%, -50%) scale(0.95) rotate(-1deg); 
+        opacity: 1; 
+    }
+    75% { 
+        transform: translate(-50%, -50%) scale(1.05) rotate(1deg); 
+        opacity: 1; 
+    }
+    100% { 
+        transform: translate(-50%, -50%) scale(1) rotate(0deg); 
+        opacity: 1; 
+    }
+}
+
 /* @keyframes messageGlow removed */
 
 #controlsInfo {
