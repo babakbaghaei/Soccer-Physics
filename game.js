@@ -666,118 +666,6 @@ function draw() {
     }
     drawFootballFieldLines(lowResCtx);
 
-    // دو دروازه سه‌بعدی گوشه چپ و راست پایین زمین (تونلی)
-    const goalW = PLAYER_WIDTH * PIXELATION_SCALE_FACTOR;
-    const goalH = 70 * PIXELATION_SCALE_FACTOR;
-    const postW = 8 * PIXELATION_SCALE_FACTOR;
-    const depth = 40 * PIXELATION_SCALE_FACTOR;
-    const barHeight = 35 * PIXELATION_SCALE_FACTOR; // ارتفاع میله عقب نسبت به جلو
-    // دروازه چپ
-    const leftXf = 0, leftYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH; // جلو
-    const leftXb = leftXf + depth, leftYb = leftYf - barHeight; // عقب
-    // پست جلو
-    lowResCtx.save();
-    lowResCtx.strokeStyle = '#fff';
-    lowResCtx.lineWidth = postW;
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(leftXf, leftYf + goalH); // پایین جلو چپ
-    lowResCtx.lineTo(leftXf, leftYf); // بالا جلو چپ
-    lowResCtx.moveTo(leftXf + goalW, leftYf + goalH);
-    lowResCtx.lineTo(leftXf + goalW, leftYf);
-    lowResCtx.stroke();
-    // پست عقب
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(leftXb, leftYb + goalH);
-    lowResCtx.lineTo(leftXb, leftYb);
-    lowResCtx.moveTo(leftXb + goalW, leftYb + goalH);
-    lowResCtx.lineTo(leftXb + goalW, leftYb);
-    lowResCtx.stroke();
-    // میله افقی جلو و عقب
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(leftXf, leftYf);
-    lowResCtx.lineTo(leftXf + goalW, leftYf);
-    lowResCtx.moveTo(leftXb, leftYb);
-    lowResCtx.lineTo(leftXb + goalW, leftYb);
-    lowResCtx.stroke();
-    // خطوط اتصال جلو به عقب
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(leftXf, leftYf);
-    lowResCtx.lineTo(leftXb, leftYb);
-    lowResCtx.moveTo(leftXf + goalW, leftYf);
-    lowResCtx.lineTo(leftXb + goalW, leftYb);
-    lowResCtx.stroke();
-    // تور ذوزنقه‌ای
-    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
-    for(let i=0;i<=5;i++){
-      let t = i/5;
-      lowResCtx.beginPath();
-      lowResCtx.moveTo(leftXf + t*goalW, leftYf);
-      lowResCtx.lineTo(leftXb + t*goalW, leftYb);
-      lowResCtx.stroke();
-    }
-    for(let i=1;i<5;i++){
-      let t = i/5;
-      lowResCtx.beginPath();
-      lowResCtx.moveTo(leftXf, leftYf + t*goalH);
-      lowResCtx.lineTo(leftXb, leftYb + t*goalH);
-      lowResCtx.moveTo(leftXf + goalW, leftYf + t*goalH);
-      lowResCtx.lineTo(leftXb + goalW, leftYb + t*goalH);
-      lowResCtx.stroke();
-    }
-    lowResCtx.restore();
-    // دروازه راست
-    const rightXf = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR) - goalW, rightYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
-    const rightXb = rightXf - depth, rightYb = rightYf - barHeight;
-    lowResCtx.save();
-    lowResCtx.strokeStyle = '#fff';
-    lowResCtx.lineWidth = postW;
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(rightXf, rightYf + goalH);
-    lowResCtx.lineTo(rightXf, rightYf);
-    lowResCtx.moveTo(rightXf + goalW, rightYf + goalH);
-    lowResCtx.lineTo(rightXf + goalW, rightYf);
-    lowResCtx.stroke();
-    // پست عقب
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(rightXb, rightYb + goalH);
-    lowResCtx.lineTo(rightXb, rightYb);
-    lowResCtx.moveTo(rightXb + goalW, rightYb + goalH);
-    lowResCtx.lineTo(rightXb + goalW, rightYb);
-    lowResCtx.stroke();
-    // میله افقی جلو و عقب
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(rightXf, rightYf);
-    lowResCtx.lineTo(rightXf + goalW, rightYf);
-    lowResCtx.moveTo(rightXb, rightYb);
-    lowResCtx.lineTo(rightXb + goalW, rightYb);
-    lowResCtx.stroke();
-    // خطوط اتصال جلو به عقب
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(rightXf, rightYf);
-    lowResCtx.lineTo(rightXb, rightYb);
-    lowResCtx.moveTo(rightXf + goalW, rightYf);
-    lowResCtx.lineTo(rightXb + goalW, rightYb);
-    lowResCtx.stroke();
-    // تور ذوزنقه‌ای
-    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
-    for(let i=0;i<=5;i++){
-      let t = i/5;
-      lowResCtx.beginPath();
-      lowResCtx.moveTo(rightXf + t*goalW, rightYf);
-      lowResCtx.lineTo(rightXb + t*goalW, rightYb);
-      lowResCtx.stroke();
-    }
-    for(let i=1;i<5;i++){
-      let t = i/5;
-      lowResCtx.beginPath();
-      lowResCtx.moveTo(rightXf, rightYf + t*goalH);
-      lowResCtx.lineTo(rightXb, rightYb + t*goalH);
-      lowResCtx.moveTo(rightXf + goalW, rightYf + t*goalH);
-      lowResCtx.lineTo(rightXb + goalW, rightYb + t*goalH);
-      lowResCtx.stroke();
-    }
-    lowResCtx.restore();
-
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
         if (body.render && body.render.visible === false) return;
@@ -815,6 +703,110 @@ function draw() {
     
     // رسم powerup ها
     drawPowerUps(lowResCtx);
+
+    // --- دروازه‌های سه‌بعدی را بعد از همه اجسام رسم کن تا توپ و بازیکن زیر آن دیده شوند ---
+    // دو دروازه سه‌بعدی گوشه چپ و راست پایین زمین (تونلی)
+    const goalW = PLAYER_WIDTH * PIXELATION_SCALE_FACTOR;
+    const goalH = 70 * PIXELATION_SCALE_FACTOR;
+    const postW = 8 * PIXELATION_SCALE_FACTOR;
+    const depth = 40 * PIXELATION_SCALE_FACTOR;
+    const barHeight = 35 * PIXELATION_SCALE_FACTOR;
+    // دروازه چپ
+    const leftXf = 0, leftYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
+    const leftXb = leftXf + depth, leftYb = leftYf - barHeight;
+    lowResCtx.save();
+    lowResCtx.strokeStyle = '#fff';
+    lowResCtx.lineWidth = postW;
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(leftXf, leftYf + goalH);
+    lowResCtx.lineTo(leftXf, leftYf);
+    lowResCtx.moveTo(leftXf + goalW, leftYf + goalH);
+    lowResCtx.lineTo(leftXf + goalW, leftYf);
+    lowResCtx.stroke();
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(leftXb, leftYb + goalH);
+    lowResCtx.lineTo(leftXb, leftYb);
+    lowResCtx.moveTo(leftXb + goalW, leftYb + goalH);
+    lowResCtx.lineTo(leftXb + goalW, leftYb);
+    lowResCtx.stroke();
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(leftXf, leftYf);
+    lowResCtx.lineTo(leftXf + goalW, leftYf);
+    lowResCtx.moveTo(leftXb, leftYb);
+    lowResCtx.lineTo(leftXb + goalW, leftYb);
+    lowResCtx.stroke();
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(leftXf, leftYf);
+    lowResCtx.lineTo(leftXb, leftYb);
+    lowResCtx.moveTo(leftXf + goalW, leftYf);
+    lowResCtx.lineTo(leftXb + goalW, leftYb);
+    lowResCtx.stroke();
+    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
+    for(let i=0;i<=5;i++){
+      let t = i/5;
+      lowResCtx.beginPath();
+      lowResCtx.moveTo(leftXf + t*goalW, leftYf);
+      lowResCtx.lineTo(leftXb + t*goalW, leftYb);
+      lowResCtx.stroke();
+    }
+    for(let i=1;i<5;i++){
+      let t = i/5;
+      lowResCtx.beginPath();
+      lowResCtx.moveTo(leftXf, leftYf + t*goalH);
+      lowResCtx.lineTo(leftXb, leftYb + t*goalH);
+      lowResCtx.moveTo(leftXf + goalW, leftYf + t*goalH);
+      lowResCtx.lineTo(leftXb + goalW, leftYb + t*goalH);
+      lowResCtx.stroke();
+    }
+    lowResCtx.restore();
+    // دروازه راست
+    const rightXf = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR) - goalW, rightYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
+    const rightXb = rightXf - depth, rightYb = rightYf - barHeight;
+    lowResCtx.save();
+    lowResCtx.strokeStyle = '#fff';
+    lowResCtx.lineWidth = postW;
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(rightXf, rightYf + goalH);
+    lowResCtx.lineTo(rightXf, rightYf);
+    lowResCtx.moveTo(rightXf + goalW, rightYf + goalH);
+    lowResCtx.lineTo(rightXf + goalW, rightYf);
+    lowResCtx.stroke();
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(rightXb, rightYb + goalH);
+    lowResCtx.lineTo(rightXb, rightYb);
+    lowResCtx.moveTo(rightXb + goalW, rightYb + goalH);
+    lowResCtx.lineTo(rightXb + goalW, rightYb);
+    lowResCtx.stroke();
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(rightXf, rightYf);
+    lowResCtx.lineTo(rightXf + goalW, rightYf);
+    lowResCtx.moveTo(rightXb, rightYb);
+    lowResCtx.lineTo(rightXb + goalW, rightYb);
+    lowResCtx.stroke();
+    lowResCtx.beginPath();
+    lowResCtx.moveTo(rightXf, rightYf);
+    lowResCtx.lineTo(rightXb, rightYb);
+    lowResCtx.moveTo(rightXf + goalW, rightYf);
+    lowResCtx.lineTo(rightXb + goalW, rightYb);
+    lowResCtx.stroke();
+    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
+    for(let i=0;i<=5;i++){
+      let t = i/5;
+      lowResCtx.beginPath();
+      lowResCtx.moveTo(rightXf + t*goalW, rightYf);
+      lowResCtx.lineTo(rightXb + t*goalW, rightYb);
+      lowResCtx.stroke();
+    }
+    for(let i=1;i<5;i++){
+      let t = i/5;
+      lowResCtx.beginPath();
+      lowResCtx.moveTo(rightXf, rightYf + t*goalH);
+      lowResCtx.lineTo(rightXb, rightYb + t*goalH);
+      lowResCtx.moveTo(rightXf + goalW, rightYf + t*goalH);
+      lowResCtx.lineTo(rightXb + goalW, rightYb + t*goalH);
+      lowResCtx.stroke();
+    }
+    lowResCtx.restore();
 
     lowResCtx.restore();
 
