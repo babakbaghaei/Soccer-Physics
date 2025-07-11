@@ -70,8 +70,8 @@ const GOAL_POST_WIDTH = 6;
 
 
 // --- Player Constants ---
-const PLAYER_FRICTION = 0.8;
-const PLAYER_RESTITUTION = 0.1;
+const PLAYER_FRICTION = 0.3; // Was 0.8 - Reduced to prevent sticking
+const PLAYER_RESTITUTION = 0.4; // Was 0.1 - Increased for a bit more bounce off objects
 const PLAYER_DENSITY = 0.003;
 const PLAYER_SIZE = 40;
 const PLAYER_WIDTH = PLAYER_SIZE;
@@ -117,6 +117,10 @@ function setup() {
     world = engine.world;
     engine.gravity.y = 1.5;
 
+    // افزایش تکرارهای حل کننده برای بهبود تشخیص برخورد
+    engine.positionIterations = 8; // مقدار پیش فرض 6
+    engine.velocityIterations = 6; // مقدار پیش فرض 4
+
     createField();
     createPlayers();
     createBall();
@@ -124,8 +128,22 @@ function setup() {
     setupCollisions();
 
     if (typeof window.initializeAI === "function" && players.length > 1 && ball && ball.velocity) {
-        window.initializeAI(players[AI_PLAYER_INDEX], ball, engine);
-        console.log("AI initialized successfully");
+        const gameConfigForAI = {
+            CANVAS_WIDTH: CANVAS_WIDTH,
+            CANVAS_HEIGHT: CANVAS_HEIGHT,
+            PLAYER_WIDTH: PLAYER_WIDTH, // PLAYER_SIZE
+            PLAYER_HEIGHT: PLAYER_HEIGHT, // PLAYER_SIZE
+            JUMP_FORCE: JUMP_FORCE,
+            MOVE_FORCE: MOVE_FORCE,
+            AIR_MOVE_FORCE_MULTIPLIER: AIR_MOVE_FORCE_MULTIPLIER,
+            BALL_RADIUS: BALL_RADIUS,
+            FIELD_SURFACE_Y: FIELD_SURFACE_Y, // پاس دادن مقدار صحیح
+            GOAL_HEIGHT: GOAL_HEIGHT,
+            GOAL_WIDTH: GOAL_WIDTH,
+            isGameOver: isGameOver // پاس دادن وضعیت اولیه
+        };
+        window.initializeAI(players[AI_PLAYER_INDEX], ball, engine, gameConfigForAI);
+        console.log("AI initialized successfully with config");
     } else {
         console.error("AI could not be initialized.");
     }
@@ -539,8 +557,8 @@ function draw() {
 
     handlePlayerControls();
 
-    if (typeof window.updateAI === "function" && !isGameOver) {
-        window.updateAI();
+    if (typeof window.updateAI === "function" && !isGameOver) { // پاس دادن وضعیت فعلی isGameOver
+        window.updateAI(isGameOver); // ارسال وضعیت فعلی isGameOver
     }
 
     requestAnimationFrame(draw);

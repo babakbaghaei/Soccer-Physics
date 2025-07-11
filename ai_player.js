@@ -11,22 +11,12 @@ const AI_STATE = {
     RECOVER: 'RECOVER'  // After conceding a goal or defensive disarray
 };
 
-// --- Global constants that will be available from game.js ---
-let CANVAS_WIDTH = 800;
-let CANVAS_HEIGHT = 600;
-let PLAYER_WIDTH = 40;
-let PLAYER_HEIGHT = 40;
-let JUMP_FORCE = 0.09; // Halved from 0.18 to match game.js
-let MOVE_FORCE = 0.015;
-let AIR_MOVE_FORCE_MULTIPLIER = 0.1;
-let BALL_RADIUS = 15;
-let GROUND_Y = 520; // Updated to FIELD_SURFACE_Y from game.js (was 580)
-let GOAL_HEIGHT = 120;
-let GOAL_WIDTH = 30;
-let isGameOver = false;
+// --- Game Configuration (to be populated by initializeAI) ---
+let C_WIDTH, C_HEIGHT, P_WIDTH, P_HEIGHT, J_FORCE, M_FORCE, AIR_M_FORCE_MULT, B_RADIUS, F_SURFACE_Y, G_HEIGHT, G_WIDTH;
 
 // --- AI Variables ---
 let currentAiState = AI_STATE.IDLE;
+let gameIsOver = false; // مقدار داخلی برای وضعیت بازی
 let lastJumpTime = 0;
 const JUMP_COOLDOWN = 500; // Milliseconds (0.5 seconds)
 
@@ -49,10 +39,24 @@ const PLAYER1_ATTACK_ZONE_THIRD = CANVAS_WIDTH / 4; // Divides P1's half (0 to C
 // ===================================================================================
 // AI Initialization & Adaptation API
 // ===================================================================================
-function initializeAI(player, ball, engine) {
+function initializeAI(player, ball, engine, config) {
     aiPlayer = player;
     gameBall = ball;
     gameEngine = engine;
+
+    C_WIDTH = config.CANVAS_WIDTH;
+    C_HEIGHT = config.CANVAS_HEIGHT;
+    P_WIDTH = config.PLAYER_WIDTH;
+    P_HEIGHT = config.PLAYER_HEIGHT;
+    J_FORCE = config.JUMP_FORCE;
+    M_FORCE = config.MOVE_FORCE;
+    AIR_M_FORCE_MULT = config.AIR_MOVE_FORCE_MULTIPLIER;
+    B_RADIUS = config.BALL_RADIUS;
+    F_SURFACE_Y = config.FIELD_SURFACE_Y; // قبلاً GROUND_Y بود
+    G_HEIGHT = config.GOAL_HEIGHT;
+    G_WIDTH = config.GOAL_WIDTH;
+    gameIsOver = config.isGameOver; // مقدار اولیه
+
     console.log("AI Initialized for Player 2 (Blue). Current State: ", currentAiState);
     recentOpponentActions = [];
     opponentAttackZones = { left: 0, center: 0, right: 0 };
@@ -66,15 +70,17 @@ function initializeAI(player, ball, engine) {
  * @param {boolean} p1Jumped - Whether Player 1 was jumping/in air during the action.
  */
 function recordOpponentOffensiveAction(p1PosX, p1Jumped) {
-    // Action must originate from P1's half (i.e. p1PosX < OPPONENT_HALF_X_LINE)
-    if (p1PosX >= OPPONENT_HALF_X_LINE) return;
+    // Action must originate from P1's half (i.e. p1PosX < C_WIDTH / 2)
+    if (p1PosX >= C_WIDTH / 2) return;
 
     let zone = 'center';
-    // P1's perspective: 'left' is x < PLAYER1_ATTACK_ZONE_THIRD
-    // 'right' is x > OPPONENT_HALF_X_LINE - PLAYER1_ATTACK_ZONE_THIRD
-    if (p1PosX < PLAYER1_ATTACK_ZONE_THIRD) {
+    const opponentHalfLine = C_WIDTH / 2;
+    const player1AttackZoneThird = C_WIDTH / 4;
+    // P1's perspective: 'left' is x < player1AttackZoneThird
+    // 'right' is x > opponentHalfLine - player1AttackZoneThird
+    if (p1PosX < player1AttackZoneThird) {
         zone = 'left'; // Player 1 attacked from their left side
-    } else if (p1PosX > OPPONENT_HALF_X_LINE - PLAYER1_ATTACK_ZONE_THIRD) {
+    } else if (p1PosX > opponentHalfLine - player1AttackZoneThird) {
         zone = 'right'; // Player 1 attacked from their right side
     } // Else, it's center
 
@@ -100,14 +106,15 @@ function updateAdaptationParameters() {
 // ===================================================================================
 // AI Update Function (Called every game tick)
 // ===================================================================================
-function updateAI() {
-    if (!aiPlayer || !gameBall || !gameBall.velocity || isGameOver) { // اضافه شدن بررسی velocity
+function updateAI(isCurrentlyGameOver) { // دریافت وضعیت بازی
+    gameIsOver = isCurrentlyGameOver; // به‌روزرسانی وضعیت بازی
+    if (!aiPlayer || !gameBall || !gameBall.velocity || gameIsOver) {
         return;
     }
 
     const ballPosition = gameBall.position;
     const playerPosition = aiPlayer.body.position;
-    const playerHalfX = CANVAS_WIDTH / 2; // Assuming CANVAS_WIDTH is accessible
+    const playerHalfX = C_WIDTH / 2; // استفاده از متغیر داخلی
     const ballVelocity = gameBall.velocity;
 
     // Update current state based on game conditions
@@ -137,12 +144,12 @@ function updateAI() {
 // ===================================================================================
 function determineAiState(ballPos, playerPos, halfX, ballVel) {
     const ballInAiHalf = ballPos.x > halfX;
-    const ballNearPlayerX = Math.abs(ballPos.x - playerPos.x) < PLAYER_WIDTH * 2.5; // Player can reach horizontally
-    const ballNearPlayerY = Math.abs(ballPos.y - playerPos.y) < PLAYER_HEIGHT * 2.5; // Player can reach vertically (for jump/hit)
+    const ballNearPlayerX = Math.abs(ballPos.x - playerPos.x) < P_WIDTH * 2.5; // Player can reach horizontally
+    const ballNearPlayerY = Math.abs(ballPos.y - playerPos.y) < P_HEIGHT * 2.5; // Player can reach vertically (for jump/hit)
     const ballAbovePlayer = playerPos.y > ballPos.y; // Ball is higher than player's feet
-    const ballBelowPlayerHead = ballPos.y > playerPos.y - PLAYER_HEIGHT; // Ball is below player's head (roughly)
+    const ballBelowPlayerHead = ballPos.y > playerPos.y - P_HEIGHT; // Ball is below player's head (roughly)
 
-    const recoveryThreshold = PLAYER_WIDTH * 0.5; // How close to default position to be considered recovered
+    const recoveryThreshold = P_WIDTH * 0.5; // How close to default position to be considered recovered
 
     // RECOVER state logic:
     // If in RECOVER state, check if player has reached the recovery position.
@@ -164,7 +171,7 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
     // Conditions: Ball in AI's half, close to player, and in a "hittable" zone.
     // "Hittable" could mean ball is not too high and ideally in front or slightly above.
     if (ballInAiHalf && ballNearPlayerX && ballNearPlayerY) {
-        if (ballPos.y < GROUND_Y - BALL_RADIUS * 0.5 && // Ball is off the ground
+        if (ballPos.y < F_SURFACE_Y - B_RADIUS * 0.5 && // Ball is off the ground
             ballAbovePlayer && // Ball is generally above feet
             ballBelowPlayerHead && // Ball is not way above head
             (ballVel.x > -0.5 || playerPos.x < ballPos.x)) { // Ball moving towards opponent or AI is behind/level with ball
@@ -202,11 +209,11 @@ function determineAiState(ballPos, playerPos, halfX, ballVel) {
 // State Handling Functions (Initial stubs)
 // ===================================================================================
 function handleIdleState(playerPos) {
-    let targetX = CANVAS_WIDTH * 0.75; // Default defensive position for player 2 (AI's right side of its half)
-    const adaptationShift = PLAYER_WIDTH * 0.35; // How much to shift position based on opponent habits
+    let targetX = C_WIDTH * 0.75; // Default defensive position for player 2 (AI's right side of its half)
+    const adaptationShift = P_WIDTH * 0.35; // How much to shift position based on opponent habits
 
     // Adaptive positioning: if opponent favors a side, shift AI's default idle position
-    const totalRecentAttacks = recentOpponentActions.length; // recentOpponentActions.reduce((sum, action) => sum + 1, 0); is same as length
+    const totalRecentAttacks = recentOpponentActions.length;
     // Only adapt if there's a decent amount of data and a clear preference
     if (totalRecentAttacks > ADAPTATION_MEMORY_SIZE / 2) {
         const leftAttacks = opponentAttackZones.left;
@@ -221,8 +228,9 @@ function handleIdleState(playerPos) {
         }
     }
     // Ensure targetX is within reasonable bounds of AI's half
-    targetX = Math.max(OPPONENT_HALF_X_LINE + PLAYER_WIDTH, Math.min(CANVAS_WIDTH - PLAYER_WIDTH, targetX));
-    moveHorizontally(playerPos, targetX, MOVE_FORCE * 0.5); // Slower movement in idle
+    const opponentHalfLine = C_WIDTH / 2;
+    targetX = Math.max(opponentHalfLine + P_WIDTH, Math.min(C_WIDTH - P_WIDTH, targetX));
+    moveHorizontally(playerPos, targetX, M_FORCE * 0.5); // Slower movement in idle
 }
 
 function handleDefendState(ballPos, playerPos) {
@@ -235,7 +243,7 @@ function handleDefendState(ballPos, playerPos) {
     // slightly bias prediction towards covering AI's right side of goal.
     // For now, direct prediction is usually better in active defense.
 
-    moveHorizontally(playerPos, predictedLandingX, MOVE_FORCE);
+    moveHorizontally(playerPos, predictedLandingX, M_FORCE);
 
     // Pass opponent jump frequency hint to shouldJump
     if (shouldJump(ballPos, playerPos, false, opponentJumpFrequency > 0.6)) {
@@ -257,18 +265,18 @@ function handleAttackState(ballPos, playerPos) {
     }
 
     // Move towards the ball to hit it
-    moveHorizontally(playerPos, ballPos.x, MOVE_FORCE * 1.2); // Slightly faster for attack
+    moveHorizontally(playerPos, ballPos.x, M_FORCE * 1.2); // Slightly faster for attack
 
     // Jump if ball is above and close
-    if (shouldJump(ballPos, playerPos, true, opponentJumpFrequency > 0.6 && ballPos.y < PLAYER_HEIGHT * 1.5)) {
+    if (shouldJump(ballPos, playerPos, true, opponentJumpFrequency > 0.6 && ballPos.y < P_HEIGHT * 1.5)) {
         performJump();
     }
 }
 
 function handleRecoverState(playerPos) {
     // Move back to a default defensive position
-    const defaultPositionX = CANVAS_WIDTH * 0.75; // Player 2 default side
-    moveHorizontally(playerPos, defaultPositionX, MOVE_FORCE);
+    const defaultPositionX = C_WIDTH * 0.75; // Player 2 default side
+    moveHorizontally(playerPos, defaultPositionX, M_FORCE);
     // If player is significantly out of position (e.g., y too high), maybe a small corrective action
 }
 
@@ -276,9 +284,9 @@ function handleRecoverState(playerPos) {
 // AI Action Functions (Movement and Jumping)
 // ===================================================================================
 function moveHorizontally(playerPosition, targetX, force) {
-    const currentMoveForce = aiPlayer.isGrounded ? force : force * AIR_MOVE_FORCE_MULTIPLIER;
+    const currentMoveForce = aiPlayer.isGrounded ? force : force * AIR_M_FORCE_MULT;
     // Add a small dead zone to prevent jittering if AI is very close to targetX
-    const deadZone = PLAYER_WIDTH * 0.1;
+    const deadZone = P_WIDTH * 0.1;
     if (targetX < playerPosition.x - deadZone) { // Target is to the left
         window.Matter.Body.applyForce(aiPlayer.body, playerPosition, { x: -currentMoveForce, y: 0 });
     } else if (targetX > playerPosition.x + deadZone) { // Target is to the right
@@ -303,18 +311,18 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
     const horizontalDistance = Math.abs(ballPos.x - playerPos.x);
     const verticalDistance = playerPos.y - ballPos.y; // Positive if ball is above player's feet
 
-    let jumpRangeX = isAttacking ? PLAYER_WIDTH * 1.5 : PLAYER_WIDTH * 2;
+    let jumpRangeX = isAttacking ? P_WIDTH * 1.5 : P_WIDTH * 2;
     // Tighter horizontal range for attack jumps, needs to be more precise
-    if (isAttacking) jumpRangeX = PLAYER_WIDTH * 1.2;
+    if (isAttacking) jumpRangeX = P_WIDTH * 1.2;
 
 
-    let jumpHeightMin = PLAYER_HEIGHT * 0.5; // Ball's center must be at least half player height above player's feet
-    let jumpHeightMax = PLAYER_HEIGHT * 3;   // And not too high to be reachable (approx 3x player height)
+    let jumpHeightMin = P_HEIGHT * 0.5; // Ball's center must be at least half player height above player's feet
+    let jumpHeightMax = P_HEIGHT * 3;   // And not too high to be reachable (approx 3x player height)
 
     // If opponent is jumpy, AI might need to adjust its defensive jump timing/height check
     if (!isAttacking && opponentIsLikelyToJump) {
-        jumpHeightMin = PLAYER_HEIGHT * 0.25; // Be ready for slightly lower aerials or earlier jumps
-        jumpRangeX = PLAYER_WIDTH * 2.2; // Slightly wider anticipation
+        jumpHeightMin = P_HEIGHT * 0.25; // Be ready for slightly lower aerials or earlier jumps
+        jumpRangeX = P_WIDTH * 2.2; // Slightly wider anticipation
     }
 
     // Specific condition for attacking: ball should ideally be in front and slightly above.
@@ -322,10 +330,10 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
         // Player wants to hit the ball forward (towards x=0 for Player 2)
         // So, ball should be slightly to the left of player, or player moving into it from right.
         // verticalDistance check is crucial: ball must be above feet and below/at head height.
-        if (ballPos.x < playerPos.x + PLAYER_WIDTH * 0.5) { // Ball is generally in front or not too far behind
+        if (ballPos.x < playerPos.x + P_WIDTH * 0.5) { // Ball is generally in front or not too far behind
              if (horizontalDistance < jumpRangeX &&
-                 verticalDistance > PLAYER_HEIGHT * 0.1 && // Ball just needs to be a bit above feet
-                 verticalDistance < PLAYER_HEIGHT * 1.5) { // And not higher than head for a good attacking header
+                 verticalDistance > P_HEIGHT * 0.1 && // Ball just needs to be a bit above feet
+                 verticalDistance < P_HEIGHT * 1.5) { // And not higher than head for a good attacking header
                  return true;
              }
         }
@@ -341,7 +349,7 @@ function shouldJump(ballPos, playerPos, isAttacking = false, opponentIsLikelyToJ
 
 function performJump() {
     if (aiPlayer.isGrounded && (Date.now() - lastJumpTime) > JUMP_COOLDOWN) {
-        window.Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -JUMP_FORCE });
+        window.Matter.Body.applyForce(aiPlayer.body, aiPlayer.body.position, { x: 0, y: -J_FORCE });
         aiPlayer.isGrounded = false; // Assume this will be updated by collision events in game.js
         lastJumpTime = Date.now();
         // console.log("AI Player jumped.");
@@ -353,8 +361,8 @@ function performJump() {
 // ===================================================================================
 function predictBallLandingX(ballPos, ballVel, gravityY) {
     // If ball is on or below ground, prediction is its current X.
-    // GROUND_Y is the top surface of the ground. Ball's y is its center.
-    if (ballPos.y + BALL_RADIUS >= GROUND_Y) {
+    // F_SURFACE_Y is the top surface of the ground. Ball's y is its center.
+    if (ballPos.y + B_RADIUS >= F_SURFACE_Y) {
         return ballPos.x;
     }
 
@@ -363,9 +371,9 @@ function predictBallLandingX(ballPos, ballVel, gravityY) {
     // where:
     // vy = current vertical velocity (ballVel.y)
     // g = gravity (gravityY, ensure it's positive for calculation)
-    // h = current height above ground (GROUND_Y - (ballPos.y + BALL_RADIUS)) -> distance for ball bottom to reach ground surface
+    // h = current height above ground (F_SURFACE_Y - (ballPos.y + B_RADIUS)) -> distance for ball bottom to reach ground surface
 
-    const h = (GROUND_Y - BALL_RADIUS) - ballPos.y; // Height from ball's center to ground level minus radius
+    const h = (F_SURFACE_Y - B_RADIUS) - ballPos.y; // Height from ball's center to ground level minus radius
     const g = Math.abs(gravityY); // Ensure gravity is positive
 
     // If ball is already on the ground or somehow below, or g is 0.
@@ -426,18 +434,18 @@ function predictBallLandingX(ballPos, ballVel, gravityY) {
 
     // Clamp prediction to AI's half of the field, but allow it to go slightly beyond goal to defend.
     // Give some buffer near walls and goal.
-    const minX = CANVAS_WIDTH / 2 + BALL_RADIUS;
-    const maxX = CANVAS_WIDTH - BALL_RADIUS;
+    const minX = C_WIDTH / 2 + B_RADIUS;
+    const maxX = C_WIDTH - B_RADIUS;
     predictedX = Math.max(minX, predictedX);
     predictedX = Math.min(maxX, predictedX);
 
     // Strategic override: if ball is moving very slowly horizontally towards AI,
     // or is very high, AI might prefer a central defensive position.
-    if (Math.abs(ballVel.x) < 0.5 && ballPos.x > CANVAS_WIDTH / 2) {
+    if (Math.abs(ballVel.x) < 0.5 && ballPos.x > C_WIDTH / 2) {
         // If ball is in AI half and slow, target its current X or a bit towards center goal.
-        const goalCenter = CANVAS_WIDTH - GOAL_WIDTH / 2;
+        const goalCenter = C_WIDTH - G_WIDTH / 2;
         //趋向于球门中心
-        if (predictedX > goalCenter - GOAL_WIDTH*0.25 && predictedX < goalCenter + GOAL_WIDTH*0.25){
+        if (predictedX > goalCenter - G_WIDTH*0.25 && predictedX < goalCenter + G_WIDTH*0.25){
              //If already aiming near goal, fine.
         } else {
             //predictedX = (predictedX + goalCenter)/2; // Average with goal center
@@ -446,9 +454,9 @@ function predictBallLandingX(ballPos, ballVel, gravityY) {
 
     // If ball is very high (e.g., above player's max jump height),
     // AI should position itself more centrally rather than directly under.
-    const maxReachableHeightByPlayer = GROUND_Y - PLAYER_HEIGHT * 2.5; // Approximate
+    const maxReachableHeightByPlayer = F_SURFACE_Y - P_HEIGHT * 2.5; // Approximate
     if (ballPos.y < maxReachableHeightByPlayer && timeToImpact > 0.5) { // If ball is high and will take time to fall
-        //predictedX = (predictedX + (CANVAS_WIDTH * 0.75)) / 2; // Average with default defensive spot
+        //predictedX = (predictedX + (C_WIDTH * 0.75)) / 2; // Average with default defensive spot
     }
 
 
