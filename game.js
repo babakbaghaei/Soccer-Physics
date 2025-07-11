@@ -712,7 +712,7 @@ function draw() {
     const depth = 40 * PIXELATION_SCALE_FACTOR;
     const barHeight = 35 * PIXELATION_SCALE_FACTOR;
     // دروازه چپ
-    const leftXf = 0, leftYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
+    const leftXf = 12 * PIXELATION_SCALE_FACTOR, leftYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
     const leftXb = leftXf + depth + 3 * PIXELATION_SCALE_FACTOR, leftYb = leftYf - barHeight;
     lowResCtx.save();
     lowResCtx.strokeStyle = '#fff';
@@ -772,7 +772,7 @@ function draw() {
     lowResCtx.lineTo(leftXb + goalW, leftYb); // crossbar عقب
     lowResCtx.stroke();
     // دروازه راست
-    const rightXf = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR) - goalW, rightYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
+    const rightXf = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR) - goalW - 12 * PIXELATION_SCALE_FACTOR, rightYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
     const rightXb = rightXf - depth - 3 * PIXELATION_SCALE_FACTOR, rightYb = rightYf - barHeight;
     lowResCtx.save();
     lowResCtx.strokeStyle = '#fff';
