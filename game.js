@@ -666,64 +666,19 @@ function draw() {
     }
     drawFootballFieldLines(lowResCtx);
 
-    // پارامترهای سه‌بعدی دروازه
-    const GOAL_DEPTH = 40 * PIXELATION_SCALE_FACTOR; // عمق سه‌بعدی
-    const GOAL_BAR_HEIGHT = 30 * PIXELATION_SCALE_FACTOR; // ارتفاع میله افقی بالای چمن
-    // Goal 1 (left, عقب‌تر و سه‌بعدی)
-    const goal1BaseX = 25 * PIXELATION_SCALE_FACTOR;
-    const goal1BaseY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
-    const goal1W = GOAL_WIDTH * PIXELATION_SCALE_FACTOR;
-    const goal1H = GOAL_HEIGHT * PIXELATION_SCALE_FACTOR;
-    // پست‌های جلو
+    // حذف دروازه‌های قبلی
+    // رسم یک دروازه توری بزرگ پایین زمین
+    const bigGoalWidth = 350 * PIXELATION_SCALE_FACTOR;
+    const bigGoalHeight = 70 * PIXELATION_SCALE_FACTOR;
+    const bigGoalX = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR - bigGoalWidth) / 2;
+    const bigGoalY = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - bigGoalHeight;
+    drawSimplifiedNet(lowResCtx, bigGoalX, bigGoalY, bigGoalWidth, bigGoalHeight);
+    // پست‌های کناری و میله افقی
     lowResCtx.fillStyle = '#fff';
-    lowResCtx.fillRect(goal1BaseX, goal1BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
-    lowResCtx.fillRect(goal1BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
-    // میله افقی جلو
-    lowResCtx.fillRect(goal1BaseX, goal1BaseY, goal1W, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
-    // پست‌های عقب (عمق)
-    lowResCtx.fillRect(goal1BaseX + GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
-    lowResCtx.fillRect(goal1BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR - GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
-    // میله افقی عقب
-    lowResCtx.fillRect(goal1BaseX + GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT, goal1W - 2*GOAL_DEPTH, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
-    // تور سه‌بعدی (trapezoid)
-    lowResCtx.save();
-    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
-    lowResCtx.lineWidth = 2 * PIXELATION_SCALE_FACTOR;
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(goal1BaseX, goal1BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو چپ
-    lowResCtx.lineTo(goal1BaseX + GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب چپ
-    lowResCtx.lineTo(goal1BaseX + goal1W - GOAL_DEPTH, goal1BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب راست
-    lowResCtx.lineTo(goal1BaseX + goal1W, goal1BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو راست
-    lowResCtx.closePath();
-    lowResCtx.stroke();
-    lowResCtx.restore();
-
-    // Goal 2 (right, عقب‌تر و سه‌بعدی)
-    const goal2BaseX = (CANVAS_WIDTH - GOAL_WIDTH - 25) * PIXELATION_SCALE_FACTOR;
-    const goal2BaseY = goal1BaseY;
-    // پست‌های جلو
-    lowResCtx.fillStyle = '#fff';
-    lowResCtx.fillRect(goal2BaseX, goal2BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
-    lowResCtx.fillRect(goal2BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal2BaseY, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H);
-    // میله افقی جلو
-    lowResCtx.fillRect(goal2BaseX, goal2BaseY, goal1W, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
-    // پست‌های عقب (عمق)
-    lowResCtx.fillRect(goal2BaseX + GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
-    lowResCtx.fillRect(goal2BaseX + goal1W - GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR - GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR, goal1H - GOAL_BAR_HEIGHT);
-    // میله افقی عقب
-    lowResCtx.fillRect(goal2BaseX + GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT, goal1W - 2*GOAL_DEPTH, GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR);
-    // تور سه‌بعدی (trapezoid)
-    lowResCtx.save();
-    lowResCtx.strokeStyle = 'rgba(220,220,220,0.7)';
-    lowResCtx.lineWidth = 2 * PIXELATION_SCALE_FACTOR;
-    lowResCtx.beginPath();
-    lowResCtx.moveTo(goal2BaseX, goal2BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو چپ
-    lowResCtx.lineTo(goal2BaseX + GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب چپ
-    lowResCtx.lineTo(goal2BaseX + goal1W - GOAL_DEPTH, goal2BaseY + GOAL_BAR_HEIGHT + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // عقب راست
-    lowResCtx.lineTo(goal2BaseX + goal1W, goal2BaseY + GOAL_POST_WIDTH * PIXELATION_SCALE_FACTOR); // جلو راست
-    lowResCtx.closePath();
-    lowResCtx.stroke();
-    lowResCtx.restore();
+    const postW = 8 * PIXELATION_SCALE_FACTOR;
+    lowResCtx.fillRect(bigGoalX, bigGoalY, postW, bigGoalHeight);
+    lowResCtx.fillRect(bigGoalX + bigGoalWidth - postW, bigGoalY, postW, bigGoalHeight);
+    lowResCtx.fillRect(bigGoalX, bigGoalY, bigGoalWidth, postW);
 
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
