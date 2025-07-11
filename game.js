@@ -651,9 +651,9 @@ function draw() {
     lowResCtx.fillRect(0, 0, lowResCanvas.width, lowResCanvas.height);
     drawDynamicSky(lowResCtx);
 
-    // چمن تصویری - از بالای صفحه تا پایین
-    const grassStartY_scaled = 0;
-    const grassHeight_scaled = CANVAS_HEIGHT * PIXELATION_SCALE_FACTOR;
+    // چمن تصویری - از FIELD_SURFACE_Y تا پایین
+    const grassStartY_scaled = FIELD_SURFACE_Y * PIXELATION_SCALE_FACTOR;
+    const grassHeight_scaled = (CANVAS_HEIGHT - FIELD_SURFACE_Y) * PIXELATION_SCALE_FACTOR;
     const STRIPE_WIDTH_WORLD = 50;
     const stripeWidth_scaled = STRIPE_WIDTH_WORLD * PIXELATION_SCALE_FACTOR;
     const GRASS_COLOR_DARK = "#228B22";
@@ -666,14 +666,48 @@ function draw() {
     }
     drawFootballFieldLines(lowResCtx);
 
+    // پارامترهای محوطه جریمه
+    const penaltyAreaDepth_world = 80;
+    const penaltyAreaLength_world = 150;
+    const penaltyAreaDepth_scaled = penaltyAreaDepth_world * PIXELATION_SCALE_FACTOR;
+    // محل تور: 15 درصد عمق محوطه جریمه داخل زمین
+    const netOffset = penaltyAreaDepth_world * 0.15 * PIXELATION_SCALE_FACTOR;
+
     // نت دروازه سمت چپ (تیم 1)
     const goal1NetY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
-    drawSimplifiedNet(lowResCtx, 0, goal1NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
-    
+    drawSimplifiedNet(lowResCtx, netOffset, goal1NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
     // نت دروازه سمت راست (تیم 2)
-    const goal2NetX = (CANVAS_WIDTH - GOAL_WIDTH) * PIXELATION_SCALE_FACTOR;
+    const goal2NetX = (CANVAS_WIDTH - GOAL_WIDTH) * PIXELATION_SCALE_FACTOR - netOffset;
     const goal2NetY = ((FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - GOAL_HEIGHT / 2) * PIXELATION_SCALE_FACTOR;
     drawSimplifiedNet(lowResCtx, goal2NetX, goal2NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR);
+
+    // 3D Goal Posts and Crossbar
+    function drawGoal3D(ctx, x, y, width, height, facing) {
+        // facing: 1 for left, -1 for right
+        const postThickness = 8 * PIXELATION_SCALE_FACTOR;
+        const barHeight = 40 * PIXELATION_SCALE_FACTOR; // ارتفاع میله افقی
+        ctx.save();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = postThickness;
+        ctx.lineCap = 'round';
+        // دو میله عمودی
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y - barHeight);
+        ctx.moveTo(x + width, y);
+        ctx.lineTo(x + width, y - barHeight);
+        ctx.stroke();
+        // میله افقی
+        ctx.beginPath();
+        ctx.moveTo(x, y - barHeight);
+        ctx.lineTo(x + width, y - barHeight);
+        ctx.stroke();
+        ctx.restore();
+    }
+    // Goal 1 (left)
+    drawGoal3D(lowResCtx, netOffset, goal1NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR, 1);
+    // Goal 2 (right)
+    drawGoal3D(lowResCtx, goal2NetX, goal2NetY, GOAL_WIDTH * PIXELATION_SCALE_FACTOR, GOAL_HEIGHT * PIXELATION_SCALE_FACTOR, -1);
 
     const allBodies = Composite.allBodies(world);
     allBodies.forEach(body => {
