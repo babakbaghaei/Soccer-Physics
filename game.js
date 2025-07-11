@@ -759,6 +759,18 @@ function draw() {
       lowResCtx.stroke();
     }
     lowResCtx.restore();
+    // پست عقب و میله عقب با ضخامت زیاد (فقط از crossbar عقب به بالا)
+    lowResCtx.strokeStyle = '#fff';
+    lowResCtx.lineWidth = postW;
+    lowResCtx.beginPath();
+    // فقط از crossbar عقب به بالا
+    lowResCtx.moveTo(leftXb, leftYb);
+    lowResCtx.lineTo(leftXb, leftYb); // نقطه بالای پست عقب چپ (دروازه چپ)
+    lowResCtx.moveTo(leftXb + goalW, leftYb);
+    lowResCtx.lineTo(leftXb + goalW, leftYb); // نقطه بالای پست عقب راست (دروازه چپ)
+    lowResCtx.moveTo(leftXb, leftYb);
+    lowResCtx.lineTo(leftXb + goalW, leftYb); // crossbar عقب
+    lowResCtx.stroke();
     // دروازه راست
     const rightXf = (CANVAS_WIDTH * PIXELATION_SCALE_FACTOR) - goalW, rightYf = (CANVAS_HEIGHT - 5) * PIXELATION_SCALE_FACTOR - goalH;
     const rightXb = rightXf - depth - 3 * PIXELATION_SCALE_FACTOR, rightYb = rightYf - barHeight;
@@ -807,6 +819,18 @@ function draw() {
       lowResCtx.stroke();
     }
     lowResCtx.restore();
+    // پست عقب و میله عقب با ضخامت زیاد (فقط از crossbar عقب به بالا)
+    lowResCtx.strokeStyle = '#fff';
+    lowResCtx.lineWidth = postW;
+    lowResCtx.beginPath();
+    // فقط از crossbar عقب به بالا
+    lowResCtx.moveTo(rightXb, rightYb);
+    lowResCtx.lineTo(rightXb, rightYb); // نقطه بالای پست عقب چپ (دروازه راست)
+    lowResCtx.moveTo(rightXb + goalW, rightYb);
+    lowResCtx.lineTo(rightXb + goalW, rightYb); // نقطه بالای پست عقب راست (دروازه راست)
+    lowResCtx.moveTo(rightXb, rightYb);
+    lowResCtx.lineTo(rightXb + goalW, rightYb); // crossbar عقب
+    lowResCtx.stroke();
 
     lowResCtx.restore();
 
