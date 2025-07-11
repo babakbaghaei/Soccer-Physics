@@ -150,10 +150,11 @@ function setup() {
 // Entity Creation Functions
 // ===================================================================================
 function createField() {
-    const ground = Bodies.rectangle(CANVAS_WIDTH / 2, GROUND_Y, CANVAS_WIDTH, GROUND_THICKNESS, {
+    // زمین فیزیکی نامرئی - فقط برای فیزیک
+    const invisibleGround = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT - 10, CANVAS_WIDTH, 20, {
         isStatic: true,
-        render: { fillStyle: '#228B22' },
-        label: 'Rectangle Body'
+        render: { visible: false }, // نامرئی
+        label: 'InvisibleGround'
     });
     const leftWall = Bodies.rectangle(-WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, render: { fillStyle: '#666666' } });
     const rightWall = Bodies.rectangle(CANVAS_WIDTH + WALL_THICKNESS / 2, CANVAS_HEIGHT / 2, WALL_THICKNESS, CANVAS_HEIGHT, { isStatic: true, render: { fillStyle: '#666666' } });
@@ -183,13 +184,13 @@ function createField() {
     });
     goals.team2 = [goal2Post, goal2Sensor];
     
-    World.add(world, [ground, leftWall, rightWall, ceiling, goal1Post, goal1Sensor, goal2Post, goal2Sensor]);
+    World.add(world, [invisibleGround, leftWall, rightWall, ceiling, goal1Post, goal1Sensor, goal2Post, goal2Sensor]);
     console.log("Field created");
 }
 
 function createPlayers() {
     // وسط چمن به صورت عمودی
-    const playerStartY = (FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2;
+    const playerStartY = (FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - 50;
 
     // بازیکن 1 - وسط نیمه چپ
     const player1Body = Bodies.rectangle(CANVAS_WIDTH / 4, playerStartY, PLAYER_WIDTH, PLAYER_HEIGHT, {
@@ -234,7 +235,7 @@ function createPlayers() {
 }
 
 function createBall() {
-    const ballStartY = (FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - 50;
+    const ballStartY = (FIELD_SURFACE_Y + CANVAS_HEIGHT) / 2 - 100;
     ball = Bodies.circle(CANVAS_WIDTH / 2, ballStartY, BALL_RADIUS, {
         restitution: 0.5,
         friction: 0.01,
@@ -650,8 +651,9 @@ function draw() {
     lowResCtx.fillRect(0, 0, lowResCanvas.width, lowResCanvas.height);
     drawDynamicSky(lowResCtx);
 
-    const grassStartY_scaled = FIELD_SURFACE_Y * PIXELATION_SCALE_FACTOR;
-    const grassHeight_scaled = (CANVAS_HEIGHT - FIELD_SURFACE_Y) * PIXELATION_SCALE_FACTOR;
+    // چمن تصویری - از بالای صفحه تا پایین
+    const grassStartY_scaled = 0;
+    const grassHeight_scaled = CANVAS_HEIGHT * PIXELATION_SCALE_FACTOR;
     const STRIPE_WIDTH_WORLD = 50;
     const stripeWidth_scaled = STRIPE_WIDTH_WORLD * PIXELATION_SCALE_FACTOR;
     const GRASS_COLOR_DARK = "#228B22";
@@ -693,7 +695,8 @@ function draw() {
             drawSimplifiedSoccerBall(lowResCtx, body);
         } else if (body.isStatic) {
             lowResCtx.fillStyle = (body.render && body.render.fillStyle) ? body.render.fillStyle : '#CCC';
-            if (!(body.label === 'Rectangle Body' && body.position.y > (GROUND_Y - GROUND_THICKNESS) && body.area >= (CANVAS_WIDTH * GROUND_THICKNESS * 0.8))) {
+            // فقط اجسام مرئی را رسم کن
+            if (body.render && body.render.visible !== false) {
                 lowResCtx.fill();
             }
         }
@@ -812,12 +815,12 @@ function setupCollisions() {
             }
 
             players.forEach(p => {
-                 if ((bodyA === p.body && bodyB.label === 'Rectangle Body') || (bodyB === p.body && bodyA.label === 'Rectangle Body')) {
+                 if ((bodyA === p.body && bodyB.label === 'InvisibleGround') || (bodyB === p.body && bodyA.label === 'InvisibleGround')) {
                      p.isGrounded = true;
                  }
             });
 
-            if ((bodyA.label === 'ball' && bodyB.label === 'Rectangle Body') || (bodyB.label === 'ball' && bodyA.label === 'Rectangle Body')) {
+            if ((bodyA.label === 'ball' && bodyB.label === 'InvisibleGround') || (bodyB.label === 'ball' && bodyA.label === 'InvisibleGround')) {
                 const currentBallBody = bodyA.label === 'ball' ? bodyA : bodyB;
                 createImpactParticles(currentBallBody.position.x, currentBallBody.position.y + currentBallBody.circleRadius);
                 audioManager.playSound('bounce');
