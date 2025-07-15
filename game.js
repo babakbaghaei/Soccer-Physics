@@ -15,6 +15,7 @@ import audioManager from './audioManager.js';
 // --- DOM Element References ---
 const mainCanvas = document.getElementById('gameCanvas');
 const mainCtx = mainCanvas.getContext('2d');
+let lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx;
 const team1ScoreDisplay = document.getElementById('team1ScoreDisplay');
 const team2ScoreDisplay = document.getElementById('team2ScoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
@@ -123,7 +124,11 @@ function setup() {
     engine.positionIterations = 8; // مقدار پیش فرض 6
     engine.velocityIterations = 6; // مقدار پیش فرض 4
 
-    window.initRenderer(mainCanvas);
+    const renderer = window.initRenderer(mainCanvas);
+    lowResCanvas = renderer.lowResCanvas;
+    lowResCtx = renderer.lowResCtx;
+    staticBackgroundCanvas = renderer.staticBackgroundCanvas;
+    staticBackgroundCtx = renderer.staticBackgroundCtx;
 
     createField();
     createPlayers();
@@ -253,7 +258,7 @@ function gameLoop() {
     }
 
     // Render the game
-    window.draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS);
+    window.draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx);
 
     requestAnimationFrame(gameLoop);
 }
