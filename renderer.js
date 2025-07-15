@@ -44,7 +44,7 @@ export function initRenderer(canvas) {
 }
 
 function drawStaticBackground(ctx, width, height) {
-    const grassStartY_scaled = (580 - 40) * PIXELATION_SCALE_FACTOR;
+    const grassStartY_scaled = (580 - 38) * PIXELATION_SCALE_FACTOR;
     const grassHeight_scaled = (600 - (580 - 40)) * PIXELATION_SCALE_FACTOR;
     const STRIPE_WIDTH_WORLD = 50;
     const stripeWidth_scaled = STRIPE_WIDTH_WORLD * PIXELATION_SCALE_FACTOR;
