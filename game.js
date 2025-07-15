@@ -754,4 +754,4 @@ function endGame() {
     gameMessageDisplay.classList.add('has-text');
 }
 
-window.addEventListener('DOMContentLoaded', setup);
+export { setup };
