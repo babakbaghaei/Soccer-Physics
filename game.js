@@ -86,7 +86,10 @@ const keysPressed = {};
 // ===================================================================================
 // Setup Function
 // ===================================================================================
-function setup() {
+import { initRenderer, draw, createImpactParticles, triggerScreenShake } from './renderer.js';
+import { initializeAI, updateAI, resetAIState } from './ai_player.js';
+
+export function setup() {
     console.log("Starting game setup...");
     console.log("Matter.js available:", typeof window.Matter);
     console.log("Canvas element:", mainCanvas);
@@ -104,7 +107,7 @@ function setup() {
     mainCanvas.width = CANVAS_WIDTH;
     mainCanvas.height = CANVAS_HEIGHT;
 
-    const renderer = window.initRenderer(mainCanvas);
+    const renderer = initRenderer(mainCanvas);
     lowResCanvas = renderer.lowResCanvas;
     lowResCtx = renderer.lowResCtx;
     staticBackgroundCanvas = renderer.staticBackgroundCanvas;
@@ -124,7 +127,7 @@ function setup() {
     setupControls();
     setupCollisions();
 
-    if (typeof window.initializeAI === "function" && players.length > 1 && ball && ball.velocity) {
+    if (typeof initializeAI === "function" && players.length > 1 && ball && ball.velocity) {
         const gameConfigForAI = {
             CANVAS_WIDTH: CANVAS_WIDTH,
             CANVAS_HEIGHT: CANVAS_HEIGHT,
@@ -139,7 +142,7 @@ function setup() {
             GOAL_WIDTH: GOAL_WIDTH,
             isGameOver: isGameOver // پاس دادن وضعیت اولیه
         };
-        window.initializeAI(players[AI_PLAYER_INDEX], ball, engine, gameConfigForAI);
+        initializeAI(players[AI_PLAYER_INDEX], ball, engine, gameConfigForAI);
         console.log("AI initialized successfully with config");
     } else {
         console.error("AI could not be initialized.");
@@ -241,13 +244,13 @@ function gameLoop() {
     // Update game logic
     handlePlayerControls();
 
-    if (typeof window.updateAI === "function" && !isGameOver) {
-        window.updateAI(isGameOver);
+    if (typeof updateAI === "function" && !isGameOver) {
+        updateAI(isGameOver);
     }
 
     // Render the game
     console.log('Calling draw with world:', world, 'and players:', players);
-    window.draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx);
+    draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx);
 
     requestAnimationFrame(gameLoop);
 }
@@ -334,7 +337,7 @@ function setupCollisions() {
 
             if ((bodyA.label === 'ball' && bodyB.label === 'Rectangle Body') || (bodyB.label === 'ball' && bodyA.label === 'Rectangle Body')) {
                 const currentBallBody = bodyA.label === 'ball' ? bodyA : bodyB;
-                window.createImpactParticles(currentBallBody.position.x, currentBallBody.position.y + currentBallBody.circleRadius);
+                createImpactParticles(currentBallBody.position.x, currentBallBody.position.y + currentBallBody.circleRadius);
                 audioManager.playSound('bounce');
             }
 
@@ -345,7 +348,7 @@ function setupCollisions() {
 
             if ((bodyA.label === 'ball' && (bodyB.label === 'goalPost1' || bodyB.label === 'goalPost2')) ||
                 (bodyB.label === 'ball' && (bodyA.label === 'goalPost1' || bodyA.label === 'goalPost2'))) {
-                window.triggerScreenShake(5, 15);
+                triggerScreenShake(5, 15);
                 audioManager.playSound('bounce');
             }
         }
@@ -380,7 +383,7 @@ function handleGoalScored(scoringTeam) {
     audioManager.playSound('goal');
 
     if (Math.random() < 0.20) {
-        window.triggerScreenShake(5, 15);
+        triggerScreenShake(5, 15);
         let bounceXVelocity = (scoringTeam === 1) ? -(3 + Math.random() * 2) : (3 + Math.random() * 2);
         const bounceYVelocity = -(2 + Math.random() * 2);
         Body.setVelocity(ball, { x: bounceXVelocity, y: bounceYVelocity });
@@ -427,8 +430,8 @@ function resetPositions() {
     Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 100 });
     Body.setVelocity(ball, { x: 0, y: 0 });
 
-    if (typeof window.resetAIState === "function") {
-        window.resetAIState();
+    if (typeof resetAIState === "function") {
+        resetAIState();
     }
 }
 
@@ -456,4 +459,3 @@ function endGame() {
     gameMessageDisplay.classList.add('has-text');
 }
 
-window.setup = setup;

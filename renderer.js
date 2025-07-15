@@ -13,7 +13,9 @@ let shakeOffsetY = 0;
 const particlePool = [];
 const MAX_PARTICLES = 100;
 
-window.initRenderer = function(canvas) {
+import { drawSimplifiedSun, drawSimplifiedCloud, drawSimplifiedNet, drawSimplifiedSoccerBall } from './rendererHelpers.js';
+
+export function initRenderer(canvas) {
     const lowResCanvas = document.createElement('canvas');
     lowResCanvas.width = canvas.width * PIXELATION_SCALE_FACTOR;
     lowResCanvas.height = canvas.height * PIXELATION_SCALE_FACTOR;
@@ -148,7 +150,7 @@ function drawDynamicSky(targetCtx, gameTimeRemaining, ROUND_DURATION_SECONDS) {
     });
 }
 
-function createImpactParticles(x, y, count = 5, color = '#A0522D') {
+export function createImpactParticles(x, y, count = 5, color = '#A0522D') {
     let particlesCreated = 0;
     for (let i = 0; i < particlePool.length; i++) {
         if (particlesCreated >= count) break;
@@ -193,14 +195,14 @@ function updateAndDrawParticles(targetCtx) {
     }
 }
 
-function triggerScreenShake(magnitude, duration) {
+export function triggerScreenShake(magnitude, duration) {
     isShaking = true;
     shakeMagnitude = magnitude * PIXELATION_SCALE_FACTOR;
     shakeDuration = duration;
     shakeTimer = duration;
 }
 
-window.draw = function(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx) {
+export function draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx) {
     console.log('Inside draw function, world:', world, 'players:', players);
     const CANVAS_WIDTH = 800;
     const FIELD_SURFACE_Y = 580 - 40;

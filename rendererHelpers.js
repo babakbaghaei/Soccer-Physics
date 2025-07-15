@@ -1,4 +1,4 @@
-function drawSimplifiedSun(targetCtx, sunWorldX, sunWorldY, sunWorldRadius, PIXELATION_SCALE_FACTOR) {
+export function drawSimplifiedSun(targetCtx, sunWorldX, sunWorldY, sunWorldRadius, PIXELATION_SCALE_FACTOR) {
     const scale = PIXELATION_SCALE_FACTOR;
     const sunX = sunWorldX * scale;
     const sunY = sunWorldY * scale;
@@ -10,7 +10,7 @@ function drawSimplifiedSun(targetCtx, sunWorldX, sunWorldY, sunWorldRadius, PIXE
     targetCtx.fill();
 }
 
-function drawSimplifiedCloud(targetCtx, x, y, width, height, PIXELATION_SCALE_FACTOR) {
+export function drawSimplifiedCloud(targetCtx, x, y, width, height, PIXELATION_SCALE_FACTOR) {
     const scale = PIXELATION_SCALE_FACTOR;
     const cloudX = x * scale;
     const cloudY = y * scale;
@@ -21,7 +21,7 @@ function drawSimplifiedCloud(targetCtx, x, y, width, height, PIXELATION_SCALE_FA
     targetCtx.fillRect(cloudX, cloudY, cloudWidth, cloudHeight);
 }
 
-function drawSimplifiedNet(targetCtx, x, y, width, height, PIXELATION_SCALE_FACTOR) {
+export function drawSimplifiedNet(targetCtx, x, y, width, height, PIXELATION_SCALE_FACTOR) {
     const scale = PIXELATION_SCALE_FACTOR;
     const netX = x * scale;
     const netY = y * scale;
@@ -42,7 +42,7 @@ function drawSimplifiedNet(targetCtx, x, y, width, height, PIXELATION_SCALE_FACT
     targetCtx.stroke();
 }
 
-function drawSimplifiedSoccerBall(targetCtx, body, PIXELATION_SCALE_FACTOR) {
+export function drawSimplifiedSoccerBall(targetCtx, body, PIXELATION_SCALE_FACTOR) {
     const scale = PIXELATION_SCALE_FACTOR;
     const ballX = body.position.x * scale;
     const ballY = body.position.y * scale;
@@ -64,4 +64,3 @@ function drawSimplifiedSoccerBall(targetCtx, body, PIXELATION_SCALE_FACTOR) {
     }
 }
 
-// No exports needed, functions will be globally available
