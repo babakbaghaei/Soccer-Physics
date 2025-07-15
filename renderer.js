@@ -201,6 +201,7 @@ function triggerScreenShake(magnitude, duration) {
 }
 
 window.draw = function(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx) {
+    console.log('Inside draw function, world:', world, 'players:', players);
     const CANVAS_WIDTH = 800;
     const FIELD_SURFACE_Y = 580 - 40;
     const GOAL_HEIGHT = 120;

@@ -246,6 +246,7 @@ function gameLoop() {
     }
 
     // Render the game
+    console.log('Calling draw with world:', world, 'and players:', players);
     window.draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx);
 
     requestAnimationFrame(gameLoop);
