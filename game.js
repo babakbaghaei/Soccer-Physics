@@ -104,19 +104,6 @@ function setup() {
     mainCanvas.width = CANVAS_WIDTH;
     mainCanvas.height = CANVAS_HEIGHT;
 
-    lowResCanvas = document.createElement('canvas');
-    lowResCanvas.width = CANVAS_WIDTH * PIXELATION_SCALE_FACTOR;
-    lowResCanvas.height = CANVAS_HEIGHT * PIXELATION_SCALE_FACTOR;
-    lowResCtx = lowResCanvas.getContext('2d');
-    lowResCtx.imageSmoothingEnabled = false;
-
-    // Create static background canvas
-    staticBackgroundCanvas = document.createElement('canvas');
-    staticBackgroundCanvas.width = lowResCanvas.width;
-    staticBackgroundCanvas.height = lowResCanvas.height;
-    staticBackgroundCtx = staticBackgroundCanvas.getContext('2d');
-    // staticBackgroundCtx.imageSmoothingEnabled = false; // Not strictly necessary as we draw it once
-
     engine = Engine.create();
     world = engine.world;
     engine.gravity.y = 1.5;
@@ -468,4 +455,4 @@ function endGame() {
     gameMessageDisplay.classList.add('has-text');
 }
 
-export { setup };
+window.setup = setup;
