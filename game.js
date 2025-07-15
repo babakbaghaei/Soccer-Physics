@@ -11,7 +11,6 @@ const Composites = window.Matter.Composites;
 const Constraint = window.Matter.Constraint;
 
 import audioManager from './audioManager.js';
-import { initRenderer, draw, createImpactParticles, triggerScreenShake } from './renderer.js';
 
 // --- DOM Element References ---
 const mainCanvas = document.getElementById('gameCanvas');
@@ -124,7 +123,7 @@ function setup() {
     engine.positionIterations = 8; // مقدار پیش فرض 6
     engine.velocityIterations = 6; // مقدار پیش فرض 4
 
-    initRenderer(mainCanvas);
+    window.initRenderer(mainCanvas);
 
     createField();
     createPlayers();
@@ -254,7 +253,7 @@ function gameLoop() {
     }
 
     // Render the game
-    draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS);
+    window.draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS);
 
     requestAnimationFrame(gameLoop);
 }
@@ -341,7 +340,7 @@ function setupCollisions() {
 
             if ((bodyA.label === 'ball' && bodyB.label === 'Rectangle Body') || (bodyB.label === 'ball' && bodyA.label === 'Rectangle Body')) {
                 const currentBallBody = bodyA.label === 'ball' ? bodyA : bodyB;
-                createImpactParticles(currentBallBody.position.x, currentBallBody.position.y + currentBallBody.circleRadius);
+                window.createImpactParticles(currentBallBody.position.x, currentBallBody.position.y + currentBallBody.circleRadius);
                 audioManager.playSound('bounce');
             }
 
@@ -352,7 +351,7 @@ function setupCollisions() {
 
             if ((bodyA.label === 'ball' && (bodyB.label === 'goalPost1' || bodyB.label === 'goalPost2')) ||
                 (bodyB.label === 'ball' && (bodyA.label === 'goalPost1' || bodyA.label === 'goalPost2'))) {
-                triggerScreenShake(5, 15);
+                window.triggerScreenShake(5, 15);
                 audioManager.playSound('bounce');
             }
         }
@@ -387,7 +386,7 @@ function handleGoalScored(scoringTeam) {
     audioManager.playSound('goal');
 
     if (Math.random() < 0.20) {
-        triggerScreenShake(5, 15);
+        window.triggerScreenShake(5, 15);
         let bounceXVelocity = (scoringTeam === 1) ? -(3 + Math.random() * 2) : (3 + Math.random() * 2);
         const bounceYVelocity = -(2 + Math.random() * 2);
         Body.setVelocity(ball, { x: bounceXVelocity, y: bounceYVelocity });

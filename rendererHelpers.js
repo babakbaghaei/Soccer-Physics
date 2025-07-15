@@ -64,9 +64,4 @@ function drawSimplifiedSoccerBall(targetCtx, body, PIXELATION_SCALE_FACTOR) {
     }
 }
 
-export {
-    drawSimplifiedSun,
-    drawSimplifiedCloud,
-    drawSimplifiedNet,
-    drawSimplifiedSoccerBall
-};
+// No exports needed, functions will be globally available
