@@ -1,1 +1,3 @@
-window.addEventListener('DOMContentLoaded', window.setup);
+import { setup } from './game.js';
+
+window.addEventListener('DOMContentLoaded', setup);

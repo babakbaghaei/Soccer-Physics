@@ -480,7 +480,4 @@ function resetAIState() {
 // ===================================================================================
 // Expose functions to be used by game.js
 // ===================================================================================
-window.initializeAI = initializeAI;
-window.updateAI = updateAI;
-window.resetAIState = resetAIState;
-window.recordOpponentOffensiveAction = recordOpponentOffensiveAction;
+export { initializeAI, updateAI, resetAIState, recordOpponentOffensiveAction };
