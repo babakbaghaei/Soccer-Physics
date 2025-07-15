@@ -104,6 +104,12 @@ function setup() {
     mainCanvas.width = CANVAS_WIDTH;
     mainCanvas.height = CANVAS_HEIGHT;
 
+    const renderer = window.initRenderer(mainCanvas);
+    lowResCanvas = renderer.lowResCanvas;
+    lowResCtx = renderer.lowResCtx;
+    staticBackgroundCanvas = renderer.staticBackgroundCanvas;
+    staticBackgroundCtx = renderer.staticBackgroundCtx;
+
     engine = Engine.create();
     world = engine.world;
     engine.gravity.y = 1.5;
@@ -111,12 +117,6 @@ function setup() {
     // افزایش تکرارهای حل کننده برای بهبود تشخیص برخورد
     engine.positionIterations = 8; // مقدار پیش فرض 6
     engine.velocityIterations = 6; // مقدار پیش فرض 4
-
-    const renderer = window.initRenderer(mainCanvas);
-    lowResCanvas = renderer.lowResCanvas;
-    lowResCtx = renderer.lowResCtx;
-    staticBackgroundCanvas = renderer.staticBackgroundCanvas;
-    staticBackgroundCtx = renderer.staticBackgroundCtx;
 
     createField();
     createPlayers();

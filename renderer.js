@@ -13,7 +13,7 @@ let shakeOffsetY = 0;
 const particlePool = [];
 const MAX_PARTICLES = 100;
 
-function initRenderer(canvas) {
+window.initRenderer = function(canvas) {
     const lowResCanvas = document.createElement('canvas');
     lowResCanvas.width = canvas.width * PIXELATION_SCALE_FACTOR;
     lowResCanvas.height = canvas.height * PIXELATION_SCALE_FACTOR;
@@ -200,7 +200,7 @@ function triggerScreenShake(magnitude, duration) {
     shakeTimer = duration;
 }
 
-function draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx) {
+window.draw = function(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx) {
     const CANVAS_WIDTH = 800;
     const FIELD_SURFACE_Y = 580 - 40;
     const GOAL_HEIGHT = 120;
