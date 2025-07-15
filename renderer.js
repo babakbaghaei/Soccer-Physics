@@ -14,16 +14,16 @@ const particlePool = [];
 const MAX_PARTICLES = 100;
 
 function initRenderer(canvas) {
-    lowResCanvas = document.createElement('canvas');
+    const lowResCanvas = document.createElement('canvas');
     lowResCanvas.width = canvas.width * PIXELATION_SCALE_FACTOR;
     lowResCanvas.height = canvas.height * PIXELATION_SCALE_FACTOR;
-    lowResCtx = lowResCanvas.getContext('2d');
+    const lowResCtx = lowResCanvas.getContext('2d');
     lowResCtx.imageSmoothingEnabled = false;
 
-    staticBackgroundCanvas = document.createElement('canvas');
+    const staticBackgroundCanvas = document.createElement('canvas');
     staticBackgroundCanvas.width = lowResCanvas.width;
     staticBackgroundCanvas.height = lowResCanvas.height;
-    staticBackgroundCtx = staticBackgroundCanvas.getContext('2d');
+    const staticBackgroundCtx = staticBackgroundCanvas.getContext('2d');
 
     for (let i = 0; i < MAX_PARTICLES; i++) {
         particlePool.push({
@@ -37,6 +37,8 @@ function initRenderer(canvas) {
     }
 
     drawStaticBackground(staticBackgroundCtx, staticBackgroundCanvas.width, staticBackgroundCanvas.height);
+
+    return { lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx };
 }
 
 function drawStaticBackground(ctx, width, height) {
@@ -198,7 +200,7 @@ function triggerScreenShake(magnitude, duration) {
     shakeTimer = duration;
 }
 
-function draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS) {
+function draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx) {
     const CANVAS_WIDTH = 800;
     const FIELD_SURFACE_Y = 580 - 40;
     const GOAL_HEIGHT = 120;
