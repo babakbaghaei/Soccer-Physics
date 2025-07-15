@@ -1,10 +1,3 @@
-import {
-    drawSimplifiedSun,
-    drawSimplifiedCloud,
-    drawSimplifiedNet,
-    drawSimplifiedSoccerBall
-} from './rendererHelpers.js';
-
 const PIXELATION_SCALE_FACTOR = 0.25;
 let lowResCanvas;
 let lowResCtx;
@@ -285,4 +278,4 @@ function draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS
     );
 }
 
-export { initRenderer, draw, createImpactParticles, triggerScreenShake };
+// No exports needed, functions will be globally available
