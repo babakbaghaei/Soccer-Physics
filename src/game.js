@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import * as CANNON from 'cannon';
+import * as CANNON from 'cannon-es';
 import { SceneManager } from './scene.js';
 import { PhysicsManager } from './physics.js';
 import { PlayerControls } from './controls.js';
