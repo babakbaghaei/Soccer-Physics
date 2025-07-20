@@ -267,16 +267,16 @@ export class Game {
             }
 
             // Goal scoring logic
-            if (bodyA.label === 'ball' || bodyB.label === 'ball') {
-                const goalBody = bodyA.label.startsWith('goal') ? bodyA : (bodyB.label.startsWith('goal') ? bodyB : null);
-                if (goalBody) {
-                    if (goalBody.label === 'goal1') {
-                        console.log("Goal for Team 2!");
-                        this.handleGoalScored(2);
-                    } else if (goalBody.label === 'goal2') {
-                        console.log("Goal for Team 1!");
-                        this.handleGoalScored(1);
-                    }
+            const ballBody = (bodyA.label === 'ball') ? bodyA : (bodyB.label === 'ball' ? bodyB : null);
+            const goalBody = (bodyA.label && bodyA.label.startsWith('goal')) ? bodyA : ((bodyB.label && bodyB.label.startsWith('goal')) ? bodyB : null);
+
+            if (ballBody && goalBody) {
+                if (goalBody.label === 'goal1') {
+                    console.log("Goal for Team 2!");
+                    this.handleGoalScored(2);
+                } else if (goalBody.label === 'goal2') {
+                    console.log("Goal for Team 1!");
+                    this.handleGoalScored(1);
                 }
             }
         });
