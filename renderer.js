@@ -14,6 +14,7 @@ const particlePool = [];
 const MAX_PARTICLES = 100;
 
 import { drawSimplifiedSun, drawSimplifiedCloud, drawSimplifiedNet, drawSimplifiedSoccerBall } from './rendererHelpers.js';
+import { NEW_FIELD_SURFACE_Y, NEW_GROUND_THICKNESS } from './game.js';
 
 export function initRenderer(canvas) {
     const lowResCanvas = document.createElement('canvas');
@@ -44,8 +45,8 @@ export function initRenderer(canvas) {
 }
 
 function drawStaticBackground(ctx, width, height) {
-    const grassStartY_scaled = (580 - 40) * PIXELATION_SCALE_FACTOR;
-    const grassHeight_scaled = (600 - (580 - 40) + 2) * PIXELATION_SCALE_FACTOR;
+    const grassStartY_scaled = NEW_FIELD_SURFACE_Y * PIXELATION_SCALE_FACTOR;
+    const grassHeight_scaled = NEW_GROUND_THICKNESS * PIXELATION_SCALE_FACTOR;
     const STRIPE_WIDTH_WORLD = 50;
     const stripeWidth_scaled = STRIPE_WIDTH_WORLD * PIXELATION_SCALE_FACTOR;
     const GRASS_COLOR_DARK = "#228B22";
