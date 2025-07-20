@@ -229,8 +229,18 @@ export function draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_
     lowResCtx.save();
     lowResCtx.translate(shakeOffsetX, shakeOffsetY);
 
+    const gameProgress = (ROUND_DURATION_SECONDS - gameTimeRemaining) / ROUND_DURATION_SECONDS;
+    const dayColor = { r: 135, g: 206, b: 235 }; // #87CEEB
+    const nightColor = { r: 25, g: 25, b: 112 }; // #191970
+    const colorFactor = Math.sin(gameProgress * Math.PI);
+
+    const r = dayColor.r * colorFactor + nightColor.r * (1 - colorFactor);
+    const g = dayColor.g * colorFactor + nightColor.g * (1 - colorFactor);
+    const b = dayColor.b * colorFactor + nightColor.b * (1 - colorFactor);
+    const backgroundColor = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+
     lowResCtx.clearRect(0, 0, lowResCanvas.width, lowResCanvas.height);
-    lowResCtx.fillStyle = "#87CEEB";
+    lowResCtx.fillStyle = backgroundColor;
     lowResCtx.fillRect(0, 0, lowResCanvas.width, lowResCanvas.height);
     drawDynamicSky(lowResCtx, gameTimeRemaining, ROUND_DURATION_SECONDS);
 
