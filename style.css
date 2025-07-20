@@ -24,44 +24,6 @@ body {
 
 /* @keyframes backgroundMove removed as animation is removed */
 
-/* Retro TV Container */
-#retroTvContainer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: auto; /* Adjust to content + frame */
-    height: auto; /* Adjust to content + frame */
-    padding: 50px; /* Space for TV body */
-    background-color: #3a2a20; /* Dark wood color for TV body */
-    border-radius: 10px; /* Reduced from 30px */
-    border: 5px solid #2a1a10; /* Simpler border instead of complex shadow */
-    /* Removed complex box-shadow, relying on border for definition */
-    position: relative; /* For positioning controls */
-}
-
-.tv-frame {
-    display: flex;
-    flex-direction: column; /* Stack screen and controls */
-    align-items: center;
-    background-color: #1c1c1c; /* Dark plastic/metal for frame */
-    padding: 15px; /* Reduced padding */
-    border-radius: 5px; /* Reduced from 20px */
-    border: 3px solid #111; /* Sharp border */
-    /* Removed inset shadow for a flatter look */
-}
-
-.tv-screen {
-    width: 800px; /* Canvas width */
-    height: 600px; /* Canvas height */
-    background-color: lightgray; /* Default screen color, game will draw over */
-    position: relative; /* For positioning scoreboard and game message */
-    border: 4px solid #0a0a0a; /* Sharper inner screen bezel */
-    border-radius: 3px; /* Reduced from 10px, very slight rounding */
-    overflow: hidden; /* Ensure canvas/scoreboard don't spill */
-    /* Removed inset shadow for a flatter screen appearance */
-}
-
-
 #scoreBoard {
     display: flex;
     justify-content: space-around;
@@ -116,53 +78,6 @@ body {
 }
 
 /* No hover effect for gameCanvas inside TV */
-
-.tv-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 80%; /* Control panel width */
-    padding: 15px 0 5px 0; /* Padding for controls area */
-    margin-top: 10px; /* Space between screen and controls */
-}
-
-.knob {
-    width: 40px;
-    height: 40px;
-    background-color: #505050; /* Dark grey knob */
-    border: 2px solid #333; /* Simplified border */
-    /* box-shadow: 0 2px 3px rgba(0,0,0,0.5), inset 0 0 5px rgba(255,255,255,0.2); */ /* Removed shadow */
-    position: relative;
-    border-radius: 2px; /* Sharper corners for knob */
-}
-.knob::before { /* Knob marker */
-    content: '';
-    position: absolute;
-    top: 5px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 10px;
-    background-color: #222;
-    border-radius: 2px;
-}
-
-.speaker {
-    display: grid;
-    grid-template-columns: repeat(2, 10px); /* 2 columns of holes */
-    grid-gap: 5px;
-    padding: 10px;
-    background-color: #282828; /* Speaker grille color */
-    border-radius: 5px;
-}
-
-.speaker-hole {
-    width: 10px;
-    height: 10px;
-    background-color: #1a1a1a; /* Darker hole color */
-    /* border-radius: 50%; */ /* Removed for square speaker holes */
-}
-
 
 #gameMessage {
     position: absolute; /* Position over the canvas */
