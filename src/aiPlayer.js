@@ -7,8 +7,8 @@ const AI_STATE = {
     RECOVER: 'RECOVER'
 };
 
-const JUMP_FORCE = 4000; // Must match controls.js
-const MOVE_FORCE = 300; // Must match controls.js
+const JUMP_FORCE = 3000; // Must match controls.js
+const MOVE_FORCE = 1000;  // Must match controls.js
 
 export class AIPlayer {
     constructor(aiBody, ballBody, gameConfig) {

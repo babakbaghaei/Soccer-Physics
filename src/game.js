@@ -178,7 +178,7 @@ export class Game {
             new THREE.MeshLambertMaterial({ color: 0xD9534F }),
             new CANNON.Box(new CANNON.Vec3(20, 20, 20)),
             new CANNON.Vec3(-200, 0, 0),
-            0.003, // density from original, mass will be calculated
+            10, // Using a fixed mass instead of density
             playerMaterial,
             'player1'
         );
@@ -190,7 +190,7 @@ export class Game {
             new THREE.MeshLambertMaterial({ color: 0x428BCA }),
             new CANNON.Box(new CANNON.Vec3(20, 20, 20)),
             new CANNON.Vec3(200, 0, 0),
-            0.003,
+            10,
             playerMaterial,
             'player2'
         );
@@ -201,7 +201,7 @@ export class Game {
             new THREE.MeshLambertMaterial({ color: 0xFFFFFF }),
             new CANNON.Sphere(15),
             new CANNON.Vec3(0, 100, 0),
-            0.0015,
+            1,
             ballMaterial,
             'ball'
         );
@@ -210,11 +210,11 @@ export class Game {
         this.aiPlayer = new AIPlayer(player2.body, ball.body, gameConfig);
     }
 
-    createDynamicObject(geometry, material, cannonShape, cannonPosition, density, cannonMaterial, label) {
+    createDynamicObject(geometry, material, cannonShape, cannonPosition, mass, cannonMaterial, label) {
         const mesh = new THREE.Mesh(geometry, material);
 
         const body = new CANNON.Body({
-            mass: density * cannonShape.volume(), // Mass from density
+            mass: mass,
             shape: cannonShape,
             position: cannonPosition,
             material: cannonMaterial,
