@@ -394,11 +394,9 @@ function handlePlayerControls() {
 let goalScoredThisTick = false;
 function handleGoalScored(scoringTeam) {
     if (isGameOver || goalScoredThisTick) return;
-    goalScoredThisTick = true;
     
-    audioManager.playSound('goal');
-
     if (Math.random() < 0.20) {
+        goalScoredThisTick = true;
         let bounceXVelocity = (scoringTeam === 1) ? -(3 + Math.random() * 2) : (3 + Math.random() * 2);
         const bounceYVelocity = -(2 + Math.random() * 2);
         Body.setVelocity(ball, { x: bounceXVelocity, y: bounceYVelocity });
@@ -412,10 +410,10 @@ function handleGoalScored(scoringTeam) {
             }
             goalScoredThisTick = false;
         }, 2000);
-        return;
-    }
-
-    if (scoringTeam === 1) {
+    } else {
+        goalScoredThisTick = true;
+        audioManager.playSound('goal');
+        if (scoringTeam === 1) {
         team1Score++;
         team1ScoreDisplay.textContent = `Team 1: ${team1Score}`;
     } else {
@@ -433,6 +431,7 @@ function handleGoalScored(scoringTeam) {
         }
         goalScoredThisTick = false;
     }, 1000);
+    }
 }
 
 function resetPositions() {
