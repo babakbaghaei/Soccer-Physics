@@ -1,4 +1,4 @@
-import * as CANNON from 'cannon';
+import * as CANNON from 'cannon-es';
 
 const AI_STATE = {
     IDLE: 'IDLE',
