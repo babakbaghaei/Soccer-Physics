@@ -3,18 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel Soccer Game</title>
-    <link rel="stylesheet" href="style.css"> <!-- Linking the main stylesheet -->
-    <style>
-        /* Minimal body style, rest is in style.css */
-        body { margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        /* Canvas border is now handled by tv-screen style in style.css, but keep a fallback if needed */
-        /* canvas { border: 1px solid white; } */
-    </style>
+    <title>Pixel Soccer 3D</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="mainMenu">
-        <h1>Pixel Soccer</h1>
+        <h1>Pixel Soccer 3D</h1>
         <button id="startGame">Start Game</button>
         <button id="exitGame">Exit</button>
     </div>
@@ -23,7 +17,7 @@
         <span id="timerDisplay">Time: 90</span>
         <span id="team2ScoreDisplay">Team 2: 0</span>
     </div>
-    <canvas id="gameCanvas" style="display: none;"></canvas>
+    <div id="game-container"></div>
     <div id="gameMessage"></div>
     <div id="gamePausedMessage" style="display: none;">Game Paused</div>
     <div id="controlsInfo" style="display: none;">
@@ -36,8 +30,17 @@
         </div>
     </div>
     
-    <!-- Load Matter.js from CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <!-- Load Three.js and Cannon.js from CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+
     <!-- Main game entry point -->
     <script type="module" src="main.js"></script>
 </body>
