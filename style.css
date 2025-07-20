@@ -16,9 +16,12 @@ body {
     justify-content: center;
     min-height: 100vh;
     margin: 0;
-    background-color: #FFFFFF; /* Changed to white background */
-    /* Removed animated gradient background */
-    color: #333; /* Changed default text color for readability on white background */
+    background-color: #1a1a1a; /* Dark background */
+    background-image: linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000),
+                      linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000);
+    background-size: 2px 2px;
+    background-position: 0 0, 1px 1px;
+    color: #fff; /* White text for readability on dark background */
     font-size: 10px; /* Base font size for pixel font - adjust as needed */
 }
 
@@ -64,7 +67,6 @@ body {
 
 #gameCanvas {
     /* border and border-radius removed, handled by tv-screen */
-    background-color: lightgray; /* Initial background, game draws over this */
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges; /* Fallback for older Firefox */
     image-rendering: crisp-edges;    /* Fallback */
