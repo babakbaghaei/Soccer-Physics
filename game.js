@@ -415,7 +415,7 @@ function handleGoalScored(scoringTeam) {
                 gameMessageDisplay.classList.remove('has-text', 'tirak');
             }
             goalScoredThisTick = false;
-        }, 1000);
+        }, 2000);
         return;
     }
 
@@ -436,7 +436,7 @@ function handleGoalScored(scoringTeam) {
              gameMessageDisplay.classList.remove('has-text', 'goal');
         }
         goalScoredThisTick = false;
-    }, 50);
+    }, 1000);
 }
 
 function resetPositions() {
