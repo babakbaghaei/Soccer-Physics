@@ -1,4 +1,4 @@
-import * as CANNON from 'cannon';
+import * as CANNON from 'cannon-es';
 import audioManager from './audioManager.js';
 
 const JUMP_FORCE = 4000; // Needs tuning based on mass and gravity
