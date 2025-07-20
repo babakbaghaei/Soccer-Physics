@@ -444,7 +444,7 @@ function resetPositions() {
     Body.setAngle(players[0].body, 0);
     Body.setPosition(players[1].body, { x: 600, y: 450 });
     Body.setVelocity(players[1].body, { x: 0, y: 0 });
-    Body.setAngle(.body, 0);
+    Body.setAngle(players[1].body, 0);
     Body.setPosition(ball, { x: CANVAS_WIDTH / 2, y: 100 });
     Body.setVelocity(ball, { x: 0, y: 0 });
 
