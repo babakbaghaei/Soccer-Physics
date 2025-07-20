@@ -402,7 +402,6 @@ function handleGoalScored(scoringTeam) {
     audioManager.playSound('goal');
 
     if (Math.random() < 0.20) {
-        triggerScreenShake(5, 15);
         let bounceXVelocity = (scoringTeam === 1) ? -(3 + Math.random() * 2) : (3 + Math.random() * 2);
         const bounceYVelocity = -(2 + Math.random() * 2);
         Body.setVelocity(ball, { x: bounceXVelocity, y: bounceYVelocity });
