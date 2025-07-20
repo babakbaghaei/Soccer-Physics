@@ -257,7 +257,7 @@ function createBall() {
 // ===================================================================================
 // Main Game Loop
 // ===================================================================================
-function gameLoop() {
+function gameLoop(timestamp) {
     if (isGameOver) return;
 
     // Update game logic
@@ -268,7 +268,6 @@ function gameLoop() {
     }
 
     // Render the game
-    console.log('Calling draw with world:', world, 'and players:', players);
     draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_SECONDS, lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx);
 
     requestAnimationFrame(gameLoop);
@@ -288,13 +287,11 @@ function initializeAudio() {
 function setupControls() {
     window.addEventListener('keydown', (e) => {
         initializeAudio();
-        const key = e.key.toLowerCase();
-        keysPressed[key] = true;
+        keysPressed[e.code] = true;
     });
     window.addEventListener('keyup', (e) => {
-        const key = e.key.toLowerCase();
-        keysPressed[key] = false;
-        if (key === 's' && players.length > 0) {
+        keysPressed[e.code] = false;
+        if (e.code === 'KeyS' && players.length > 0) {
             players[0].sKeyProcessed = false;
         }
     });
@@ -379,16 +376,16 @@ function handlePlayerControls() {
     const p1 = players[0];
     const currentMoveForce = p1.isGrounded ? MOVE_FORCE : MOVE_FORCE * AIR_MOVE_FORCE_MULTIPLIER;
 
-    if (keysPressed['a']) Body.applyForce(p1.body, p1.body.position, { x: -currentMoveForce, y: 0 });
-    if (keysPressed['d']) Body.applyForce(p1.body, p1.body.position, { x: currentMoveForce, y: 0 });
+    if (keysPressed['KeyA']) Body.applyForce(p1.body, p1.body.position, { x: -currentMoveForce, y: 0 });
+    if (keysPressed['KeyD']) Body.applyForce(p1.body, p1.body.position, { x: currentMoveForce, y: 0 });
     
-    if (keysPressed['w'] && p1.isGrounded) {
+    if (keysPressed['KeyW'] && p1.isGrounded) {
         Body.applyForce(p1.body, p1.body.position, { x: 0, y: -JUMP_FORCE });
         p1.isGrounded = false;
         audioManager.playSound('jump');
     }
     
-    if (keysPressed['s'] && !p1.sKeyProcessed && !p1.kickCooldown) {
+    if (keysPressed['KeyS'] && !p1.sKeyProcessed && !p1.kickCooldown) {
         p1.chipShotAttempt = true;
         p1.sKeyProcessed = true;
     }
@@ -454,8 +451,13 @@ function resetPositions() {
 }
 
 function startGame() {
-    runner = Runner.create();
-    Runner.run(runner, engine);
+    const timeStep = 1000 / 60; // 60 FPS
+    setInterval(() => {
+        if (!isGameOver) {
+            Engine.update(engine, timeStep);
+        }
+    }, timeStep);
+
     roundTimerId = setInterval(() => {
         gameTimeRemaining--;
         timerDisplay.textContent = `Time: ${gameTimeRemaining}`;
@@ -463,7 +465,7 @@ function startGame() {
             endGame();
         }
     }, 1000);
-    gameLoop();
+    requestAnimationFrame(gameLoop);
 }
 
 function endGame() {
