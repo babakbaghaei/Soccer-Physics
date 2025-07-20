@@ -64,7 +64,7 @@ function drawFootballFieldLines(targetCtx) {
     const scale = PIXELATION_SCALE_FACTOR;
     const CANVAS_WIDTH = 800;
     const CANVAS_HEIGHT = 600;
-    const FIELD_SURFACE_Y = 580 - 40;
+    const FIELD_SURFACE_Y = NEW_FIELD_SURFACE_Y;
 
     targetCtx.save();
     targetCtx.strokeStyle = '#FFFFFF';
