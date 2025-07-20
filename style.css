@@ -27,6 +27,44 @@ body {
 
 /* @keyframes backgroundMove removed as animation is removed */
 
+#mainMenu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100%;
+    background-color: #1a1a1a;
+    z-index: 20;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#mainMenu h1 {
+    font-size: 48px;
+    color: #fff;
+    text-shadow: 3px 3px #000;
+    margin-bottom: 40px;
+}
+
+#mainMenu button {
+    font-family: 'Press Start 2P', cursive, monospace;
+    font-size: 24px;
+    color: #fff;
+    background-color: #333;
+    border: 2px solid #fff;
+    padding: 15px 30px;
+    margin: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+#mainMenu button:hover {
+    background-color: #fff;
+    color: #333;
+}
+
 #scoreBoard {
     display: flex;
     justify-content: space-around;
@@ -109,7 +147,28 @@ body {
     border-radius: 3px; /* Slight rounding for the message box */
 }
 
+#gameMessage.goal {
+    font-size: 48px;
+    color: #FFD700;
+    text-shadow: 3px 3px #000;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#gameMessage.tirak {
+    font-size: 36px;
+    color: #FF6347;
+    text-shadow: 2px 2px #000;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
 /* @keyframes messageGlow removed */
+
+#scoreBoard {
+    font-size: 20px;
+    padding: 10px 0;
+}
 
 #controlsInfo {
     margin-top: 15px;
@@ -123,3 +182,49 @@ body {
 }
 
 /* Control buttons now rendered inside canvas */
+
+.modal {
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #1a1a1a;
+    padding: 40px;
+    border: 4px solid #fff;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 0 20px #fff;
+}
+
+.modal-content h2 {
+    font-size: 36px;
+    color: #fff;
+    text-shadow: 2px 2px #000;
+    margin-bottom: 30px;
+}
+
+.modal-content button {
+    font-family: 'Press Start 2P', cursive, monospace;
+    font-size: 20px;
+    color: #fff;
+    background-color: #333;
+    border: 2px solid #fff;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.modal-content button:hover {
+    background-color: #fff;
+    color: #333;
+}
