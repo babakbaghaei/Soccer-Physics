@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fa-IR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Soccer 3D</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="mainMenu">
+        <h1>Pixel Soccer 3D</h1>
+        <button id="startGame">Start Game</button>
+        <button id="exitGame">Exit</button>
+    </div>
+    <div id="scoreBoard" style="display: none;">
+        <span id="team1ScoreDisplay">Team 1: 0</span>
+        <span id="timerDisplay">Time: 90</span>
+        <span id="team2ScoreDisplay">Team 2: 0</span>
+    </div>
+    <div id="game-container"></div>
+    <div id="gameMessage"></div>
+    <div id="gamePausedMessage" style="display: none;">Game Paused</div>
+    <div id="controlsInfo" style="display: none;">
+        Player 1: A/D to move, W to jump.
+    </div>
+    <div id="endGameModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2 id="winnerMessage"></h2>
+            <button id="restartGame">Restart</button>
+        </div>
+    </div>
+    
+    <!-- Load Three.js and Cannon.js from CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+
+    <!-- Main game entry point -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
