@@ -151,6 +151,25 @@ function drawDynamicSky(targetCtx, gameTimeRemaining, ROUND_DURATION_SECONDS) {
     });
 }
 
+function drawShadow(targetCtx, body, y_surface, scale) {
+    const shadowY = y_surface * scale;
+    const shadowX = body.position.x * scale;
+    const heightAboveGround = y_surface - body.position.y;
+    const shadowWidthFactor = 0.8; // سایه همیشه کمی کوچکتر از جسم است
+    const shadowHeightFactor = 0.3;
+    const maxShadowWidth = (body.circleRadius || body.bounds.max.x - body.bounds.min.x) * shadowWidthFactor * scale;
+    const shadowWidth = Math.max(0, maxShadowWidth * (1 - heightAboveGround / 500)); // سایه با ارتفاع کوچکتر می شود
+    const shadowHeight = shadowWidth * shadowHeightFactor;
+    const shadowOpacity = Math.max(0.1, 0.5 * (1 - heightAboveGround / 500)); // سایه با ارتفاع شفاف تر می شود
+
+    if (shadowWidth > 0) {
+        targetCtx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity})`;
+        targetCtx.beginPath();
+        targetCtx.ellipse(shadowX, shadowY, shadowWidth, shadowHeight, 0, 0, Math.PI * 2);
+        targetCtx.fill();
+    }
+}
+
 export function createImpactParticles(x, y, count = 5, color = '#A0522D') {
     let particlesCreated = 0;
     for (let i = 0; i < particlePool.length; i++) {
@@ -250,6 +269,14 @@ export function draw(mainCtx, world, players, gameTimeRemaining, ROUND_DURATION_
     drawSimplifiedNet(lowResCtx, (CANVAS_WIDTH - GOAL_WIDTH), (FIELD_SURFACE_Y - GOAL_HEIGHT), GOAL_WIDTH, GOAL_HEIGHT, PIXELATION_SCALE_FACTOR);
 
     const allBodies = window.Matter.Composite.allBodies(world);
+
+    // ترسیم سایه ها
+    allBodies.forEach(body => {
+        if (body.label.startsWith('player') || body.label === 'ball') {
+            drawShadow(lowResCtx, body, FIELD_SURFACE_Y, PIXELATION_SCALE_FACTOR);
+        }
+    });
+
     allBodies.forEach(body => {
         if (body.render && body.render.visible === false) return;
 
