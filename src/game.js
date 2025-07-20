@@ -196,7 +196,7 @@ export class Game {
         );
 
         // Ball
-        this.createDynamicObject(
+        const ball = this.createDynamicObject(
             new THREE.SphereGeometry(15, 32, 32),
             new THREE.MeshLambertMaterial({ color: 0xFFFFFF }),
             new CANNON.Sphere(15),
