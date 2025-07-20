@@ -152,12 +152,12 @@ function drawDynamicSky(targetCtx, gameTimeRemaining, ROUND_DURATION_SECONDS) {
 }
 
 function drawShadow(targetCtx, body, y_surface, scale) {
-    const shadowY = (y_surface + 30) * scale;
+    const shadowY = y_surface * scale;
     const shadowX = body.position.x * scale;
     const heightAboveGround = y_surface - body.position.y;
     const shadowWidthFactor = 0.8; // سایه همیشه کمی کوچکتر از جسم است
     const shadowHeightFactor = 0.3;
-    const maxShadowWidth = (body.circleRadius || (body.bounds.max.x - body.bounds.min.x) / 1.2) * shadowWidthFactor * scale;
+    const maxShadowWidth = (body.circleRadius || body.bounds.max.x - body.bounds.min.x) * shadowWidthFactor * scale;
     const shadowWidth = Math.max(0, maxShadowWidth * (1 - heightAboveGround / 500)); // سایه با ارتفاع کوچکتر می شود
     const shadowHeight = shadowWidth * shadowHeightFactor;
     const shadowOpacity = Math.max(0.1, 0.5 * (1 - heightAboveGround / 500)); // سایه با ارتفاع شفاف تر می شود
