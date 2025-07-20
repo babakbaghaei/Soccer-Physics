@@ -3,13 +3,18 @@ import * as CANNON from 'cannon-es';
 export class PhysicsManager {
     constructor() {
         this.world = new CANNON.World();
+        this.lastTime = null;
         this.init();
     }
 
     init() {
-        // Set gravity similar to the original game
-        this.world.gravity.set(0, -9.82 * 2, 0); // Cannon.js uses meters/s^2, original was abstract. This value may need tuning. Let's start with a scaled gravity.
+        // A more realistic gravity for a small-scale world.
+        this.world.gravity.set(0, -982, 0); // Approx 100x Earth gravity for a fast-paced feel
         this.world.broadphase = new CANNON.NaiveBroadphase();
+
+        // Default contact material properties
+        this.world.defaultContactMaterial.friction = 0.1;
+        this.world.defaultContactMaterial.restitution = 0.2;
 
         // Improve solver accuracy
         this.world.solver.iterations = 10;
@@ -52,7 +57,9 @@ export class PhysicsManager {
         return this.world;
     }
 
-    update(timeStep = 1 / 60) {
-        this.world.step(timeStep);
+    update() {
+        // Use a fixed time step for stability
+        this.world.step(1 / 60, this.lastTime ? (Date.now() - this.lastTime) / 1000 : 0, 3);
+        this.lastTime = Date.now();
     }
 }

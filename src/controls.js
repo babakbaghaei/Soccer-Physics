@@ -1,8 +1,8 @@
 import * as CANNON from 'cannon-es';
 import audioManager from './audioManager.js';
 
-const JUMP_FORCE = 4000; // Needs tuning based on mass and gravity
-const MOVE_FORCE = 300; // Needs tuning
+const JUMP_FORCE = 3000; // Tuned for new mass and gravity
+const MOVE_FORCE = 1000;  // Tuned for new mass and gravity
 
 export class PlayerControls {
     constructor(playerBody) {
