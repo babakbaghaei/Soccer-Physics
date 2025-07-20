@@ -1,4 +1,4 @@
-const PIXELATION_SCALE_FACTOR = 0.25;
+const PIXELATION_SCALE_FACTOR = 0.15;
 let lowResCanvas;
 let lowResCtx;
 let staticBackgroundCanvas;
@@ -76,10 +76,10 @@ function drawFootballFieldLines(targetCtx) {
     targetCtx.stroke();
 
     const centerCircleRadius = 30 * scale;
-    const circleCenterY_scaled = (FIELD_SURFACE_Y * scale + CANVAS_HEIGHT * scale) / 2;
+    const circleCenterY_scaled = FIELD_SURFACE_Y * scale;
     const circleCenterX_scaled = CANVAS_WIDTH / 2 * scale;
     targetCtx.beginPath();
-    targetCtx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, 0, 2 * Math.PI);
+    targetCtx.arc(circleCenterX_scaled, circleCenterY_scaled, centerCircleRadius, 0, Math.PI);
     targetCtx.stroke();
 
     const penaltyAreaDepth_world = 30;
