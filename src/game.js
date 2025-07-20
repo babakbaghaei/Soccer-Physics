@@ -57,6 +57,12 @@ export class Game {
 
             // Sync all dynamic objects
             for (const obj of this.gameObjects) {
+                if (obj.body.label && obj.body.label.startsWith('player')) {
+                    // Lock Z-axis movement for players
+                    obj.body.position.z = 0;
+                    obj.body.velocity.z = 0;
+                }
+
                 obj.mesh.position.copy(obj.body.position);
                 obj.mesh.quaternion.copy(obj.body.quaternion);
 
@@ -218,10 +224,14 @@ export class Game {
             shape: cannonShape,
             position: cannonPosition,
             material: cannonMaterial,
-            linearDamping: 0.01, // Corresponds to frictionAir
-            angularDamping: 0.01,
+            linearDamping: 0.4,
+            angularDamping: 1.0, // Prevents infinite spinning
         });
         body.label = label;
+
+        if (label.startsWith('player')) {
+            body.angularFactor.set(0, 0, 0); // Disallow rotation for players
+        }
 
         this.sceneManager.getScene().add(mesh);
         this.physicsManager.getWorld().addBody(body);
