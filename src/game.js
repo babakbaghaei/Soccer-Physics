@@ -17,9 +17,9 @@ const GOAL_POST_WIDTH = 6;
 const FIELD_SURFACE_Y = (580 - GROUND_THICKNESS / 2) - GROUND_THICKNESS;
 
 // Adjust coordinates for Three.js/Cannon.js (center-based)
-const-to-three-scale = 1; // This can be adjusted if we need to scale the world
-const planeWidth = CANVAS_WIDTH * to-three-scale;
-const planeHeight = CANVAS_HEIGHT * to-three-scale;
+const toThreeScale = 1; // This can be adjusted if we need to scale the world
+const planeWidth = CANVAS_WIDTH * toThreeScale;
+const planeHeight = CANVAS_HEIGHT * toThreeScale;
 
 
 export class Game {
