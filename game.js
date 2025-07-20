@@ -13,6 +13,9 @@ const Constraint = window.Matter.Constraint;
 import audioManager from './audioManager.js';
 
 // --- DOM Element References ---
+const mainMenu = document.getElementById('mainMenu');
+const startGameBtn = document.getElementById('startGame');
+const exitGameBtn = document.getElementById('exitGame');
 const mainCanvas = document.getElementById('gameCanvas');
 const mainCtx = mainCanvas.getContext('2d');
 let lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx;
@@ -21,6 +24,8 @@ const team1ScoreDisplay = document.getElementById('team1ScoreDisplay');
 const team2ScoreDisplay = document.getElementById('team2ScoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
 const gameMessageDisplay = document.getElementById('gameMessage');
+const scoreBoard = document.getElementById('scoreBoard');
+const controlsInfo = document.getElementById('controlsInfo');
 
 // --- Game Constants ---
 const CANVAS_WIDTH = 800;
@@ -90,6 +95,20 @@ import { initRenderer, draw, createImpactParticles, triggerScreenShake } from '.
 import { initializeAI, updateAI, resetAIState } from './ai_player.js';
 
 export function setup() {
+    startGameBtn.addEventListener('click', () => {
+        mainMenu.style.display = 'none';
+        scoreBoard.style.display = 'flex';
+        controlsInfo.style.display = 'block';
+        mainCanvas.style.display = 'block';
+        initializeGame();
+    });
+
+    exitGameBtn.addEventListener('click', () => {
+        window.close();
+    });
+}
+
+function initializeGame() {
     console.log("Starting game setup...");
     console.log("Matter.js available:", typeof window.Matter);
     console.log("Canvas element:", mainCanvas);
@@ -388,12 +407,12 @@ function handleGoalScored(scoringTeam) {
         const bounceYVelocity = -(2 + Math.random() * 2);
         Body.setVelocity(ball, { x: bounceXVelocity, y: bounceYVelocity });
         Body.setAngularVelocity(ball, (Math.random() - 0.5) * 0.2);
-        gameMessageDisplay.textContent = "تیرک!";
-        gameMessageDisplay.classList.add('has-text');
+        gameMessageDisplay.textContent = "Tirak!";
+        gameMessageDisplay.classList.add('has-text', 'tirak');
         setTimeout(() => {
-            if (gameMessageDisplay.textContent === "تیرک!") {
+            if (gameMessageDisplay.textContent === "Tirak!") {
                 gameMessageDisplay.textContent = "";
-                gameMessageDisplay.classList.remove('has-text');
+                gameMessageDisplay.classList.remove('has-text', 'tirak');
             }
             goalScoredThisTick = false;
         }, 1000);
@@ -407,14 +426,14 @@ function handleGoalScored(scoringTeam) {
         team2Score++;
         team2ScoreDisplay.textContent = `Team 2: ${team2Score}`;
     }
-    gameMessageDisplay.textContent = "گل!";
-    gameMessageDisplay.classList.add('has-text');
+    gameMessageDisplay.textContent = "Goal!";
+    gameMessageDisplay.classList.add('has-text', 'goal');
     
     setTimeout(() => {
         resetPositions();
-        if (gameMessageDisplay.textContent === "گل!") {
+        if (gameMessageDisplay.textContent === "Goal!") {
              gameMessageDisplay.textContent = "";
-             gameMessageDisplay.classList.remove('has-text');
+             gameMessageDisplay.classList.remove('has-text', 'goal');
         }
         goalScoredThisTick = false;
     }, 50);
@@ -452,10 +471,19 @@ function endGame() {
     clearInterval(roundTimerId);
     isGameOver = true;
     Runner.stop(runner);
+
+    const endGameModal = document.getElementById('endGameModal');
+    const winnerMessageDisplay = document.getElementById('winnerMessage');
+    const restartGameBtn = document.getElementById('restartGame');
+
     let winnerMessage = "مساوی!";
     if (team1Score > team2Score) winnerMessage = "تیم قرمز برنده شد!";
     if (team2Score > team1Score) winnerMessage = "تیم آبی برنده شد!";
-    gameMessageDisplay.textContent = `پایان بازی! ${winnerMessage}`;
-    gameMessageDisplay.classList.add('has-text');
-}
 
+    winnerMessageDisplay.textContent = winnerMessage;
+    endGameModal.style.display = 'flex';
+
+    restartGameBtn.onclick = () => {
+        window.location.reload();
+    };
+}

@@ -13,15 +13,27 @@
     </style>
 </head>
 <body>
-    <div id="scoreBoard">
+    <div id="mainMenu">
+        <h1>Pixel Soccer</h1>
+        <button id="startGame">Start Game</button>
+        <button id="exitGame">Exit</button>
+    </div>
+    <div id="scoreBoard" style="display: none;">
         <span id="team1ScoreDisplay">Team 1: 0</span>
         <span id="timerDisplay">Time: 90</span>
         <span id="team2ScoreDisplay">Team 2: 0</span>
     </div>
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas" style="display: none;"></canvas>
     <div id="gameMessage"></div>
-    <div id="controlsInfo">
+    <div id="gamePausedMessage" style="display: none;">Game Paused</div>
+    <div id="controlsInfo" style="display: none;">
         Player 1: A/D to move, W to jump.
+    </div>
+    <div id="endGameModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2 id="winnerMessage"></h2>
+            <button id="restartGame">Restart</button>
+        </div>
     </div>
     
     <!-- Load Matter.js from CDN -->
