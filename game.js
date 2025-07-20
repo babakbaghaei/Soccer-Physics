@@ -16,7 +16,7 @@ import audioManager from './audioManager.js';
 const mainCanvas = document.getElementById('gameCanvas');
 const mainCtx = mainCanvas.getContext('2d');
 let lowResCanvas, lowResCtx, staticBackgroundCanvas, staticBackgroundCtx;
-const PIXELATION_SCALE_FACTOR = 0.25;
+const PIXELATION_SCALE_FACTOR = 0.15;
 const team1ScoreDisplay = document.getElementById('team1ScoreDisplay');
 const team2ScoreDisplay = document.getElementById('team2ScoreDisplay');
 const timerDisplay = document.getElementById('timerDisplay');
