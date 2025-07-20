@@ -34,11 +34,12 @@ body {
     justify-content: center;
     height: 100vh;
     width: 100%;
-    background-color: #1a1a1a;
+    background-color: #000033;
     z-index: 20;
     position: absolute;
     top: 0;
     left: 0;
+    text-align: center;
 }
 
 #mainMenu h1 {
