@@ -143,25 +143,48 @@ body {
 }
 
 #gameMessage.has-text {
-    background: rgba(0, 0, 0, 0.70); /* Slightly more opaque for better text visibility */
-    padding: 5px 10px; /* Padding only when there is text */
-    border-radius: 3px; /* Slight rounding for the message box */
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+@keyframes pixelate-in {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
 }
 
 #gameMessage.goal {
     font-size: 48px;
     color: #FFD700;
-    text-shadow: 3px 3px #000;
+    text-shadow: 4px 4px 0px #000, 8px 8px 0px #C0C0C0;
+    position: absolute;
     top: 50%;
+    left: 50%;
     transform: translate(-50%, -50%);
+    width: auto;
+    animation: pixelate-in 0.5s ease-out;
 }
 
 #gameMessage.tirak {
     font-size: 36px;
     color: #FF6347;
-    text-shadow: 2px 2px #000;
+    text-shadow: 3px 3px 0px #000, 6px 6px 0px #C0C0C0;
+    position: absolute;
     top: 50%;
+    left: 50%;
     transform: translate(-50%, -50%);
+    width: auto;
+    animation: pixelate-in 0.5s ease-out;
 }
 
 /* @keyframes messageGlow removed */
